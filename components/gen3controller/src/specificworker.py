@@ -25,7 +25,6 @@ from genericworker import *
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
-from yolov4 import Detector
 from PIL import Image
 import time
 
@@ -81,24 +80,15 @@ class SpecificWorker(GenericWorker):
     def startup_check(self):
         QTimer.singleShot(200, QApplication.instance().quit)
 
-    def yolo(self, color_,depth_):
+    def april_tag(self, color_,depth_):
 
         color = np.frombuffer(color_.image, np.uint8).reshape(color_.height, color_.width, color_.depth)
         depth = np.frombuffer(depth_.depth, np.float32).reshape(depth_.height, depth_.width)
 
         img = Image.fromarray(color)
         img_arr = np.array(img.resize((self.d.network_width(), self.d.network_height())))
-        detections = self.d.perform_detect(image_path_or_buf=img_arr, show_image=False)
-        for detection in detections:
-            if detection.class_confidence * 100 > 60:
-                box = detection.left_x, detection.top_y, detection.width, detection.height
-                print(f'{detection.class_name.ljust(10)} | {detection.class_confidence * 100:.1f} % | {box}')
-            else:
-                pass
-                #print("Objeto no detectado")
-        print("-"*100)
-
-        return detections
+        
+        pass
 
     def procesarImagen(self, color_):
         color = np.frombuffer(color_.image, np.uint8).reshape(color_.height, color_.width, color_.depth)

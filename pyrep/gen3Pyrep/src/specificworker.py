@@ -66,7 +66,7 @@ class SpecificWorker(GenericWorker):
 
     def setParams(self, params):
         
-        SCENE_FILE = '../../etc/gen3-robolab.ttt'
+        SCENE_FILE = '../../etc/kinova_env_dani.ttt'
         self.pr = PyRep()
         self.pr.launch(SCENE_FILE, headless=False)
         self.pr.start()
