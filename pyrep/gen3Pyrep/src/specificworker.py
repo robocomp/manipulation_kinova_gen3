@@ -71,7 +71,7 @@ class SpecificWorker(GenericWorker):
         self.pr.launch(SCENE_FILE, headless=False)
         self.pr.start()
         self.mode = 0
-        self.bloqueo=True
+        self.bloqueo=False
         
         #self.robot = Viriato()
         #self.robot = YouBot()
@@ -147,7 +147,7 @@ class SpecificWorker(GenericWorker):
                     self.bloqueo=True
                 else:
                     self.bloqueo=False
-        for x in datos.axes:
+        for x in datos.axes:                       # millimeters
             print(x.name + "" + str(x.value))
             if x.name == "X_axis":
                 adv = x.value if np.abs(x.value) > 1 else 0
