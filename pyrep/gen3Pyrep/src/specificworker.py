@@ -24,9 +24,6 @@ import os, time, queue
 from bisect import bisect_left
 from os.path import dirname, join, abspath
 from pyrep import PyRep
-#from pyrep.robots.mobiles.viriato import Viriato
-#from pyrep.robots.mobiles.viriato import Viriato
-#from pyrep.robots.mobiles.youbot import YouBot
 from pyrep.objects.vision_sensor import VisionSensor
 from pyrep.objects.dummy import Dummy
 from pyrep.objects.shape import Shape
@@ -56,6 +53,10 @@ class TimeControl:
             self.counter = 0
             self.start_print = time.time()
 
+    def signal_handler(self, sig, frame):
+        print('You pressed Ctrl+C!')
+        sys.exit(0)
+
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map):
         super(SpecificWorker, self).__init__(proxy_map)
@@ -63,18 +64,22 @@ class SpecificWorker(GenericWorker):
        
     def __del__(self):
         print('SpecificWorker destructor')
+        self.pr.shutdown()
 
     def setParams(self, params):
-        
-        SCENE_FILE = '../../etc/kinova_env_dani.ttt'
+
+        try:
+            SCENE_FILE = params["file_name"]
+        except:
+            traceback.print_exc()
+            print("Error reading config params")
+
+        #SCENE_FILE = '../../etc/kinova_env_dani.ttt'
         self.pr = PyRep()
         self.pr.launch(SCENE_FILE, headless=False)
         self.pr.start()
         self.mode = 0
-        self.bloqueo=False
-        
-        #self.robot = Viriato()
-        #self.robot = YouBot()
+        self.bloqueo = True
         self.robot_object = Shape("gen3")
 
         self.cameras = {}
@@ -101,11 +106,6 @@ class SpecificWorker(GenericWorker):
             self.read_joystick()
             self.read_camera(self.cameras[self.camera_arm_name])
 
-            if self.pinza:
-                self.pr.script_call("close@RG2", 1)
-            else:
-                self.pr.script_call("open@RG2", 1)
-
             tc.wait()
 
     ###########################################
@@ -126,8 +126,54 @@ class SpecificWorker(GenericWorker):
     ###########################################
     def read_joystick(self):
         if self.joystick_newdata:
-            print(self.joystick_newdata)
-            self.update_joystick(self.joystick_newdata[0])
+            #print(self.joystick_newdata)
+            datos = self.joystick_newdata[0]
+            adv = advR = 0.0
+            rot = rotR = 0.0
+            side = sideR = 0.0
+            # print(datos.buttons)
+            for x in datos.buttons:
+                if x.name == "mode" and x.step == 1:
+                    self.mode += x.step
+                    if self.mode % 2 == 0:
+                        self.bloqueo = True
+                    else:
+                        self.bloqueo = False
+            # print("Bloqueo button", self.mode, self.bloqueo)
+            for x in datos.axes:  # millimeters
+                # print(x.name + "" + str(x.value))
+                if x.name == "X_axis":
+                    adv = x.value if np.abs(x.value) > 0.01 else 0
+                    advR = x.value if np.abs(x.value) > 0.01 else 0
+                if x.name == "Y_axis":
+                    rot = x.value if np.abs(x.value) > 0.01 else 0
+                    rotR = x.value if np.abs(x.value) > 0.01 else 0
+                if x.name == "Z_axis":
+                    side = x.value if np.abs(x.value) > 0.01 else 0
+                    sideR = x.value if np.abs(x.value) > 0.01 else 0
+                if x.name == "gripper":
+                    if x.value >= 1:
+                        self.pr.script_call("open@ROBOTIQ_85", 1)
+                        print("abriendo")
+                    if x.value <= -1:
+                        print("cerrando")
+                        self.pr.script_call("close@ROBOTIQ_85", 1)
+                dummy = Dummy("goal")
+                parent_frame_object = None
+                position = dummy.get_position()
+                orientation = dummy.get_orientation()
+
+                #print("bloqueo antes de llamar", self.bloqueo)
+                if self.bloqueo == True:
+                    # print("modo 0")
+                    dummy.set_position([position[0] + adv / 1000, position[1] + rot / 1000, position[2] + side / 1000],
+                                       parent_frame_object)
+                else:
+                    # print("modo 1")
+                    dummy.set_orientation(
+                        [orientation[0] + advR / 1000, orientation[1] + rotR / 1000, orientation[2] + sideR / 1000],
+                        parent_frame_object)
+
             self.joystick_newdata = None
             self.last_received_data_time = time.time()
         else:
@@ -139,16 +185,17 @@ class SpecificWorker(GenericWorker):
         adv = advR = 0.0
         rot = rotR = 0.0
         side = sideR = 0.0
-        print(datos.buttons)
+        #print(datos.buttons)
         for x in datos.buttons:
-            if x.name == "mode":
+            if x.name == "mode" and x.step == 1:
                 self.mode += x.step
-                if self.mode%2==1:
-                    self.bloqueo=True
+                if self.mode % 2 == 0:
+                    self.bloqueo = True
                 else:
-                    self.bloqueo=False
+                    self.bloqueo = False
+        #print("Bloqueo button", self.mode, self.bloqueo)
         for x in datos.axes:                       # millimeters
-            print(x.name + "" + str(x.value))
+            #print(x.name + "" + str(x.value))
             if x.name == "X_axis":
                 adv = x.value if np.abs(x.value) > 1 else 0
                 advR = x.value if np.abs(x.value) > 1 else 0
@@ -165,15 +212,17 @@ class SpecificWorker(GenericWorker):
                 if x.value < -1:
                     print("cerrando")
                     self.pr.script_call("close@RG2", 1)
-            dummy = Dummy("target")
+            dummy = Dummy("goal")
             parent_frame_object = None
             position = dummy.get_position()
             orientation= dummy.get_orientation()
-            if self.bloqueo==False:
-                print("modo0\n\n")
+
+            #print("bloqueo antes de llamar", self.bloqueo)
+            if self.bloqueo == False:
+                #print("modo 0")
                 dummy.set_position([position[0]+adv/1000, position[1]+rot/1000, position[2]+side/1000], parent_frame_object)
             else:
-                print("modo1\n\n")
+                #print("modo 1")
                 dummy.set_orientation([orientation[0]+advR/1000, orientation[1]+rotR/1000, orientation[2]+sideR/1000], parent_frame_object)
 
 
