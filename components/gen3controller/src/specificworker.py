@@ -53,34 +53,37 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
-        self.read_camera()
+        color, depth = self.read_camera()
+        color, tags = self.compute_april_tags(color, depth)
+        self.draw_image(color)
+        print(tags)
         return True
 
     # ===================================================================
     def read_camera(self):
         all = self.camerargbdsimple_proxy.getAll(self.camera_name)
-        self.draw_image(all.image)
+        color = np.frombuffer(all.image.image, np.uint8).reshape(all.image.height, all.image.width, all.image.depth)
+        #depth = np.frombuffer(depth_.depth, np.float32).reshape(depth_.height, depth_.width, depth_.depth)
+        return color, []
 
-    def draw_image(self, color_):
-        color = np.frombuffer(color_.image, np.uint8).reshape(color_.height, color_.width, color_.depth)
+    def draw_image(self, color):
         cv2.imshow("Gen3", color)
         cv2.waitKey(1)
 
-    def compute_april_taga(self, color, depth):
-        image = np.frombuffer(color.image, np.uint8).reshape(color.height, color.width, color.depth)
-        tags = self.detector.detect(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
+    def compute_april_tags(self, color, depth):
+        tags = self.detector.detect(cv2.cvtColor(color, cv2.COLOR_BGR2GRAY))
         if len(tags) > 0:
             for tag in tags:
                 for idx in range(len(tag.corners)):
-                    cv2.line(image, tuple(tag.corners[idx - 1, :].astype(int)), tuple(tag.corners[idx, :].astype(int)), (0, 255, 0))
-                    cv2.putText(image, str(tag.tag_id),
-                               org=(tag.corners[0, 0].astype(int) + 10, tag.corners[0, 1].astype(int) + 10),
-                               fontFace=cv.FONT_HERSHEY_SIMPLEX, fontScale=0.8, color=(0, 0, 255))
-                    cv2.rectangle(image, tuple(tag.center.astype(int) - 1), tuple(tag.center.astype(int) + 1), (255, 0, 255))
+                    cv2.line(color, tuple(tag.corners[idx - 1, :].astype(int)), tuple(tag.corners[idx, :].astype(int)), (0, 255, 0))
+                    cv2.putText(color, str(tag.tag_id),
+                               org = (tag.corners[0, 0].astype(int) + 10, tag.corners[0, 1].astype(int) + 10),
+                               fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8, color=(0, 0, 255))
+                    cv2.rectangle(color, tuple(tag.center.astype(int) - 1), tuple(tag.center.astype(int) + 1), (255, 0, 255))
         else:
             print("Compute_april_tags: No tags detected")
 
-        return image, tags
+        return color, tags
 
     # def observar(self):
     #     pos = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
