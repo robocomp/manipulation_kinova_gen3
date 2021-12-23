@@ -54,17 +54,17 @@ class SpecificWorker(GenericWorker):
     @QtCore.Slot()
     def compute(self):
         color, depth = self.read_camera()
+        print(len(color), len(depth))
         color, tags = self.compute_april_tags(color, depth)
         self.draw_image(color)
-        print(tags)
         return True
 
     # ===================================================================
     def read_camera(self):
         all = self.camerargbdsimple_proxy.getAll(self.camera_name)
         color = np.frombuffer(all.image.image, np.uint8).reshape(all.image.height, all.image.width, all.image.depth)
-        #depth = np.frombuffer(depth_.depth, np.float32).reshape(depth_.height, depth_.width, depth_.depth)
-        return color, []
+        depth = np.frombuffer(all.depth.depth, np.float32).reshape(all.depth.height, all.depth.width)
+        return color, depth
 
     def draw_image(self, color):
         cv2.imshow("Gen3", color)

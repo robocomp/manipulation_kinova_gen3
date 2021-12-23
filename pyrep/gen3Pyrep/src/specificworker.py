@@ -298,13 +298,13 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of setCenterOfTool method from KinovaArm interface
     #
     def KinovaArm_setCenterOfTool(self, pose, referencedTo):
-        target = Dummy("target")
+        target = Dummy("goal")
         parent_frame_object = Shape('gen3')
         position = target.get_position(parent_frame_object)
-        #target.set_position([position[0] + pose.x / 1000, position[1] + pose.y / 1000, position[2] + pose.z / 1000], parent_frame_object)
         target.set_position([position[0] + pose.x / 1000, position[1] + pose.y / 1000, position[2] + pose.z / 1000],parent_frame_object)
+
     def KinovaArm_setPosition(self, pose, referencedTo):
-        target = Dummy("target")
+        target = Dummy("goal")
         parent_frame_object = Shape('gen3')
         position = target.get_position(parent_frame_object)
         target.set_position([pose.x, pose.y, pose.z], parent_frame_object)
