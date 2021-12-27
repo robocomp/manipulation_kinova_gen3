@@ -42,6 +42,16 @@ class SpecificWorker(GenericWorker):
             # apriltags
             self.detector = apriltag.Detector(apriltag.DetectorOptions(families="tag16h5"))
 
+            # get current position
+            ref_base = RoboCompKinovaArm.ArmJoints.base
+            self.tool_initial_pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
+            print(self.tool_initial_pose)
+            pose = self.tool_initial_pose
+            pose.x += 10
+            self.kinovaarm_proxy.setCenterOfTool(pose, ref_base)
+            print("Done")
+            self.PICK_UP = False
+
             self.timer.timeout.connect(self.compute)
             self.timer.start(self.Period)
 
@@ -54,10 +64,33 @@ class SpecificWorker(GenericWorker):
     @QtCore.Slot()
     def compute(self):
         color, depth = self.read_camera()
-        print(len(color), len(depth))
         color, tags = self.compute_april_tags(color, depth)
+        #print(tags)
         self.draw_image(color)
+
+
+        if self.PICK_UP:
+            state = self.pick_up(x)
+            if state.finish:
+                self.PICK_UP = False
+
         return True
+
+    # ===================================================================
+    def pick_up(self, x):
+        # locate x
+        # send arm to x handle
+
+        pass
+
+    def put_down(self, x):
+        pass
+
+    def stack(self, x, y):
+        pass
+
+    def unstack(self, x, y):
+        pass
 
     # ===================================================================
     def read_camera(self):

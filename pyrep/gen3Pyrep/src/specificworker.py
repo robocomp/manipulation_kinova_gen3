@@ -270,15 +270,16 @@ class SpecificWorker(GenericWorker):
             print(pose.x,pose.y,pose.z)
             print(dummy.get_position())
             dummy.set_orientation([pose.rx, pose.ry, pose.rz], parent_frame_object)
+
     def KinovaArm_getCenterOfTool(self, referencedTo):
         ret = RoboCompKinovaArm.TPose()
         parent_frame_object = Shape('gen3')
         tip = Dummy("tip")
         pos = tip.get_position(parent_frame_object)
         rot = tip.get_orientation(parent_frame_object)
-        ret.x = pos[0]
-        ret.y = pos[1]
-        ret.z = pos[2]
+        ret.x = pos[0]*1000
+        ret.y = pos[1]*1000
+        ret.z = pos[2]*1000
         ret.rx = rot[0]
         ret.ry = rot[1]
         ret.rz = rot[2]
@@ -301,10 +302,12 @@ class SpecificWorker(GenericWorker):
         target = Dummy("goal")
         parent_frame_object = Shape('gen3')
         position = target.get_position(parent_frame_object)
-        target.set_position([position[0] + pose.x / 1000, position[1] + pose.y / 1000, position[2] + pose.z / 1000],parent_frame_object)
+        #   target.set_position([position[0] + pose.x / 1000, position[1] + pose.y / 1000, position[2] + pose.z / 1000], parent_frame_object)
+        # check limits
+        target.set_position([pose.x / 1000, pose.y / 1000, pose.z / 1000], parent_frame_object)
 
-    def KinovaArm_setPosition(self, pose, referencedTo):
-        target = Dummy("goal")
-        parent_frame_object = Shape('gen3')
-        position = target.get_position(parent_frame_object)
-        target.set_position([pose.x, pose.y, pose.z], parent_frame_object)
+    # def KinovaArm_setPosition(self, pose, referencedTo):
+    #     target = Dummy("goal")
+    #     parent_frame_object = Shape('gen3')
+    #     position = target.get_position(parent_frame_object)
+    #     target.set_position([pose.x, pose.y, pose.z], parent_frame_object)
