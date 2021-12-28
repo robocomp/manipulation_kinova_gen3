@@ -97,6 +97,7 @@ class SpecificWorker(GenericWorker):
 
         self.joystick_newdata = []
         self.last_received_data_time = 0
+        self.pinza = []
 
     def compute(self):
         tc = TimeControl(0.05)
@@ -105,6 +106,12 @@ class SpecificWorker(GenericWorker):
             self.pr.step()
             self.read_joystick()
             self.read_camera(self.cameras[self.camera_arm_name])
+            if self.pinza:
+                if self.pinza[0] == "open":
+                    self.pr.script_call("open@ROBOTIQ_85", 1)
+                else:
+                    self.pr.script_call("close@ROBOTIQ_85", 1)
+                self.pinza = None
 
             tc.wait()
 
@@ -286,14 +293,14 @@ class SpecificWorker(GenericWorker):
         return ret
 
     def KinovaArm_openGripper(self):
-        #self.pr.script_call("open@RG2", 1)
+        #self.pr.script_call("open@ROBOTIQ_85", 1)
         print("Opening gripper")
-        self.pinza = False
+        self.pinza = ["open"]
 
     def KinovaArm_closeGripper(self):
-        #self.pr.script_call("close@RG2", 1)
+        #self.pr.script_call("close@ROBOTIQ_85", 1)
         print("Closing gripper")
-        self.pinza = True
+        self.pinza = ["close"]
 
     #
     # IMPLEMENTATION of setCenterOfTool method from KinovaArm interface
@@ -306,8 +313,3 @@ class SpecificWorker(GenericWorker):
         # check limits
         target.set_position([pose.x / 1000, pose.y / 1000, pose.z / 1000], parent_frame_object)
 
-    # def KinovaArm_setPosition(self, pose, referencedTo):
-    #     target = Dummy("goal")
-    #     parent_frame_object = Shape('gen3')
-    #     position = target.get_position(parent_frame_object)
-    #     target.set_position([pose.x, pose.y, pose.z], parent_frame_object)
