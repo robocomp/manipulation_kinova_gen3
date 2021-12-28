@@ -26,6 +26,7 @@ import cv2
 import apriltag
 import time
 import numpy as np
+import random
 from numpy import linalg as LA
 import threading, queue
 
@@ -50,8 +51,14 @@ class SpecificWorker(GenericWorker):
             self.tool_initial_pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
             print("Initial pose:", self.tool_initial_pose)
             self.PICK_UP = True
+            self.PUT_DOWN = False
             self.pick_up_queue = queue.Queue()
-            self.thread = None
+            self.put_down_queue = queue.Queue()
+            self.put_down_thread = None
+            self.pick_up_thread = None
+
+            #  set of candidate positions for blocks on the table
+            # a = RoboCompKinovaArm.TPose([74, 450, 30])
 
             self.timer.timeout.connect(self.compute)
             #self.timer.setSingleShot(True)
@@ -67,24 +74,41 @@ class SpecificWorker(GenericWorker):
     @QtCore.Slot()
     def compute(self):
         color, depth, all = self.read_camera()
+        color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
         color, tags = self.compute_april_tags(color, depth)
-        #print(tags)
-        self.draw_image(color)
 
         if self.PICK_UP:
-            if self.thread == None:
-                self.thread = threading.Thread(name='pick_up', target=self.pick_up, args=(3, tags, all.image))
-                self.thread.start()
+            if self.pick_up_thread == None:
+                self.pick_up_thread = threading.Thread(name='pick_up', target=self.pick_up, args=(2, tags, all.image))
+                self.pick_up_thread.start()
             else:
                 try:
                     state = self.pick_up_queue.get_nowait()
                     print(state)
                     if "Finish" in state:
                         self.PICK_UP = False
-                        self.thread = None
+                        self.PUT_DOWN = True
+                        self.pick_up_thread = None
                         print("Pick-up DONE")
                 except:
                     pass
+
+        if self.PUT_DOWN:
+            if self.put_down_thread == None:
+                self.put_down_thread = threading.Thread(name='put_down', target=self.put_down, args=(color, all.image))
+                self.put_down_thread.start()
+            else:
+                try:
+                    state = self.put_down_queue.get_nowait()
+                    print(state)
+                    if "Finish" in state:
+                        self.PUT_DOWN = False
+                        self.put_down_thread = None
+                        print("Put down DONE")
+                except:
+                    pass
+
+        self.draw_image(color)
 
     # ===================================================================
     # locate x and do ballistic approach
@@ -94,7 +118,6 @@ class SpecificWorker(GenericWorker):
             tx_pose = self.detector.detection_pose(tx[0], [image.focalx, image.focaly, image.width / 2,
                                                            image.height / 2], tag_size=0.04, z_sign=1)
             tr = tx_pose[0][:, 3][:-1]*1000  # first three elements of last column, aka translation
-            #print("Tag position", tr)
             self.pick_up_queue.put("PICK_UP: Target position in camera ref system: " + str(tr))
             ref_base = RoboCompKinovaArm.ArmJoints.base
             current_pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
@@ -113,7 +136,7 @@ class SpecificWorker(GenericWorker):
                 dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - target_pose)
                 #print("dist", dist)
 
-            # grasp
+            # grasp. The tag is not visible from here. Should be driven by gripper sensors
             self.pick_up_queue.put("PICK_UP: Initiating grasping")
             pre_grip_pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
             pre_grip_pose.z -= 80    # block semi height
@@ -138,8 +161,76 @@ class SpecificWorker(GenericWorker):
             self.pick_up_queue.put("PICK_UP: Finish without finding target cube")
             return False
 
-    def put_down(self, x):
-        pass
+    def put_down(self, color, image):
+        # search a free spot in the table
+        # sample the image with rectangles for a blue-filled one
+        # the size of the square in pixels is  x = (u - cx) * z / fx
+        current_pose = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
+        z = current_pose.z + 110
+        x1 = (-image.width/2.0) * z / image.focalx
+        x2 = (90 - image.width/2.0) * z / image.focalx   # 90 is the expanded size of the block
+        side = int(abs(x1-x2))
+        print("side", side)
+        # compute the color of the table (blue)
+        hist = cv2.calcHist([color], [2], None, [256], [0, 256])
+        table_color = np.argmax(hist)
+        print("table_color", table_color)
+
+        # choose a random point close to the tip projection point
+        np.random.seed()
+        result = False
+        counter = 0
+        while not result and counter < 100:
+            cx, cy = random.randint(side, image.width-side), random.uniform(side*4, image.height-side)
+            # get the block - roi in the current image
+            roi = color[int(cx-side/2):int(cx+side/2), int(cy-side/2.0):int(cy+side/2)]
+            # check that all points are close to the table color
+            blue = np.array(roi[:, :, 2])  # blue channel
+            hits = np.count_nonzero(abs(blue - table_color) < 50)
+            print(result, hits, roi.shape[0]*roi.shape[1], int(cx), int(cy))
+            counter += 1
+            result = hits >= roi.shape[0]*roi.shape[1] * 0.9
+
+        # compute target coordinates. cx, cy, z in camera CS
+        # color = cv2.rectangle(color, (cx-side/2, cy-side/2), (cx+side/2, cy+side/2), (255, 0, 0), 6)
+        # cv2.imshow("roi", roi)
+        target = RoboCompKinovaArm.TPose()
+        z = current_pose.z + 110
+        target.x = cx * image.focalx / z + (image.width/2)
+        target.y = -cy * image.focaly / z + (image.height/2)
+        if target.y < -500: target.y = -500
+        target.z = 10
+        print("target:", int(target.x), int(target.y), target.z)
+        #target.x = 0
+
+        self.put_down_queue.put("PUT_DOWN: Target position in camera ref system: " + str([target.x, target.y, target.z]))
+        self.put_down_queue.put("PUT_DOWN: Tip sent to target")
+        self.kinovaarm_proxy.setCenterOfTool(target, RoboCompKinovaArm.ArmJoints.base)
+        target_np = np.array([target.x, target.y, target.z])
+
+        # wait for the arm to complete the movement
+        dist = sys.float_info.max
+        while dist > 30:
+            pose = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
+            dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - target_np)
+            # print("dist", dist)
+
+        # rekease block
+        self.put_down_queue.put("PUT_DOWN: Initiating release")
+        self.kinovaarm_proxy.closeGripper()
+        time.sleep(3)
+
+        # move to initial position
+        self.kinovaarm_proxy.setCenterOfTool(current_pose, RoboCompKinovaArm.ArmJoints.base)
+        current_pose_np = np.array([current_pose.x, current_pose.y, current_pose.z])
+        self.put_down_queue.put("PUT_DOWN: Tip sent to initial position")
+        dist = sys.float_info.max
+        while dist > 50:  # mm
+            pose = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
+            dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - current_pose_np)
+
+        self.put_down_queue.put("PUT_DOWN: Finish")
+        return True
 
     def stack(self, x, y):
         pass
