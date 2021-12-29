@@ -89,5 +89,3 @@ class MundoBloques():
             estado_actual.add(reglas["L"](fuente))
         else:
             print("DESAPILAR: No se cumplen las precondiciones")
-
-

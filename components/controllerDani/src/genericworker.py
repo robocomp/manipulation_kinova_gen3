@@ -81,7 +81,6 @@ setattr(RoboCompCameraRGBDSimple, "DepthType", DepthType)
 
 try:
     from ui_mainUI import *
-    # import ventana as v
 except:
     print("Can't import UI file. Did you run 'make'?")
     sys.exit(-1)
