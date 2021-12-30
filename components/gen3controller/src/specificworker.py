@@ -52,8 +52,8 @@ class SpecificWorker(GenericWorker):
             self.tool_initial_pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
             self.tool_initial_pose_np = np.array([self.tool_initial_pose.x, self.tool_initial_pose.y, self.tool_initial_pose.z])
             print("Initial pose:", self.tool_initial_pose)
-            self.PICK_UP = True
-            self.PUT_DOWN = False
+            self.PICK_UP = False
+            self.PUT_DOWN = True
             self.pick_up_queue = queue.Queue()
             self.put_down_queue = queue.Queue()
             self.put_down_thread = None
@@ -82,6 +82,8 @@ class SpecificWorker(GenericWorker):
         color, depth, all = self.read_camera()
         color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
         color, tags = self.compute_april_tags(color, depth)
+        all.image.focalx = all.image.focalx * 1.2
+        all.image.focaly = all.image.focaly * 1.02
         if self.PICK_UP:
             if self.pick_up_thread == None:
                 visible_tags = [t.tag_id for t in tags]
@@ -132,35 +134,38 @@ class SpecificWorker(GenericWorker):
             current_pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
             target = RoboCompKinovaArm.TPose()
             target.x = current_pose.x - tr[0]*1.2    # possible focus error
-            target.y = current_pose.y + tr[1] - 40   # plus distance from camera to top along Y
-            target.z = current_pose.z - tr[2] + 110  # distance from camera to tip along Z
+            target.y = current_pose.y + tr[1] - 42.5   # plus distance from camera to top along Y
+            target.z = current_pose.z - tr[2] + 134  # distance from camera to tip along Z
             self.pick_up_queue.put("PICK_UP: Tip sent to target")
             self.kinovaarm_proxy.setCenterOfTool(target, ref_base)
             target_pose = np.array([target.x, target.y, target.z])
 
             # wait for the arm to complete the movement
             dist = sys.float_info.max
-            while dist > 50:
+            while dist > 30:
                 pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
                 dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - target_pose)
-                # print("dist", dist)
+                # TODO correct final distance here from tag reading or DEPTH plane
+                # TODO correct orientation wrt Z axis from tag reading
+                # TODO check there is space for the gripper around the block
 
             # grasp. The tag is not visible from here. Should be driven by gripper sensors
             self.pick_up_queue.put("PICK_UP: Initiating grasping")
             pre_grip_pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
-            pre_grip_pose.z -= 80    # block semi height
+            pre_grip_pose.z -= 100    # block semi height
+            # TODO check distance to block with inner gripper sensor
             pre_grip_pose.x -= 10  #
-            self.kinovaarm_proxy.openGripper()
             self.kinovaarm_proxy.setCenterOfTool(pre_grip_pose, ref_base)
-            time.sleep(2)
-            self.kinovaarm_proxy.openGripper()
+            time.sleep(1)
+            self.kinovaarm_proxy.closeGripper()
+            # TODO check force applied by the fingers
             time.sleep(2)
 
             # move to initial position
             self.kinovaarm_proxy.setCenterOfTool(self.tool_initial_pose, ref_base)
             self.pick_up_queue.put("PICK_UP: Tip sent to initial position")
             dist = sys.float_info.max
-            while dist > 50:  # mm
+            while dist > 10:  # mm
                 pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
                 dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - self.tool_initial_pose_np)
 
@@ -174,9 +179,9 @@ class SpecificWorker(GenericWorker):
         # search a free spot in the table by sampling the image with rectangles for a blue-filled one
         # inverse projection of camera coordinate u:  x = (u - cx) * z / fx
         current_pose = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
-        z = current_pose.z + 110    # camera distance from gripper tip along Z
+        z = current_pose.z + 134    # camera distance from gripper tip along Z
         x1 = (0.0 - image.width/2.0) * z / image.focalx
-        x2 = (90 - image.width/2.0) * z / image.focalx   # 90 is the expanded size of the block
+        x2 = (80 - image.width/2.0) * z / image.focalx   # 90 is the expanded size of the block
         side = int(abs(x1-x2))
         print("side", side)
         # compute the color of the table (blue) to choose a free spot to drop the block
@@ -188,35 +193,44 @@ class SpecificWorker(GenericWorker):
         np.random.seed()
         result = False
         counter = 0
-        while not result and counter < 1000:   # nax iter number
+        while not result and counter < 5000:   # nax iter number
             # image is upside-down here. image.height is at the top of the image
-            cx, cy = random.randint(side, image.width-side), random.randint(side, image.height-side*2)
+            cx, cy = random.randint(side//2, image.width-side//2), random.randint(side//2, image.height-side//2)
             # get the block - roi in the current image
-            roi = color[int(cx-side/2):int(cx+side/2), int(cy-side/2):int(cy+side/2)]
+            roi = color[int(cx-side):cx+side, cy-side:cy+side]
             # check that all points are close to the table color
             blue = np.array(roi[:, :, 2])  # blue channel
             hits = np.count_nonzero(abs(blue - table_color) < 30)
             counter += 1
             result = hits >= roi.shape[0]*roi.shape[1] * 0.98
 
+        if counter == 5000:
+            print("Could not find a free spot")
+            return False
+
         print("Number of hits", hits, "from total size", roi.shape[0]*roi.shape[1], "in ", counter, "iters")
-        print("Center in image: ", int(cx), int(image.height-cy))
-        # self.top_left = [int(cx-side/2), int(image.height-(cy-side/2))]
-        # self.buttom_right = [int(cx+side/2), int(image.height-(cy+side/2))]
+        print("Center in image from sample: ", cx, cy)
 
         # compute target coordinates. x, y, z in camera CS
         target = RoboCompKinovaArm.TPose()
-        z = current_pose.z + 110  # camera position wrt base
+        z = current_pose.z + 134  # camera position wrt base
+        cx = image.width - cx
+        cx = 256
+        cy = 256
+        cy = image.height - cy
         target.x = cx * image.focalx / z - (image.width/2)
         target.y = -cy * image.focaly / z - (image.height/2)
-        target.y += 50  # distance from camera to tip along Y
-        target.y = -500 if target.y < -500 else target.y
-        target.z = 40   # a point over the target spot
+        # target.y = -cy * image.focaly / z - (image.height/2)
+        # target.y += 42.5  # distance from camera to tip along Y
+        target.y = -500 if target.y < -500 else target.y    # clamp values
+        target.z = current_pose.z   # a point over the target spot at current Z level
+        print("Center in image: ", cx, cy)
         print("target:", int(target.x), int(target.y), int(target.z))
-
-        self.target = target
+        self.target = target  # for drawing
         self.side = side
-        #return True
+        return True
+
+        # moving to target position at same Z level
         self.put_down_queue.put("PUT_DOWN: Target position in camera ref system: " + str([target.x, target.y, target.z]))
         self.put_down_queue.put("PUT_DOWN: Tip sent to target")
         self.kinovaarm_proxy.setCenterOfTool(target, RoboCompKinovaArm.ArmJoints.base)
@@ -227,11 +241,21 @@ class SpecificWorker(GenericWorker):
         while dist > 30:
             pose = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
             dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - target_np)
-            # print("dist", dist)
+
+        # # moving down to free spot position
+        # target.z = 40
+        # target_np = np.array([target.x, target.y, target.z])
+        # self.kinovaarm_proxy.setCenterOfTool(target, RoboCompKinovaArm.ArmJoints.base)
+        #
+        # # wait for the arm to complete the movement
+        # dist = sys.float_info.max
+        # while dist > 10:
+        #     pose = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
+        #     dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - target_np)
 
         # rekease block
         self.put_down_queue.put("PUT_DOWN: Initiating release")
-        self.kinovaarm_proxy.closeGripper()
+        self.kinovaarm_proxy.openGripper()
         time.sleep(1)
 
         # move to initial position
@@ -262,18 +286,19 @@ class SpecificWorker(GenericWorker):
         if self.target:
             # we need to transform target to the camera's RS since it has moved
             # new_target = target - camera_pose
-            cam_offset = 50
+            cam_offset = 42.5
             current_pose = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
             target = RoboCompKinovaArm.TPose()
-            target.x = self.target.x - current_pose.x
-            target.y = self.target.y - (current_pose.y - cam_offset)
-            z = current_pose.z + 110       # camera is 110 mm above the gripper
-            side = int(all.image.focalx * 60 / z)  # 60 is the  size of the block in mm. x in pixels
-            cx = all.image.width - ((target.x + all.image.width / 2.0) * z / all.image.focalx)
-            cy = (target.y + all.image.height / 2.0) * z / all.image.focaly
+            target.x = self.target.x + current_pose.x
+            #target.y = self.target.y - (current_pose.y - cam_offset)
+            target.y = self.target.y - current_pose.y
+            z = current_pose.z + 134       # camera is 134 mm above the gripper
+            side = int(all.image.focalx * 60 / z)  # 60 is the  size of the block in mm. Result in pixels
+            cx = int((target.x + all.image.width / 2.0) * z / all.image.focalx)
+            cy = int((target.y + all.image.height / 2.0) * z / all.image.focaly)
             #print(side, cx, cy)
-            color = cv2.rectangle(color, (int(cx - side / 2), int((cy - side / 2))),
-                                  (int(cx + side / 2), int((cy + side / 2))), (255, 0, 0), 6)
+            color = cv2.rectangle(color, (cx - side // 2, cy - side // 2), (cx + side // 2, cy + side // 2), (255, 0, 0), 6)
+            cv2.drawMarker(color, (256, 256), (0, 255, 0), cv2.MARKER_CROSS, 300, 1);
         cv2.imshow("Gen3", color)
         cv2.waitKey(1)
 
