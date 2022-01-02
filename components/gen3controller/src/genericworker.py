@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
-#    Copyright (C) 2021 by YOUR NAME HERE
+#    Copyright (C) 2022 by YOUR NAME HERE
 #
 #    This file is part of RoboComp
 #
@@ -30,53 +30,6 @@ except KeyError:
 
 Ice.loadSlice("-I ./src/ --all ./src/CommonBehavior.ice")
 import RoboCompCommonBehavior
-
-Ice.loadSlice("-I ./src/ --all ./src/CameraRGBDSimple.ice")
-import RoboCompCameraRGBDSimple
-Ice.loadSlice("-I ./src/ --all ./src/CoppeliaUtils.ice")
-import RoboCompCoppeliaUtils
-Ice.loadSlice("-I ./src/ --all ./src/KinovaArm.ice")
-import RoboCompKinovaArm
-
-class ImgType(list):
-    def __init__(self, iterable=list()):
-        super(ImgType, self).__init__(iterable)
-
-    def append(self, item):
-        assert isinstance(item, byte)
-        super(ImgType, self).append(item)
-
-    def extend(self, iterable):
-        for item in iterable:
-            assert isinstance(item, byte)
-        super(ImgType, self).extend(iterable)
-
-    def insert(self, index, item):
-        assert isinstance(item, byte)
-        super(ImgType, self).insert(index, item)
-
-setattr(RoboCompCameraRGBDSimple, "ImgType", ImgType)
-
-class DepthType(list):
-    def __init__(self, iterable=list()):
-        super(DepthType, self).__init__(iterable)
-
-    def append(self, item):
-        assert isinstance(item, byte)
-        super(DepthType, self).append(item)
-
-    def extend(self, iterable):
-        for item in iterable:
-            assert isinstance(item, byte)
-        super(DepthType, self).extend(iterable)
-
-    def insert(self, index, item):
-        assert isinstance(item, byte)
-        super(DepthType, self).insert(index, item)
-
-setattr(RoboCompCameraRGBDSimple, "DepthType", DepthType)
-
-
 
 
 try:

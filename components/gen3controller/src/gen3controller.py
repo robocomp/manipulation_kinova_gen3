@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #
-#    Copyright (C) 2021 by YOUR NAME HERE
+#    Copyright (C) 2022 by YOUR NAME HERE
 #
 #    This file is part of RoboComp
 #
@@ -55,49 +55,22 @@
 #
 #
 
-import sys
-import traceback
-import IceStorm
-import time
-import os
-import copy
 import argparse
 # Ctrl+c handling
 import signal
 
-from PySide2 import QtCore
+from rich.console import Console
+console = Console()
+
 from PySide2 import QtWidgets
-
+import interfaces
 from specificworker import *
-
-
-class CommonBehaviorI(RoboCompCommonBehavior.CommonBehavior):
-    def __init__(self, _handler):
-        self.handler = _handler
-    def getFreq(self, current = None):
-        self.handler.getFreq()
-    def setFreq(self, freq, current = None):
-        self.handler.setFreq()
-    def timeAwake(self, current = None):
-        try:
-            return self.handler.timeAwake()
-        except:
-            print('Problem getting timeAwake')
-    def killYourSelf(self, current = None):
-        self.handler.killYourSelf()
-    def getAttrList(self, current = None):
-        try:
-            return self.handler.getAttrList()
-        except:
-            print('Problem getting getAttrList')
-            traceback.print_exc()
-            status = 1
-            return
 
 #SIGNALS handler
 def sigint_handler(*args):
     QtCore.QCoreApplication.quit()
-    
+
+
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
     parser = argparse.ArgumentParser()
@@ -105,78 +78,16 @@ if __name__ == '__main__':
     parser.add_argument('--startup-check', action='store_true')
 
     args = parser.parse_args()
+    interface_manager = interfaces.InterfaceManager(args.iceconfigfile)
 
-    ic = Ice.initialize(args.iceconfigfile)
-    status = 0
-    mprx = {}
-    parameters = {}
-    for i in ic.getProperties():
-        parameters[str(i)] = str(ic.getProperties().getProperty(i))
-
-
-    # Remote object connection for CameraRGBDSimple
-    try:
-        proxyString = ic.getProperties().getProperty('CameraRGBDSimpleProxy')
-        try:
-            basePrx = ic.stringToProxy(proxyString)
-            camerargbdsimple_proxy = RoboCompCameraRGBDSimple.CameraRGBDSimplePrx.uncheckedCast(basePrx)
-            mprx["CameraRGBDSimpleProxy"] = camerargbdsimple_proxy
-        except Ice.Exception:
-            print('Cannot connect to the remote object (CameraRGBDSimple)', proxyString)
-            #traceback.print_exc()
-            status = 1
-    except Ice.Exception as e:
-        print(e)
-        print('Cannot get CameraRGBDSimpleProxy property.')
-        status = 1
-
-
-    # Remote object connection for CoppeliaUtils
-    try:
-        proxyString = ic.getProperties().getProperty('CoppeliaUtilsProxy')
-        try:
-            basePrx = ic.stringToProxy(proxyString)
-            coppeliautils_proxy = RoboCompCoppeliaUtils.CoppeliaUtilsPrx.uncheckedCast(basePrx)
-            mprx["CoppeliaUtilsProxy"] = coppeliautils_proxy
-        except Ice.Exception:
-            print('Cannot connect to the remote object (CoppeliaUtils)', proxyString)
-            #traceback.print_exc()
-            status = 1
-    except Ice.Exception as e:
-        print(e)
-        print('Cannot get CoppeliaUtilsProxy property.')
-        status = 1
-
-
-    # Remote object connection for KinovaArm
-    try:
-        proxyString = ic.getProperties().getProperty('KinovaArmProxy')
-        try:
-            basePrx = ic.stringToProxy(proxyString)
-            kinovaarm_proxy = RoboCompKinovaArm.KinovaArmPrx.uncheckedCast(basePrx)
-            mprx["KinovaArmProxy"] = kinovaarm_proxy
-        except Ice.Exception:
-            print('Cannot connect to the remote object (KinovaArm)', proxyString)
-            #traceback.print_exc()
-            status = 1
-    except Ice.Exception as e:
-        print(e)
-        print('Cannot get KinovaArmProxy property.')
-        status = 1
-
-    if status == 0:
-        worker = SpecificWorker(mprx, args.startup_check)
-        worker.setParams(parameters)
+    if interface_manager.status == 0:
+        worker = SpecificWorker(interface_manager.get_proxies_map(), args.startup_check)
+        worker.setParams(interface_manager.parameters)
     else:
         print("Error getting required connections, check config file")
         sys.exit(-1)
 
+    interface_manager.set_default_hanlder(worker)
     signal.signal(signal.SIGINT, sigint_handler)
     app.exec_()
-
-    if ic:
-        # try:
-        ic.destroy()
-        # except:
-        #     traceback.print_exc()
-        #     status = 1
+    interface_manager.destroy()

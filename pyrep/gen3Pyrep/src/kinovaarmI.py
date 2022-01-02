@@ -37,12 +37,11 @@ class KinovaArmI(KinovaArm):
     def __init__(self, worker):
         self.worker = worker
 
-
-    def closeGripper(self, c):
-        return self.worker.KinovaArm_closeGripper()
-
     def getCenterOfTool(self, referencedTo, c):
         return self.worker.KinovaArm_getCenterOfTool(referencedTo)
+
+    def setCenterOfTool(self, pose, referencedTo, c):
+        return self.worker.KinovaArm_setCenterOfTool(pose, referencedTo)
 
     def openGripper(self, c):
         return self.worker.KinovaArm_openGripper()
@@ -50,8 +49,5 @@ class KinovaArmI(KinovaArm):
     def closeGripper(self, c):
         return self.worker.KinovaArm_closeGripper()
 
-    def setCenterOfTool(self, pose, referencedTo, c):
-        return self.worker.KinovaArm_setCenterOfTool(pose, referencedTo)
-
-    def setGripper(self, pos, c):
-        return self.worker.KinovaArm_setGripper(pos)
+    def getGripperState(self,c):
+        return self.worker.KinovaArm_getGripperState()

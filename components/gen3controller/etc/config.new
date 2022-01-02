@@ -1,6 +1,7 @@
 # Proxies for required interfaces
-CameraRGBDSimpleProxy = camerargbdsimple:tcp -h localhost -p 0
-KinovaArmProxy = kinovaarm:tcp -h localhost -p 0
+CameraRGBDSimpleProxy = camerargbdsimple:tcp -h localhost -p 14170
+CoppeliaUtilsProxy = coppeliautils:tcp -h localhost -p 11091
+KinovaArmProxy = kinovaarm:tcp -h localhost -p 14515
 
 
 

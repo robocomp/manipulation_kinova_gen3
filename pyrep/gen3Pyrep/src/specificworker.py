@@ -98,6 +98,7 @@ class SpecificWorker(GenericWorker):
         self.joystick_newdata = []
         self.last_received_data_time = 0
         self.pinza = []
+        self.gripper = RoboCompKinovaArm.TGripper()
 
     def compute(self):
         tc = TimeControl(0.05)
@@ -106,14 +107,28 @@ class SpecificWorker(GenericWorker):
             self.pr.step()
             self.read_joystick()
             self.read_camera(self.cameras[self.camera_arm_name])
-            if self.pinza:
-                if self.pinza[0] == "open":
-                    self.pr.script_call("open@ROBOTIQ_85", 1)
-                else:
-                    self.pr.script_call("close@ROBOTIQ_85", 1)
-                self.pinza = None
+            self.read_gripper()
 
             tc.wait()
+
+    ###########################################
+    def read_gripper(self):
+        if self.pinza:
+            if self.pinza[0] == "open":
+                self.pr.script_call("open@ROBOTIQ_85", 1)
+            else:
+                self.pr.script_call("close@ROBOTIQ_85", 1)
+            self.pinza = None
+        try:
+            i, f, s, b = self.pr.script_call("get_state@ROBOTIQ_85", 1)
+            # clean self.gripper
+            self.gripper.opening = f[0]*1000.0
+            self.gripper.lforce = f[1]
+            self.gripper.rforce = f[2]
+            self.gripper.distance = f[3]
+            #print(self.gripper.opening, self.gripper.lforce, self.gripper.rforce, self.gripper.distance)
+        except:
+            print("Error reading gripper state")
 
     ###########################################
     def read_camera(self, cam):
@@ -159,10 +174,10 @@ class SpecificWorker(GenericWorker):
                     side = x.value if np.abs(x.value) > 0.01 else 0
                     sideR = x.value if np.abs(x.value) > 0.01 else 0
                 if x.name == "gripper":
-                    if x.value >= 1:
+                    if x.value <= -1:
                         self.pr.script_call("open@ROBOTIQ_85", 1)
                         print("abriendo")
-                    if x.value <= -1:
+                    if x.value >= 1:
                         print("cerrando")
                         self.pr.script_call("close@ROBOTIQ_85", 1)
                 dummy = Dummy("goal")
@@ -293,14 +308,15 @@ class SpecificWorker(GenericWorker):
         return ret
 
     def KinovaArm_openGripper(self):
-        #self.pr.script_call("open@ROBOTIQ_85", 1)
         print("Opening gripper")
         self.pinza = ["open"]
 
     def KinovaArm_closeGripper(self):
-        #self.pr.script_call("close@ROBOTIQ_85", 1)
         print("Closing gripper")
         self.pinza = ["close"]
+
+    def KinovaArm_getGripperState(self):
+        return self.gripper
 
     #
     # IMPLEMENTATION of setCenterOfTool method from KinovaArm interface
