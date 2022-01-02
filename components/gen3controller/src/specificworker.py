@@ -72,6 +72,24 @@ class SpecificWorker(GenericWorker):
             self.timer.timeout.connect(self.compute)
             #self.timer.setSingleShot(True)
             self.timer.start(self.Period)
+            
+            self.constants = {"camera_y_offset": 42.5,
+                              "tag_size": 0.04,             # meters
+                              "camera_z_offset": 134,
+                              "block_side": 60,
+                              "extended_block_side": 90,
+                              "max_iter_free_spot": 30000,
+                              "min_match_percentage_free_spot": 0.99,
+                              "table_dist_from_initial_pos": 0.493,
+                              "threshold_for_table_distance": 0.01,
+                              "max_error_for_tip_positioning": 10,
+                              "final_tip_position_over_table_before_releasing": 5,
+                              "max_X_tip_position": 300,    # referred to base CS
+                              "max_Y_tip_position": 100,
+                              "max_Z_tip_position": 500,
+                              "min_X_tip_position": -300,
+                              "min_Y_tip_position": -550,
+                              "min_Z_tip_position": 0}
 
 
     def __del__(self):
@@ -131,92 +149,112 @@ class SpecificWorker(GenericWorker):
         self.draw_image(color, all)
 
     # ===================================================================
-    # locate x and do ballistic approach
+    # locate x and do ballistic approach to x proximity, then grasp and go back to initial pos
     def pick_up(self, x, image):
+        #####################################################################################
+        # STEP A: locate x
+        #####################################################################################
+        tx = [t for t in self.tags if t.tag_id == x]
+        if not tx:
+            self.pick_up_queue.put("PICK_UP: Finish without finding target cube in tags list")
+            return False
+            
+        tx_pose = self.detector.detection_pose( tx[0], [image.focalx, image.focaly, image.width // 2,
+                                                image.height // 2], tag_size=self.constants["tag_size"],
+                                                z_sign=1)
+        tr = tx_pose[0][:, 3][:-1]*1000  # first three elements of last column, aka translation
+
+        # TODO: update block size here, so the code does not depend on this a priori constant
+
+        #####################################################################################
+        # STEP B: send arm to target location above selected block
+        #####################################################################################
+        self.pick_up_queue.put("PICK_UP: Target position in camera ref system: " + str(tr))
+        ref_base = RoboCompKinovaArm.ArmJoints.base
+        current_pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
+        target = RoboCompKinovaArm.TPose()
+        target.x = current_pose.x - tr[0]
+        target.y = current_pose.y + tr[1] - self.constants["camera_y_offset"]   # plus distance from camera to top along Y
+        target.z = current_pose.z - tr[2] + self.constants["camera_z_offset"]   # distance from camera to tip along Z
+        self.pick_up_queue.put("PICK_UP: Tip sent to target")
+        self.kinovaarm_proxy.setCenterOfTool(target, ref_base)
+        target_pose = np.array([target.x, target.y, target.z])
+
+        # wait for the arm to complete the movement
+        dist = sys.float_info.max
+        while dist > self.constants["max_error_for_tip_positioning"]:
+            pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
+            dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - target_pose)
+
+        #####################################################################################
+        # STEP C: look again and move arm down to grasping position
+        #####################################################################################
+        # grasp. If tag is visible, correct
+        self.pick_up_queue.put("PICK_UP: Initiating grasping")
+        pre_grip_pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
         tx = [t for t in self.tags if t.tag_id == x]
         if tx:
-            tx_pose = self.detector.detection_pose(tx[0], [image.focalx, image.focaly, image.width / 2,
-                                                           image.height / 2], tag_size=0.04, z_sign=1)
-            tr = tx_pose[0][:, 3][:-1]*1000  # first three elements of last column, aka translation
-            self.pick_up_queue.put("PICK_UP: Target position in camera ref system: " + str(tr))
-            ref_base = RoboCompKinovaArm.ArmJoints.base
-            current_pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
-            target = RoboCompKinovaArm.TPose()
-            target.x = current_pose.x - tr[0]*1.2    # possible focus error
-            target.y = current_pose.y + tr[1] - 42.5   # plus distance from camera to top along Y
-            target.z = current_pose.z - tr[2] + 134  # distance from camera to tip along Z
-            self.pick_up_queue.put("PICK_UP: Tip sent to target")
-            self.kinovaarm_proxy.setCenterOfTool(target, ref_base)
-            target_pose = np.array([target.x, target.y, target.z])
-
-            # wait for the arm to complete the movement
-            dist = sys.float_info.max
-            while dist > 30:
-                pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
-                dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - target_pose)
-                # TODO correct final distance here from tag reading or DEPTH plane
-                # TODO correct orientation wrt Z axis from tag reading
-                # TODO check there is space for the gripper around the block
-
-            # grasp. If tag is visible, correct
-            self.pick_up_queue.put("PICK_UP: Initiating grasping")
-            tx = [t for t in self.tags if t.tag_id == x]
-            if tx:
-                tx_pose = self.detector.detection_pose(tx[0], [image.focalx, image.focaly, image.width / 2,
-                                                               image.height / 2], tag_size=0.04, z_sign=1)
-                tr = tx_pose[0][:, 3][:-1] * 1000  # first three elements of last column, aka translation
-            # TODO check tag and correct movement
-            pre_grip_pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
+            tx_pose = self.detector.detection_pose(tx[0], [image.focalx, image.focaly, image.width//2,
+                                                   image.height//2], tag_size=self.constants["tag_size"],
+                                                   z_sign=1)
+            tr = tx_pose[0][:, 3][:-1] * 1000  # first three elements of last column, aka translation
             pre_grip_pose.x -= tr[0]
-            pre_grip_pose.y += tr[1] - 42.5
-            pre_grip_pose.z -= 100    # block semi height
-            # TODO check distance to block with inner gripper sensor
-            self.kinovaarm_proxy.setCenterOfTool(pre_grip_pose, ref_base)
-            time.sleep(1.5)
-            self.kinovaarm_proxy.closeGripper()
-            # TODO check force applied by the fingers
-            time.sleep(2.5)
+            pre_grip_pose.y += tr[1] - self.constants["camera_y_offset"]
+        pre_grip_pose.z -= 100    # compute this distance from tag measurement or grip sensor
+        # TODO check distance to block with inner gripper sensor
+        # TODO correct final distance here from tag reading or DEPTH plane
+        # TODO correct orientation wrt Z axis from tag reading
+        # TODO check there is space for the gripper around the block
+        self.kinovaarm_proxy.setCenterOfTool(pre_grip_pose, ref_base)
+        time.sleep(1.5)
 
-            # move to initial position
-            self.kinovaarm_proxy.setCenterOfTool(self.tool_initial_pose, ref_base)
-            self.pick_up_queue.put("PICK_UP: Tip sent to initial position")
-            dist = sys.float_info.max
-            while dist > 10:  # mm
-                pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
-                dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - self.tool_initial_pose_np)
+        #####################################################################################
+        # STEP D: Grasp block
+        #####################################################################################
+        self.kinovaarm_proxy.closeGripper()
+        # TODO check force applied by the fingers
+        time.sleep(2.5)
 
-            self.pick_up_queue.put("PICK_UP: Finish")
-            return True
-        else:
-            self.pick_up_queue.put("PICK_UP: Finish without finding target cube")
-            return False
+        #####################################################################################
+        # STEP E: Move to initial position
+        #####################################################################################
+        self.kinovaarm_proxy.setCenterOfTool(self.tool_initial_pose, ref_base)
+        self.pick_up_queue.put("PICK_UP: Tip sent to initial position")
+        dist = sys.float_info.max
+        while dist > self.constants["max_error_for_tip_positioning"]:  # mm
+            pose = self.kinovaarm_proxy.getCenterOfTool(ref_base)
+            dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - self.tool_initial_pose_np)
+
+        self.pick_up_queue.put("PICK_UP: Finish")
+        return True         
 
     def put_down(self, color, depth, image):
-        # search a free spot in the table by sampling the image with rectangles for a blue-filled one
-        # inverse projection of camera coordinate u:  x = (u - cx) * z / fx
+        #####################################################################################
+        # STEP A: Search for a free spot for the current object
+        #####################################################################################
+        # compute side of box in pixels from current location
+        self.put_down_queue.put("PUT_DOWN: Searching for free spot")
         current_pose = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
-        z = current_pose.z + 134    # camera distance from gripper tip along Z
-
-        # compute side of box in pixels
-        side = int(image.focalx * 90 / z)  # size of the block in mm. Result in pixels
-        print("side", side, image.focalx, z)
+        z = current_pose.z + self.constants["camera_z_offset"]    # camera distance from gripper tip along Z
+        side = int(image.focalx * self.constants["extended_block_side"] / z)  # Project. Result in pixels
+        print("side", side, "focal", image.focalx, "cam distance", int(z))
 
         # compute the color of the table (blue) to choose a free spot to drop the block
         #hist = cv2.calcHist([color], [2], None, [256], [0, 256])
         #table_color = np.argmax(hist)
         #print("table_color", table_color)
 
-        # choose a random point close to the tip projection point
+        # choose a random rectangle on the table (check with distance from the camera)
         result = False
         counter = 0
         hits = 0
         roi = []
         target = RoboCompKinovaArm.TPose()
         target.x = sys.float_info.max
-        while (not result or not self.in_limits(target)) and counter < 30000:    # nax iter number
-            # image is upside-down here. image.height is at the top of the image
-            row, col = random.randint(side//2, image.height-side//2), random.randint(side//2, image.width - side//2)
-            roi = color[row-side//2:row+side//2, col-side//2:col+side//2]
+        while (not result or not self.in_limits(target)) and counter < self.constants["max_iter_free_spot"]:
+            # image is treated as np array, with rows first
+            row = random.randint(side//2, image.height-side//2)
+            col = random.randint(side//2, image.width-side//2)
             roi_depth = depth[row-side//2:row+side//2, col-side//2:col+side//2]
 
             # check that all points are close to the table color
@@ -224,19 +262,17 @@ class SpecificWorker(GenericWorker):
             # hits = np.count_nonzero(abs(blue - table_color) < 5)
 
             # check that all points belong to the table
-            hits = np.count_nonzero(abs(roi_depth - 0.493) < 0.010)
-
+            hits = np.count_nonzero(abs(roi_depth - self.constants["table_dist_from_initial_pos"])
+                                    < self.constants["threshold_for_table_distance"])
             counter += 1
-            result = hits >= (roi.shape[0]*roi.shape[1] * 0.99)
-
-            # check that final tip coordinates fall inside reachable workspace
+            result = hits >= (roi_depth.size * self.constants["min_match_percentage_free_spot"])
+            #print("Number of hits", hits, "from total size", roi.shape[0]*roi.shape[1], "in ", counter, "iters")
             # compute target coordinates. x, y, z in camera CS: x+ right, y+ up, z+ outwards
-            #target.x = (image.width // 2 - cx) * z / image.focalx
             target.x = (image.width//2 - col) * z / image.focalx
             target.y = (image.height//2 - row) * z / image.focaly
 
             # transform to tip coordinate system: x+ right, y+ backwards, z+ up
-            target.y = -target.y - 42.5  # distance from camera to tip along Y
+            target.y = -target.y - self.constants["camera_y_offset"]  # distance from camera to tip along Y
             target.z = -current_pose.z
 
             # transform to base coordinate system
@@ -244,62 +280,62 @@ class SpecificWorker(GenericWorker):
             target.y += current_pose.y
             target.z += current_pose.z
 
-        if counter == 30000:
-            print("Could not find a free spot")
+        if counter == self.constants["max_iter_free_spot"]:
+            self.put_down_queue.put("PUT_DOWN: Could NOT find a free spot")
             return False
 
-        # rgb = color.copy()
-        # rgb = cv2.rectangle(rgb, (col-side // 2, row-side // 2), (col+side//2, row+side//2), (255, 0, 0), 6)
-        # cv2.imshow("roi", rgb)
-        print("Number of hits", hits, "from total size", roi.shape[0]*roi.shape[1], "in ", counter, "iters")
-        #target.y = -550 if target.y < -550 else target.y
+        #rgb = color.copy()
+        #rgb = cv2.rectangle(rgb, (col-side // 2, row-side // 2), (col+side//2, row+side//2), (255, 0, 0), 6)
+        #rgb = cv2.rectangle(rgb, (side//2, side//2), (image.width-side//2, image.height-side // 2), (255, 0, 0), 6)
+        #cv2.imshow("roi", rgb)
+
+        print("Number of hits", hits, "from total size", roi_depth.size, "in ", counter, "iters")
         print("Center in image row,col: ", row, col)
         print("target:", int(target.x), int(target.y), int(target.z))
+        self.target_global = target     # for drawing
+        self.put_down_queue.put("PUT_DOWN: free SPOT found at " + str([target.x, target.y, target.z]))
 
-        self.target_global = target # for drawing
-        print("self.target: ", self.target_global.x, self.target_global.y, self.target_global.z)
-
-
-
-        # moving to target position at same Z level
+        #####################################################################################
+        # STEP B: Move to target spot
+        #####################################################################################
+        # B.1 move to target position at same Z level
         target.z = current_pose.z
-        self.put_down_queue.put("PUT_DOWN: Target position in camera ref system: " + str([target.x, target.y, target.z]))
         self.put_down_queue.put("PUT_DOWN: Tip sent to target")
         self.kinovaarm_proxy.setCenterOfTool(target, RoboCompKinovaArm.ArmJoints.base)
         target_np = np.array([target.x, target.y, target.z])
 
         # wait for the arm to complete the movement
         dist = sys.float_info.max
-        while dist > 10:
+        while dist > self.constants["max_error_for_tip_positioning"]:
             pose = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
             dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - target_np)
 
-        #return True
-
-        # # moving down to free spot position
-        target.z = 10
+        # B.2 move down to free spot position
+        target.z = self.constants["final_tip_position_over_table_before_releasing"]
         target_np = np.array([target.x, target.y, target.z])
         self.kinovaarm_proxy.setCenterOfTool(target, RoboCompKinovaArm.ArmJoints.base)
-
         # wait for the arm to complete the movement
         dist = sys.float_info.max
-        while dist > 10:
+        while dist > self.constants["max_error_for_tip_positioning"]:
             pose = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
             dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - target_np)
 
-        # release block
+        #####################################################################################
+        # STEP C: release block
+        #####################################################################################
         self.put_down_queue.put("PUT_DOWN: Initiating release")
         self.kinovaarm_proxy.openGripper()
         time.sleep(1)
 
-        # move to initial position
+        #####################################################################################
+        # STEP D: move back to initial position
+        #####################################################################################
         self.kinovaarm_proxy.setCenterOfTool(self.tool_initial_pose, RoboCompKinovaArm.ArmJoints.base)
         self.put_down_queue.put("PUT_DOWN: Tip sent to initial position")
         dist = sys.float_info.max
-        while dist > 20:  # mm
+        while dist > self.constants["max_error_for_tip_positioning"]:  # mm
             pose = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
             dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - self.tool_initial_pose_np)
-
         self.put_down_queue.put("PUT_DOWN: Finish")
         return True
 
@@ -309,19 +345,19 @@ class SpecificWorker(GenericWorker):
     def unstack(self, x, y):
         pass
 
-    # ===================================================================
+    #########################################################################################
     def in_limits(self, target):
-        if target.x < 300 and target.x > -300 and target.y < 100 and target.y > -500:
+        if (self.constants["max_X_tip_position"] > target.x > self.constants["min_X_tip_position"])\
+                and \
+           (self.constants["max_Y_tip_position"] > target.y > self.constants["min_Y_tip_position"]):
             return True
         else:
             return False
-
     def read_camera(self):
         all = self.camerargbdsimple_proxy.getAll(self.camera_name)
         color = np.frombuffer(all.image.image, np.uint8).reshape(all.image.height, all.image.width, all.image.depth)
         depth = np.frombuffer(all.depth.depth, np.float32).reshape(all.depth.height, all.depth.width)
         return color, depth, all
-
     def draw_image(self, color, all):
         if self.target_global:
             self.target_global.z = 0
@@ -337,23 +373,21 @@ class SpecificWorker(GenericWorker):
             #print("base to tip: ", target.x, target.y, target.z)
 
             # transform target from tip CS to camera CS
-            target.y = -target.y - 42.5
-            target.z = -target.z + 134
+            target.y = -target.y - self.constants["camera_y_offset"]
+            target.z = -target.z + self.constants["camera_z_offset"]
             #print("tip to camera: ", target.x, target.y, target.z)
 
             # compute size of rectangle from current arm position
-            side = int(all.image.focalx * 60 / target.z)  # 60 is the  size of the block in mm. Result in pixels
-            #print("side draw:", side)
+            side = int(all.image.focalx * self.constants["block_side"] / target.z)  # 60 is the  size of the block in mm. Result in pixels
 
             # project on camera
             cx = int(-all.image.focalx * target.x / target.z) + all.image.width//2
             cy = int(-all.image.focaly * target.y / target.z) + all.image.height//2
             #print(side, cx, cy, target.z)
             color = cv2.rectangle(color, (cx - side // 2, cy - side // 2), (cx + side // 2, cy + side // 2), (255, 0, 0), 6)
-            cv2.drawMarker(color, (256, 256), (0, 255, 0), cv2.MARKER_CROSS, 300, 1);
+            cv2.drawMarker(color, (all.image.width//2, all.image.height//2), (0, 255, 0), cv2.MARKER_CROSS, 300, 1);
         cv2.imshow("Gen3", color)
         cv2.waitKey(1)
-
     def compute_april_tags(self, color, depth):
         tags = self.detector.detect(cv2.cvtColor(color, cv2.COLOR_BGR2GRAY))
         if len(tags) > 0:
@@ -370,52 +404,7 @@ class SpecificWorker(GenericWorker):
 
         return color, tags
 
-    # def observar(self):
-    #     pos = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
-    #     pos.x = pos.x + 5
-    #     pos.y = pos.y
-    #     pos.z = 0
-    #     self.kinovaarm_proxy.setCenterOfTool(pos, RoboCompKinovaArm.ArmJoints.base)
-    #
-    # def posicionInicial(self):
-    #     try:
-    #         pose = RoboCompCoppeliaUtils.PoseType()
-    #         pose.x = self.posicion_inicial.x
-    #         pose.y = self.posicion_inicial.y
-    #         pose.z = self.posicion_inicial.z
-    #         pose.rx = self.posicion_inicial.rx
-    #         pose.ry = self.posicion_inicial.ry
-    #         pose.rz = self.posicion_inicial.rz
-    #         #print(self.posicion_inicial)
-    #         self.coppeliautils_proxy.addOrModifyDummy(RoboCompCoppeliaUtils.TargetTypes.Info, "target", pose)
-    #     except:
-    #         pass
-    #
-    # def mover(self, box):
-    #     pos = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
-    #     pos.x = pos.x - box[0] / 100
-    #     pos.y = pos.y - box[1] / 100
-    #     pos.z = 0
-    #     self.kinovaarm_proxy.setCenterOfTool(pos, RoboCompKinovaArm.ArmJoints.base)
-    #
-    # def pinza(self, centre,obj):
-    #     tip = self.kinovaarm_proxy.getCenterOfTool(RoboCompKinovaArm.ArmJoints.base)
-    #     pos = RoboCompKinovaArm.TPose()
-    #     self.kinovaarm_proxy.setCenterOfTool(pos, RoboCompKinovaArm.ArmJoints.base)
-
-    ######################
-    # From the RoboCompCameraRGBDSimple you can call this methods:
-    # self.camerargbdsimple_proxy.getAll(...)
-    # self.camerargbdsimple_proxy.getDepth(...)
-    # self.camerargbdsimple_proxy.getImage(...)
-
-    ######################
-    # From the RoboCompCameraRGBDSimple you can use this types:
-    # RoboCompCameraRGBDSimple.TImage
-    # RoboCompCameraRGBDSimple.TDepth
-    # RoboCompCameraRGBDSimple.TRGBD
-
-    ######################
+    #########################################################################################
     # From the RoboCompKinovaArm you can call this methods:
     # self.kinovaarm_proxy.closeGripper(...)
     # self.kinovaarm_proxy.getCenterOfTool(...)
@@ -427,9 +416,3 @@ class SpecificWorker(GenericWorker):
         QTimer.singleShot(200, QApplication.instance().quit)
 
 
-# self.future = concurrent.futures.Future()
-# print(self.future.running(), self.future.done())
-# if not self.future.running():
-#     print("if1")
-#     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-#         self.future = executor.submit(self.pick_up, tx[0].tag_id, tx_pose)
