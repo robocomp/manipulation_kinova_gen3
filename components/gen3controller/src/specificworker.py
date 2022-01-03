@@ -30,6 +30,9 @@ import random
 from numpy import linalg as LA
 import threading, queue
 import interfaces
+import matplotlib.pyplot as plt
+from collections import deque
+from scipy import stats
 
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
@@ -51,8 +54,8 @@ class SpecificWorker(GenericWorker):
             self.tool_initial_pose = self.kinovaarm_proxy.getCenterOfTool(interfaces.RoboCompKinovaArm.ArmJoints.base)
             self.tool_initial_pose_np = np.array([self.tool_initial_pose.x, self.tool_initial_pose.y, self.tool_initial_pose.z])
             print("Initial pose:", self.tool_initial_pose)
-            self.PICK_UP = True
-            self.PUT_DOWN = False
+            self.PICK_UP = False
+            self.PUT_DOWN = True
             self.pick_up_queue = queue.Queue()
             self.put_down_queue = queue.Queue()
             self.put_down_thread = None
@@ -65,8 +68,26 @@ class SpecificWorker(GenericWorker):
             np.random.seed()
             self.tags = []
 
-            #  set of candidate positions for blocks on the table
-            # a = RoboCompKinovaArm.TPose([74, 450, 30])
+            # time series
+            plt.ion()
+            self.visible = 120
+            self.dopening = deque(np.zeros(self.visible), self.visible)
+            self.ddistance = deque(np.zeros(self.visible), self.visible)
+            self.dforce_left = deque(np.zeros(self.visible), self.visible)
+            self.dforce_right = deque(np.zeros(self.visible), self.visible)
+            self.dx = deque(np.zeros(self.visible), self.visible)
+            self.data_length = np.linspace(0, 121, num=120)
+            ## plt
+            self.fig = plt.figure(figsize=(8, 3))
+            self.ah1 = self.fig.add_subplot()
+            plt.margins(x=0.001)
+            self.ah1.set_ylabel("Gripper", fontsize=14)
+            self.opening, = self.ah1.plot(self.dx, self.dopening, color='green', label="Closing (x10)", linewidth=2.0)
+            self.distance, = self.ah1.plot(self.dx, self.ddistance, color='blue', label="Distance (x10)", linewidth=2.0)
+            self.force_left, = self.ah1.plot(self.dx, self.dforce_left, color='red', label="L-Force", linewidth=2.0)
+            self.force_right, = self.ah1.plot(self.dx, self.dforce_right, color='magenta', label="R-Force", linewidth=2.0)
+            self.ah1.legend(loc="upper right", fontsize=12, fancybox=True, framealpha=0.5)
+            self.x_data = 0
 
             self.timer.timeout.connect(self.compute)
             #self.timer.setSingleShot(True)
@@ -78,7 +99,7 @@ class SpecificWorker(GenericWorker):
                               "block_side": 60,
                               "extended_block_side": 90,
                               "max_iter_free_spot": 30000,
-                              "min_match_percentage_free_spot": 0.99,
+                              "min_match_percentage_free_spot": 0.97,
                               "table_dist_from_initial_pos": 0.493,
                               "threshold_for_table_distance": 0.01,
                               "max_error_for_tip_positioning": 10,
@@ -103,7 +124,9 @@ class SpecificWorker(GenericWorker):
         color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
         color, self.tags = self.compute_april_tags(color, depth)
         gripper = self.kinovaarm_proxy.getGripperState()
-        print(int(gripper.opening*100), int(gripper.lforce*10000), int(gripper.rforce*10000), int(gripper.distance * 1000))
+        #print(int(gripper.opening*100), int(gripper.lforce*10000), int(gripper.rforce*10000), int(gripper.distance * 1000))
+        self.draw_gripper_series(gripper)
+
         if self.PICK_UP:
             if self.pick_up_thread == None:
                 visible_tags = [t.tag_id for t in self.tags]
@@ -254,17 +277,17 @@ class SpecificWorker(GenericWorker):
             row = random.randint(side//2, image.height-side//2)
             col = random.randint(side//2, image.width-side//2)
             roi_depth = depth[row-side//2:row+side//2, col-side//2:col+side//2]
-
+            table_distance_from_tip = stats.mode(roi_depth, axis=None)[0]
             # check that all points are close to the table color
             # blue = np.array(roi[:, :, 2])  # blue channel
             # hits = np.count_nonzero(abs(blue - table_color) < 5)
 
             # check that all points belong to the table
-            hits = np.count_nonzero(abs(roi_depth - self.constants["table_dist_from_initial_pos"])
+            hits = np.count_nonzero(abs(roi_depth - table_distance_from_tip)
                                     < self.constants["threshold_for_table_distance"])
             counter += 1
             result = hits >= (roi_depth.size * self.constants["min_match_percentage_free_spot"])
-            #print("Number of hits", hits, "from total size", roi.shape[0]*roi.shape[1], "in ", counter, "iters")
+
             # compute target coordinates. x, y, z in camera CS: x+ right, y+ up, z+ outwards
             target.x = (image.width//2 - col) * z / image.focalx
             target.y = (image.height//2 - row) * z / image.focaly
@@ -277,6 +300,8 @@ class SpecificWorker(GenericWorker):
             target.x += current_pose.x
             target.y += current_pose.y
             target.z += current_pose.z
+
+            #print("Hits", hits, "from total size", roi_depth.size, "in ", counter, "iters", "In bounds:", self.in_limits(target))
 
         if counter == self.constants["max_iter_free_spot"]:
             self.put_down_queue.put("PUT_DOWN: Could NOT find a free spot")
@@ -351,6 +376,36 @@ class SpecificWorker(GenericWorker):
             return True
         else:
             return False
+    def draw_gripper_series(self, gdata):
+        # update data
+        # print(int(gripper.opening*100), int(gripper.lforce*10000), int(gripper.rforce*10000), int(gripper.distance * 1000))
+        self.dopening.extend([-gdata.opening * 10])
+        self.ddistance.extend([gdata.distance * 10000])
+        self.dforce_left.extend([gdata.lforce * 100])
+        self.dforce_right.extend([gdata.rforce * 100])
+        self.dx.extend([self.x_data])
+
+        # update plot
+        self.opening.set_ydata(self.dopening)
+        self.opening.set_xdata(self.dx)
+        self.distance.set_ydata(self.ddistance)
+        self.distance.set_xdata(self.dx)
+        self.force_left.set_ydata(self.dforce_left)
+        self.force_left.set_xdata(self.dx)
+        self.force_right.set_ydata(self.dforce_right)
+        self.force_right.set_xdata(self.dx)
+
+        # set axes
+        self.ah1.set_ylim(-10, 1000)
+        self.ah1.set_xlim(self.x_data-self.visible, self.x_data)
+
+        # control speed of moving time-series
+        self.x_data += 1
+
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+
     def read_camera(self):
         all = self.camerargbdsimple_proxy.getAll(self.camera_name)
         color = np.frombuffer(all.image.image, np.uint8).reshape(all.image.height, all.image.width, all.image.depth)
