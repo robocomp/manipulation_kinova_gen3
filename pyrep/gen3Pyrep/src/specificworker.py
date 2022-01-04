@@ -122,10 +122,12 @@ class SpecificWorker(GenericWorker):
         try:
             i, f, s, b = self.pr.script_call("get_state@ROBOTIQ_85", 1)
             # clean self.gripper
-            self.gripper.opening = f[0]*1000.0
-            self.gripper.lforce = f[1]
-            self.gripper.rforce = f[2]
-            self.gripper.distance = f[3]
+            self.gripper.opening = -f[0]*10000
+            self.gripper.distance = f[1]*1000
+            self.gripper.lforce = f[2]*100
+            self.gripper.rforce = f[3]*100
+            self.gripper.ltipforce = f[4]*100
+            self.gripper.rtipforce = f[5]*100
             #print(self.gripper.opening, self.gripper.lforce, self.gripper.rforce, self.gripper.distance)
         except:
             print("Error reading gripper state")

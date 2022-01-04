@@ -54,8 +54,8 @@ class SpecificWorker(GenericWorker):
             self.tool_initial_pose = self.kinovaarm_proxy.getCenterOfTool(interfaces.RoboCompKinovaArm.ArmJoints.base)
             self.tool_initial_pose_np = np.array([self.tool_initial_pose.x, self.tool_initial_pose.y, self.tool_initial_pose.z])
             print("Initial pose:", self.tool_initial_pose)
-            self.PICK_UP = False
-            self.PUT_DOWN = True
+            self.PICK_UP = True
+            self.PUT_DOWN = False
             self.pick_up_queue = queue.Queue()
             self.put_down_queue = queue.Queue()
             self.put_down_thread = None
@@ -75,6 +75,8 @@ class SpecificWorker(GenericWorker):
             self.ddistance = deque(np.zeros(self.visible), self.visible)
             self.dforce_left = deque(np.zeros(self.visible), self.visible)
             self.dforce_right = deque(np.zeros(self.visible), self.visible)
+            self.dforce_left_tip = deque(np.zeros(self.visible), self.visible)
+            self.dforce_right_tip = deque(np.zeros(self.visible), self.visible)
             self.dx = deque(np.zeros(self.visible), self.visible)
             self.data_length = np.linspace(0, 121, num=120)
             ## plt
@@ -82,10 +84,13 @@ class SpecificWorker(GenericWorker):
             self.ah1 = self.fig.add_subplot()
             plt.margins(x=0.001)
             self.ah1.set_ylabel("Gripper", fontsize=14)
-            self.opening, = self.ah1.plot(self.dx, self.dopening, color='green', label="Closing (x10)", linewidth=2.0)
-            self.distance, = self.ah1.plot(self.dx, self.ddistance, color='blue', label="Distance (x10)", linewidth=2.0)
-            self.force_left, = self.ah1.plot(self.dx, self.dforce_left, color='red', label="L-Force", linewidth=2.0)
-            self.force_right, = self.ah1.plot(self.dx, self.dforce_right, color='magenta', label="R-Force", linewidth=2.0)
+            self.opening, = self.ah1.plot(self.dx, self.dopening, color='green', label="Closing (x10)", linewidth=1.0)
+            self.distance, = self.ah1.plot(self.dx, self.ddistance, color='blue', label="Distance (x10)", linewidth=1.0)
+            self.force_left, = self.ah1.plot(self.dx, self.dforce_left, color='red', label="L-Force", linewidth=1.0)
+            self.force_right, = self.ah1.plot(self.dx, self.dforce_right, color='magenta', label="R-Force", linewidth=1.0)
+            self.force_left_tip, = self.ah1.plot(self.dx, self.dforce_left_tip, color='orange', label="LT-Force", linewidth=1.0)
+            self.force_right_tip, = self.ah1.plot(self.dx, self.dforce_right_tip, color='yellow', label="RT-Force",
+                                              linewidth=1.0)
             self.ah1.legend(loc="upper right", fontsize=12, fancybox=True, framealpha=0.5)
             self.x_data = 0
 
@@ -100,7 +105,6 @@ class SpecificWorker(GenericWorker):
                               "extended_block_side": 90,
                               "max_iter_free_spot": 30000,
                               "min_match_percentage_free_spot": 0.97,
-                              "table_dist_from_initial_pos": 0.493,
                               "threshold_for_table_distance": 0.01,
                               "max_error_for_tip_positioning": 10,
                               "final_tip_position_over_table_before_releasing": 5,
@@ -123,10 +127,14 @@ class SpecificWorker(GenericWorker):
         color, depth, all = self.read_camera()
         color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
         color, self.tags = self.compute_april_tags(color, depth)
-        gripper = self.kinovaarm_proxy.getGripperState()
-        #print(int(gripper.opening*100), int(gripper.lforce*10000), int(gripper.rforce*10000), int(gripper.distance * 1000))
-        self.draw_gripper_series(gripper)
-
+        self.gripper = self.kinovaarm_proxy.getGripperState()
+        self.draw_gripper_series(self.gripper)
+        # print("dist", int(self.gripper.distance),
+        #       "close", int(self.gripper.opening),
+        #       "rforce", int(self.gripper.rforce),
+        #       "rtip", int(self.gripper.rtipforce),
+        #       "lforce", int(self.gripper.lforce),
+        #       "ltip", int(self.gripper.ltipforce))  # mm
         if self.PICK_UP:
             if self.pick_up_thread == None:
                 visible_tags = [t.tag_id for t in self.tags]
@@ -148,6 +156,10 @@ class SpecificWorker(GenericWorker):
                         self.pick_up_thread = None
                         self.last_tag_id = target_cube
                         print("Pick-up DONE")
+                    if "Fail" in state:
+                        self.pick_up_thread = None
+                        self.last_tag_id = target_cube
+                        print("Pick-up FAIL")
                 except:
                     pass
 
@@ -174,7 +186,7 @@ class SpecificWorker(GenericWorker):
     # locate x and do ballistic approach to x proximity, then grasp and go back to initial pos
     def pick_up(self, x, image):
         #####################################################################################
-        # STEP A: locate x
+        # STEP A: locate object X and compute target coordinates to approach it
         #####################################################################################
         tx = [t for t in self.tags if t.tag_id == x]
         if not tx:
@@ -194,6 +206,7 @@ class SpecificWorker(GenericWorker):
         self.pick_up_queue.put("PICK_UP: Target position in camera ref system: " + str(tr))
         current_pose = self.kinovaarm_proxy.getCenterOfTool(interfaces.RoboCompKinovaArm.ArmJoints.base)
         target = interfaces.RoboCompKinovaArm.TPose()
+        # transform target from camera reference ststem to tip reference system
         target.x = current_pose.x - tr[0]
         target.y = current_pose.y + tr[1] - self.constants["camera_y_offset"]   # plus distance from camera to top along Y
         target.z = current_pose.z - tr[2] + self.constants["camera_z_offset"]   # distance from camera to tip along Z
@@ -210,7 +223,7 @@ class SpecificWorker(GenericWorker):
         #####################################################################################
         # STEP C: look again and move arm down to grasping position
         #####################################################################################
-        # grasp. If tag is visible, correct
+        # TODO: Check if there is room for the GRIPPER
         self.pick_up_queue.put("PICK_UP: Initiating grasping")
         pre_grip_pose = self.kinovaarm_proxy.getCenterOfTool(interfaces.RoboCompKinovaArm.ArmJoints.base)
         tx = [t for t in self.tags if t.tag_id == x]
@@ -221,20 +234,72 @@ class SpecificWorker(GenericWorker):
             tr = tx_pose[0][:, 3][:-1] * 1000  # first three elements of last column, aka translation
             pre_grip_pose.x -= tr[0]
             pre_grip_pose.y += tr[1] - self.constants["camera_y_offset"]
-        pre_grip_pose.z -= 100    # compute this distance from tag measurement or grip sensor
-        # TODO check distance to block with inner gripper sensor
-        # TODO correct final distance here from tag reading or DEPTH plane
+            self.kinovaarm_proxy.setCenterOfTool(pre_grip_pose, interfaces.RoboCompKinovaArm.ArmJoints.base)
+            time.sleep(0.5)
+
         # TODO correct orientation wrt Z axis from tag reading
-        # TODO check there is space for the gripper around the block
-        self.kinovaarm_proxy.setCenterOfTool(pre_grip_pose, interfaces.RoboCompKinovaArm.ArmJoints.base)
-        time.sleep(1.5)
+
+        iter = 0
+        # If NO readings yet from the gripper distance sensor
+        while self.gripper.distance < 0 and iter < 8:
+            pre_grip_pose = self.kinovaarm_proxy.getCenterOfTool(interfaces.RoboCompKinovaArm.ArmJoints.base)
+            pre_grip_pose.x += random.randint(-10, 10)
+            pre_grip_pose.y += random.randint(-10, 10)
+            pre_grip_pose.z -= random.randint(1, 10)
+            self.kinovaarm_proxy.setCenterOfTool(pre_grip_pose, interfaces.RoboCompKinovaArm.ArmJoints.base)
+            time.sleep(0.1)
+            iter += 1
+            print("RE-ADJUSTING")
+        if self.gripper.distance > 0:
+            while self.gripper.distance > 20:
+                    pre_grip_pose = self.kinovaarm_proxy.getCenterOfTool(interfaces.RoboCompKinovaArm.ArmJoints.base)
+                    pre_grip_pose.z -= 10
+                    self.kinovaarm_proxy.setCenterOfTool(pre_grip_pose, interfaces.RoboCompKinovaArm.ArmJoints.base)
+                    #print("dist while lowering", int(self.gripper.distance))
+                    time.sleep(0.07)
+
+        # could not approach safely. Go for a blind move
+    # else:
+        #     pre_grip_pose.z -= 100
+        #     self.kinovaarm_proxy.setCenterOfTool(pre_grip_pose, interfaces.RoboCompKinovaArm.ArmJoints.base)
+        #     time.sleep(0.2)
+
 
         #####################################################################################
-        # STEP D: Grasp block
+        # STEP D: Grasp object (the data coming from the gripper's sensors should match a know pattern)
         #####################################################################################
         self.kinovaarm_proxy.closeGripper()
-        # TODO check force applied by the fingers
-        time.sleep(2.5)
+        init_time = time.time()
+        while self.gripper.opening < 200 and self.gripper.rforce < 1000 and (time.time() - init_time) < 2:
+            # Check if finger tips have hit the table
+            if abs(self.gripper.ltipforce) > 5 or abs(self.gripper.rtipforce) > 5:
+                print("SHIT I hit the table")
+                self.kinovaarm_proxy.setCenterOfTool(self.tool_initial_pose, interfaces.RoboCompKinovaArm.ArmJoints.base)
+                dist = sys.float_info.max
+                while dist > self.constants["max_error_for_tip_positioning"]:  # mm
+                    pose = self.kinovaarm_proxy.getCenterOfTool(interfaces.RoboCompKinovaArm.ArmJoints.base)
+                    dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - self.tool_initial_pose_np)
+                self.pick_up_queue.put("PICK_UP: Fail while grasping block " + str(x) + " Hit something. Sent to initial position")
+                return False
+            # Check if the gripper is closing too much > 400
+            if self.gripper.opening > 400:
+                print("SHIT I missed the block")
+                self.kinovaarm_proxy.setCenterOfTool(self.tool_initial_pose,
+                                                     interfaces.RoboCompKinovaArm.ArmJoints.base)
+                dist = sys.float_info.max
+                while dist > self.constants["max_error_for_tip_positioning"]:  # mm
+                    pose = self.kinovaarm_proxy.getCenterOfTool(interfaces.RoboCompKinovaArm.ArmJoints.base)
+                    dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - self.tool_initial_pose_np)
+                self.pick_up_queue.put("PICK_UP: Fail while grasping block " + str(x) + " Missed the block. Sent to initial position")
+                return False
+            # print("dist", int(self.gripper.distance),
+            #       "close", int(self.gripper.opening),
+            #       "rforce", int(self.gripper.rforce),
+            #       "rtip", int(self.gripper.rtipforce),
+            #       "lforce", int(self.gripper.lforce),
+            #       "ltip", int(self.gripper.ltipforce))  # mm
+            time.sleep(0.1)
+
 
         #####################################################################################
         # STEP E: Move to initial position
@@ -348,11 +413,17 @@ class SpecificWorker(GenericWorker):
         #####################################################################################
         self.put_down_queue.put("PUT_DOWN: Initiating release")
         self.kinovaarm_proxy.openGripper()
-        time.sleep(1)
+        time.sleep(0.5)
 
         #####################################################################################
         # STEP D: move back to initial position
         #####################################################################################
+        # move upwards a bit so the gripper does not hit the block
+        current_pose = self.kinovaarm_proxy.getCenterOfTool(interfaces.RoboCompKinovaArm.ArmJoints.base)
+        current_pose.z -= 100
+        self.kinovaarm_proxy.setCenterOfTool(self.tool_initial_pose, interfaces.RoboCompKinovaArm.ArmJoints.base)
+        time.sleep(0.5)
+        # keep moving to initial position
         self.kinovaarm_proxy.setCenterOfTool(self.tool_initial_pose, interfaces.RoboCompKinovaArm.ArmJoints.base)
         self.put_down_queue.put("PUT_DOWN: Tip sent to initial position")
         dist = sys.float_info.max
@@ -360,6 +431,8 @@ class SpecificWorker(GenericWorker):
             pose = self.kinovaarm_proxy.getCenterOfTool(interfaces.RoboCompKinovaArm.ArmJoints.base)
             dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - self.tool_initial_pose_np)
         self.put_down_queue.put("PUT_DOWN: Finish")
+
+        # TODO: Check if the block is in a correct position
         return True
 
     def stack(self, x, y):
@@ -379,10 +452,12 @@ class SpecificWorker(GenericWorker):
     def draw_gripper_series(self, gdata):
         # update data
         # print(int(gripper.opening*100), int(gripper.lforce*10000), int(gripper.rforce*10000), int(gripper.distance * 1000))
-        self.dopening.extend([-gdata.opening * 10])
-        self.ddistance.extend([gdata.distance * 10000])
-        self.dforce_left.extend([gdata.lforce * 100])
-        self.dforce_right.extend([gdata.rforce * 100])
+        self.dopening.extend([gdata.opening])
+        self.ddistance.extend([gdata.distance])
+        self.dforce_left.extend([gdata.lforce*10])
+        self.dforce_right.extend([gdata.rforce*10])
+        self.dforce_left_tip.extend([gdata.ltipforce*10])
+        self.dforce_right_tip.extend([gdata.rtipforce*10])
         self.dx.extend([self.x_data])
 
         # update plot
@@ -394,6 +469,10 @@ class SpecificWorker(GenericWorker):
         self.force_left.set_xdata(self.dx)
         self.force_right.set_ydata(self.dforce_right)
         self.force_right.set_xdata(self.dx)
+        self.force_left_tip.set_ydata(self.dforce_left_tip)
+        self.force_left_tip.set_xdata(self.dx)
+        self.force_right_tip.set_ydata(self.dforce_right_tip)
+        self.force_right_tip.set_xdata(self.dx)
 
         # set axes
         self.ah1.set_ylim(-10, 1000)
