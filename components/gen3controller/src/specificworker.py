@@ -33,6 +33,7 @@ import interfaces
 import matplotlib.pyplot as plt
 from collections import deque
 from scipy import stats
+from loguru import logger
 
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
@@ -123,6 +124,7 @@ class SpecificWorker(GenericWorker):
         return True
 
     @QtCore.Slot()
+    @logger.catch
     def compute(self):
         color, depth, all = self.read_camera()
         color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
@@ -251,6 +253,7 @@ class SpecificWorker(GenericWorker):
             iter += 1
             print("RE-ADJUSTING")
         if self.gripper.distance > 0:
+            # TODO: center now again on the cube
             while self.gripper.distance > 20:
                     pre_grip_pose = self.kinovaarm_proxy.getCenterOfTool(interfaces.RoboCompKinovaArm.ArmJoints.base)
                     pre_grip_pose.z -= 10
@@ -273,7 +276,7 @@ class SpecificWorker(GenericWorker):
         while self.gripper.opening < 200 and self.gripper.rforce < 1000 and (time.time() - init_time) < 2:
             # Check if finger tips have hit the table
             if abs(self.gripper.ltipforce) > 5 or abs(self.gripper.rtipforce) > 5:
-                print("SHIT I hit the table")
+                print("SHIT I hit a block")
                 self.kinovaarm_proxy.setCenterOfTool(self.tool_initial_pose, interfaces.RoboCompKinovaArm.ArmJoints.base)
                 dist = sys.float_info.max
                 while dist > self.constants["max_error_for_tip_positioning"]:  # mm
@@ -292,12 +295,12 @@ class SpecificWorker(GenericWorker):
                     dist = LA.norm(np.array([pose.x, pose.y, pose.z]) - self.tool_initial_pose_np)
                 self.pick_up_queue.put("PICK_UP: Fail while grasping block " + str(x) + " Missed the block. Sent to initial position")
                 return False
-            # print("dist", int(self.gripper.distance),
-            #       "close", int(self.gripper.opening),
-            #       "rforce", int(self.gripper.rforce),
-            #       "rtip", int(self.gripper.rtipforce),
-            #       "lforce", int(self.gripper.lforce),
-            #       "ltip", int(self.gripper.ltipforce))  # mm
+                print("dist", int(self.gripper.distance),
+                      "close", int(self.gripper.opening),
+                      "rforce", int(self.gripper.rforce),
+                      "rtip", int(self.gripper.rtipforce),
+                      "lforce", int(self.gripper.lforce),
+                      "ltip", int(self.gripper.ltipforce))  # mm
             time.sleep(0.1)
 
 
