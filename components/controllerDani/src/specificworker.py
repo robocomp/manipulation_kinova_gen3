@@ -221,8 +221,8 @@ class SpecificWorker(GenericWorker):
             action_queue.put(action + ": Finish without finding target cube in tags list")
             return False
 
-        tx_pose = self.detector.detection_pose(tx[0], [image.focalx, image.focaly, image.width // 2, image.height // 2], tag_size=self.constants["tag_size"],
-                                               z_sign=1)
+        tx_pose = self.detector.detection_pose(tx[0], [image.focalx, image.focaly, image.width // 2, image.height // 2], 
+                                                tag_size=self.constants["tag_size"], z_sign=1)
         tr = tx_pose[0][:, 3][:-1]*1000  # first three elements of last column, aka translation
         
         # TODO: update block size here, so the code does not depend on this a priori constant
