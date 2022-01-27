@@ -153,6 +153,8 @@ class SpecificWorker(GenericWorker):
             # self.timer.setSingleShot(True)
             self.timer.start(self.Period)
 
+            self.readInitState = True
+
     def __del__(self):
         print('SpecificWorker destructor')
 
@@ -168,44 +170,115 @@ class SpecificWorker(GenericWorker):
         self.gripper = self.kinovaarm_proxy.getGripperState()
         self.draw_gripper_series(self.gripper)
 
-        if self.end:
-            print("PLAN ENDED")
-        else:
-            current_step = self.plan[self.step]
-            current_action = self.actions[current_step[0]]
-            params = current_step[1] if len(current_step) > 1 else None
-            args_list = []
-            if current_action["do_action"]:
-                if current_action["thread"] == None:
-                    if current_step[0] == "pick_up":
-                        args_list = [params, all.image]
-                    elif current_step[0] == "put_down":
-                        args_list = [color, depth, all.image]
-                    elif current_step[0] == "stack":
-                        pass
-                    elif current_step[0] == "unstack":
-                        pass
-                    current_action["thread"] = threading.Thread(name=current_step[0], target=current_action["func"], args=tuple(args_list))
-                    current_action["thread"].start()
-                else:
-                    try:
-                        state = current_action["queue"].get_nowait()
-                        print(state)
-                        if "Finish" in state:
-                            current_action["do_action"] = False
-                            current_action["thread"] = None
-                            print(f"{current_step[0]} DONE")
-                            self.step += 1
-                            if self.step == len(self.plan):
-                                self.end = True
-                            else:
-                                next_step = self.plan[self.step]
-                                next_action = self.actions[next_step[0]]
-                                next_action["do_action"] = True
-                    except:
-                        pass
-        self.draw_image(color, all)
-        # self.draw_image(depth, all)
+
+        if self.readInitState:
+            tag_list, self.initState = self.create_initial_state(all.image)
+            for rule in self.initState:
+                print(rule)
+            self.save_to_file(self.initState, tag_list)
+            self.readInitState = False
+        # if self.end:
+        #     print("PLAN ENDED")
+        # else:
+        #     current_step = self.plan[self.step]
+        #     current_action = self.actions[current_step[0]]
+        #     params = current_step[1] if len(current_step) > 1 else None
+        #     args_list = []
+        #     if current_action["do_action"]:
+        #         if current_action["thread"] == None:
+        #             if current_step[0] == "pick_up":
+        #                 args_list = [params, all.image]
+        #             elif current_step[0] == "put_down":
+        #                 args_list = [color, depth, all.image]
+        #             elif current_step[0] == "stack":
+        #                 pass
+        #             elif current_step[0] == "unstack":
+        #                 pass
+        #             current_action["thread"] = threading.Thread(name=current_step[0], target=current_action["func"], args=tuple(args_list))
+        #             current_action["thread"].start()
+        #         else:
+        #             try:
+        #                 state = current_action["queue"].get_nowait()
+        #                 print(state)
+        #                 if "Finish" in state:
+        #                     current_action["do_action"] = False
+        #                     current_action["thread"] = None
+        #                     print(f"{current_step[0]} DONE")
+        #                     self.step += 1
+        #                     if self.step == len(self.plan):
+        #                         self.end = True
+        #                     else:
+        #                         next_step = self.plan[self.step]
+        #                         next_action = self.actions[next_step[0]]
+        #                         next_action["do_action"] = True
+        #             except:
+        #                 pass
+        self.draw_image(color, "COLOR", all)
+        self.draw_image(depth, "DEPTH", all)
+
+    # =======================================================================================
+    # State related functions 
+    # =======================================================================================
+    def create_initial_state(self, image):
+        initialState = ["  (handempty)"]
+        
+        tags = [] # Discriminar las tags verticales
+        for tag in self.tags:
+            if self.is_horizontal(tag):
+                initialState.append(f"  (clear {tag.tag_id})")
+            else:
+                tags.append(tag)
+        ret_tags = tags
+        tags.sort(key=lambda x: 1 / x.center[1])
+        tag_base = tags[0]
+        tags_aux = []
+        for tag in tags:
+            if abs(tag_base.center[1] - tag.center[1]) < 25:
+                initialState.append(f"  (ontable {tag.tag_id})")
+                tags_aux.append(tag)
+            else:
+                for tag_aux in tags_aux:
+                    if abs(tag.center[0] - tag_aux.center[0]) < 25 and tag.tag_id != tag_aux.tag_id:
+                        initialState.append(f"  (on {tag_aux.tag_id} {tag.tag_id})")
+                        tags_aux.remove(tag_aux)
+                        tags_aux.append(tag)
+        return ret_tags, initialState
+    
+    def is_horizontal(self, tag):
+        up_line = LA.norm(np.array(tag.corners[3]) - np.array(tag.corners[2]))
+        down_line = LA.norm(np.array(tag.corners[1]) - np.array(tag.corners[0]))
+        return down_line > up_line
+    
+    def save_to_file(self, state, tag_list):
+        blocks = ""
+        for tag in tag_list:
+            blocks += str(tag.tag_id) + " "
+
+        lines = [
+            "(define (problem BLOCKS-{}-1)".format(len(tag_list)),
+            "(:domain blocks)",
+            "(:objects {}- block)".format(blocks),
+            "(:init",
+            *state,
+            ")",
+            "(:goal",
+            "  (and (ontable 1)",
+            "       (ontable 2)",
+            "       (on 1 3)",
+            "       (on 2 4)",
+            "       (on 3 5)",
+            "       (on 4 6)",
+            "       (clear 5)",
+            "       (clear 6)",
+            "       (handempty)",
+            "  )",
+            ")",
+            ")"
+        ]
+        for line in lines:
+            print(line)
+        # with open('prueba.txt', 'w') as f:
+        #     f.write('\n'.join(lines))
 
     # =======================================================================================
     # Functions for the different actions actions
@@ -433,7 +506,7 @@ class SpecificWorker(GenericWorker):
         depth = np.frombuffer(all.depth.depth, np.float32).reshape(all.depth.height, all.depth.width)
         return color, depth, all
 
-    def draw_image(self, color, all):
+    def draw_image(self, color, name, all):
         if self.target_global:
             self.target_global.z = 0
             # print("self.target: ", self.target_global.x, self.target_global.y, self.target_global.z)
@@ -461,7 +534,7 @@ class SpecificWorker(GenericWorker):
             # print(side, cx, cy, target.z)
             color = cv2.rectangle(color, (cx - side // 2, cy - side // 2), (cx + side // 2, cy + side // 2), (255, 0, 0), 6)
             cv2.drawMarker(color, (all.image.width // 2, all.image.height // 2), (0, 255, 0), cv2.MARKER_CROSS, 300, 1)
-        cv2.imshow("Gen3", color)
+        cv2.imshow(name, color)
         cv2.waitKey(1)
 
     def compute_april_tags(self, color, depth):
