@@ -19,6 +19,7 @@
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import os
 import cv2
 import time
 import random
@@ -80,34 +81,34 @@ class SpecificWorker(GenericWorker):
             self.x_data = 0
 
             # get current position
-            self.tool_initial_pose = self.kinovaarm_proxy.getCenterOfTool(self.base)
-            self.tool_initial_pose_np = np.array([self.tool_initial_pose.x, self.tool_initial_pose.y, self.tool_initial_pose.z])
-            print("Initial pose:", self.tool_initial_pose)
+            self.osberving_pose = self.kinovaarm_proxy.getCenterOfTool(self.base)
+            self.osberving_pose_np = np.array([self.osberving_pose.x, self.osberving_pose.y, self.osberving_pose.z])
+            print("Observing pose:", self.osberving_pose)
             self.target_global = None
+
+            self.working_pose = self.kinovaarm_proxy.getCenterOfTool(self.base)
+            self.working_pose.x = 27.692739486694336
+            self.working_pose.y = -393.2345275878906
+            self.working_pose.z = 309.0543212890625
+            self.working_pose.rx = -1.5675418376922607
+            self.working_pose.ry = -0.00335524114780128
+            self.working_pose.rz = -1.5596141815185547
+            self.working_pose_np = np.array([self.working_pose.x, self.working_pose.y, self.working_pose.z])
 
             # Planning 
             self.step = 0
             self.end = False
-            self.plan = [
-                ["pick_up", 1],
-                ["put_down"],
-                ["pick_up", 2],
-                ["put_down"],
-                ["pick_up", 3],
-                ["put_down"],
-                ["pick_up", 4],
-                ["put_down"],
-            ]
+            self.plan = []
 
             # Dictionary to organize actions
             self.actions = {
-                "pick_up" : {
+                "pick-up" : {
                     "do_action" : True,
                     "thread": None,
                     "queue": queue.Queue(),
                     "func": self.pick_up,
                 },
-                "put_down" : {
+                "put-down" : {
                     "do_action" : False,
                     "thread": None,
                     "queue": queue.Queue(),
@@ -144,6 +145,9 @@ class SpecificWorker(GenericWorker):
                 "min_X_tip_position": -300,
                 "min_Y_tip_position": -550,
                 # "min_Z_tip_position": 0,
+                "tag_center_distance_threshold": 25, #pixels
+                "init_state_file": "init_state.pdll",
+                "plan_file": "/home/danipeix/software/fast-downward-20.06/sas_plan",
             }
 
             # set of candidate positions for blocks on the table
@@ -153,7 +157,7 @@ class SpecificWorker(GenericWorker):
             # self.timer.setSingleShot(True)
             self.timer.start(self.Period)
 
-            self.readInitState = True
+            self.begin_plan = True
 
     def __del__(self):
         print('SpecificWorker destructor')
@@ -170,49 +174,54 @@ class SpecificWorker(GenericWorker):
         self.gripper = self.kinovaarm_proxy.getGripperState()
         self.draw_gripper_series(self.gripper)
 
-
-        if self.readInitState:
-            tag_list, self.initState = self.create_initial_state(all.image)
-            for rule in self.initState:
-                print(rule)
-            self.save_to_file(self.initState, tag_list)
-            self.readInitState = False
-        # if self.end:
-        #     print("PLAN ENDED")
-        # else:
-        #     current_step = self.plan[self.step]
-        #     current_action = self.actions[current_step[0]]
-        #     params = current_step[1] if len(current_step) > 1 else None
-        #     args_list = []
-        #     if current_action["do_action"]:
-        #         if current_action["thread"] == None:
-        #             if current_step[0] == "pick_up":
-        #                 args_list = [params, all.image]
-        #             elif current_step[0] == "put_down":
-        #                 args_list = [color, depth, all.image]
-        #             elif current_step[0] == "stack":
-        #                 pass
-        #             elif current_step[0] == "unstack":
-        #                 pass
-        #             current_action["thread"] = threading.Thread(name=current_step[0], target=current_action["func"], args=tuple(args_list))
-        #             current_action["thread"].start()
-        #         else:
-        #             try:
-        #                 state = current_action["queue"].get_nowait()
-        #                 print(state)
-        #                 if "Finish" in state:
-        #                     current_action["do_action"] = False
-        #                     current_action["thread"] = None
-        #                     print(f"{current_step[0]} DONE")
-        #                     self.step += 1
-        #                     if self.step == len(self.plan):
-        #                         self.end = True
-        #                     else:
-        #                         next_step = self.plan[self.step]
-        #                         next_action = self.actions[next_step[0]]
-        #                         next_action["do_action"] = True
-        #             except:
-        #                 pass
+        if self.end:
+            print("PLAN ENDED")
+        else:
+            if self.begin_plan:
+                tag_list, self.initState = self.create_initial_state(all.image)
+                # for rule in self.initState:
+                #     print(rule)
+                self.save_to_file(self.initState, tag_list)
+                self.exec_planner()
+                self.load_plan()
+                print(self.plan)
+                self.kinovaarm_proxy.setCenterOfTool(self.working_pose, self.base)
+                self.wait_to_complete_movement(self.working_pose_np)
+                self.begin_plan = False
+            else:
+                current_step = self.plan[self.step]
+                current_action = self.actions[current_step[0]]
+                params = current_step[1] if len(current_step) > 1 else None
+                args_list = []
+                if current_action["do_action"]:
+                    if current_action["thread"] == None:
+                        if current_step[0] == "pick_up":
+                            args_list = [params, all.image]
+                        elif current_step[0] == "put_down":
+                            args_list = [color, depth, all.image]
+                        elif current_step[0] == "stack":
+                            pass
+                        elif current_step[0] == "unstack":
+                            args_list = [params[0], all.image, True]
+                        current_action["thread"] = threading.Thread(name=current_step[0], target=current_action["func"], args=tuple(args_list))
+                        current_action["thread"].start()
+                    else:
+                        try:
+                            state = current_action["queue"].get_nowait()
+                            print(state)
+                            if "Finish" in state:
+                                current_action["do_action"] = False
+                                current_action["thread"] = None
+                                print(f"{current_step[0]} DONE")
+                                self.step += 1
+                                if self.step == len(self.plan):
+                                    self.end = True
+                                else:
+                                    next_step = self.plan[self.step]
+                                    next_action = self.actions[next_step[0]]
+                                    next_action["do_action"] = True
+                        except:
+                            pass
         self.draw_image(color, "COLOR", all)
         self.draw_image(depth, "DEPTH", all)
 
@@ -233,13 +242,13 @@ class SpecificWorker(GenericWorker):
         tag_base = tags[0]
         tags_aux = []
         for tag in tags:
-            if abs(tag_base.center[1] - tag.center[1]) < 25:
+            if abs(tag_base.center[1] - tag.center[1]) < self.constants["tag_center_distance_threshold"]:
                 initialState.append(f"  (ontable {tag.tag_id})")
                 tags_aux.append(tag)
             else:
                 for tag_aux in tags_aux:
-                    if abs(tag.center[0] - tag_aux.center[0]) < 25 and tag.tag_id != tag_aux.tag_id:
-                        initialState.append(f"  (on {tag_aux.tag_id} {tag.tag_id})")
+                    if abs(tag.center[0] - tag_aux.center[0]) < self.constants["tag_center_distance_threshold"] and tag.tag_id != tag_aux.tag_id:
+                        initialState.append(f"  (on {tag.tag_id} {tag_aux.tag_id})")
                         tags_aux.remove(tag_aux)
                         tags_aux.append(tag)
         return ret_tags, initialState
@@ -264,21 +273,36 @@ class SpecificWorker(GenericWorker):
             "(:goal",
             "  (and (ontable 1)",
             "       (ontable 2)",
-            "       (on 1 3)",
-            "       (on 2 4)",
-            "       (on 3 5)",
-            "       (on 4 6)",
-            "       (clear 5)",
-            "       (clear 6)",
+            "       (on 3 1)", 
+            "       (on 5 3)",
+            "       (on 4 2)", 
+            "       (on 6 4)", 
+            "       (clear 5)", 
+            "       (clear 6)", 
             "       (handempty)",
             "  )",
             ")",
             ")"
         ]
-        for line in lines:
-            print(line)
-        # with open('prueba.txt', 'w') as f:
-        #     f.write('\n'.join(lines))
+        # print("CONTENT OF {}".format(self.constants["init_state_file"]))
+        # for line in lines:
+        #     print(line)
+        with open(self.constants["init_state_file"], 'w') as f:
+            f.write('\n'.join(lines))
+    
+    def exec_planner(self):
+        os.system("cd /home/danipeix/software/fast-downward-20.06/ && ls && \
+        ./fast-downward.py --alias lama-first /home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/domain.pddl \
+        /home/robocomp/robocomp/components/manipulation_kinova_gen3/components/controllerDani/{}".format(self.constants["plan_file"]))
+    
+    def load_plan(self):
+        with open(self.constants["plan_file"], 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                # print(line, len(line))
+                if ";" not in line:
+                    action, *rest = line[1:-2].split()
+                    self.plan.append([action, list(map(lambda x: int(x), rest))])
 
     # =======================================================================================
     # Functions for the different actions actions
@@ -395,9 +419,9 @@ class SpecificWorker(GenericWorker):
         #####################################################################################
         # STEP E: Move to initial position
         #####################################################################################
-        self.kinovaarm_proxy.setCenterOfTool(self.tool_initial_pose, self.base)
+        self.kinovaarm_proxy.setCenterOfTool(self.working_pose, self.base)
         action_queue.put(action + ": Tip sent to initial position")
-        self.wait_to_complete_movement(self.tool_initial_pose_np)
+        self.wait_to_complete_movement(self.working_pose_np)
         action_queue.put(action + ": Finish")
         return True       
 
@@ -441,12 +465,12 @@ class SpecificWorker(GenericWorker):
         # move upwards a bit so the gripper does not hit the block
         current_pose = self.kinovaarm_proxy.getCenterOfTool(self.base)
         current_pose.z -= 100
-        self.kinovaarm_proxy.setCenterOfTool(self.tool_initial_pose, self.base)
+        self.kinovaarm_proxy.setCenterOfTool(self.working_pose, self.base)
         time.sleep(0.5)
         # keep moving to initial position
-        self.kinovaarm_proxy.setCenterOfTool(self.tool_initial_pose, self.base)
+        self.kinovaarm_proxy.setCenterOfTool(self.working_pose, self.base)
         action_queue.put("PUT_DOWN: Tip sent to initial position")
-        self.wait_to_complete_movement(self.tool_initial_pose_np)
+        self.wait_to_complete_movement(self.working_pose_np)
         action_queue.put("PUT_DOWN: Finish")
 
         # TODO: Check if the block is in a correct position
