@@ -90,9 +90,9 @@ class SpecificWorker(GenericWorker):
             self.working_pose.x = 27.692739486694336
             self.working_pose.y = -393.2345275878906
             self.working_pose.z = 309.0543212890625
-            self.working_pose.rx = -1.5675418376922607
-            self.working_pose.ry = -0.00335524114780128
-            self.working_pose.rz = -1.5596141815185547
+
+            # TODO: Definir y aplicar rotación para poner la mano en vertical (se ven los cubos desde arriba)
+
             self.working_pose_np = np.array([self.working_pose.x, self.working_pose.y, self.working_pose.z])
 
             # Planning 
@@ -159,6 +159,36 @@ class SpecificWorker(GenericWorker):
 
             self.begin_plan = True
 
+            self.ui.generar.clicked.connect(self.create_final_state)
+
+    def create_final_state(self):
+        finalState = ["  (handempty)"]
+        
+        b1 = (1, self.ui.cubo1.x(), self.ui.cubo1.y())
+        b2 = (2, self.ui.cubo2.x(), self.ui.cubo2.y())
+        b3 = (3, self.ui.cubo3.x(), self.ui.cubo3.y())
+        b4 = (4, self.ui.cubo4.x(), self.ui.cubo4.y())
+        b5 = (5, self.ui.cubo5.x(), self.ui.cubo5.y())
+        b6 = (6, self.ui.cubo6.x(), self.ui.cubo6.y())
+        cubos = [b1, b2, b3, b4, b5, b6]
+        cubos.sort(key=lambda x: 1 / x[2])
+        
+        cubo_mesa = cubos[0]
+        cubos_aux = []
+        for cubo in cubos:
+            if cubo_mesa[2] == cubo[2]:
+                finalState.append(f"  (ontable {cubo[0]})")
+                cubos_aux.append(cubo)
+            else:
+                for c_aux in cubos_aux:
+                    if cubo[1] == c_aux[1] and cubo[0] != c_aux[0]:
+                        finalState.append(f"  (on {cubo[0]} {c_aux[0]})")
+                        cubos_aux.remove(c_aux)
+                        cubos_aux.append(cubo)
+        for cubo in cubos_aux:
+            finalState.append(f"  (clear {cubo[0]})")
+        print(finalState)
+
     def __del__(self):
         print('SpecificWorker destructor')
 
@@ -173,6 +203,7 @@ class SpecificWorker(GenericWorker):
         color, self.tags = self.compute_april_tags(color, depth)
         self.gripper = self.kinovaarm_proxy.getGripperState()
         self.draw_gripper_series(self.gripper)
+        self.draw_image(color, depth, all)
 
         if self.end:
             print("PLAN ENDED")
@@ -185,8 +216,11 @@ class SpecificWorker(GenericWorker):
                 self.exec_planner()
                 self.load_plan()
                 print(self.plan)
-                self.kinovaarm_proxy.setCenterOfTool(self.working_pose, self.base)
-                self.wait_to_complete_movement(self.working_pose_np)
+                #self.kinovaarm_proxy.setCenterOfTool(self.working_pose, self.base)
+
+                # TODO: Corregir posición del codo
+
+                #self.wait_to_complete_movement(self.working_pose_np)
                 self.begin_plan = False
             else:
                 current_step = self.plan[self.step]
@@ -222,8 +256,6 @@ class SpecificWorker(GenericWorker):
                                     next_action["do_action"] = True
                         except:
                             pass
-        self.draw_image(color, "COLOR", all)
-        self.draw_image(depth, "DEPTH", all)
 
     # =======================================================================================
     # State related functions 
@@ -522,7 +554,13 @@ class SpecificWorker(GenericWorker):
         self.x_data += 1
 
         self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
+        # self.fig.canvas.flush_events()
+
+        img = np.fromstring(self.fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+        img = img.reshape(self.fig.canvas.get_width_height()[::-1] + (3,))
+        qt_color = QImage(img, img.shape[1], img.shape[0], QImage.Format_RGB888)
+        pix_color = QPixmap.fromImage(qt_color).scaled(self.ui.grafic.width(), self.ui.grafic.height())
+        self.ui.grafic.setPixmap(pix_color)
 
     def read_camera(self):
         all = self.camerargbdsimple_proxy.getAll(self.camera_name)
@@ -530,7 +568,7 @@ class SpecificWorker(GenericWorker):
         depth = np.frombuffer(all.depth.depth, np.float32).reshape(all.depth.height, all.depth.width)
         return color, depth, all
 
-    def draw_image(self, color, name, all):
+    def draw_image(self, color, depth, all):
         if self.target_global:
             self.target_global.z = 0
             # print("self.target: ", self.target_global.x, self.target_global.y, self.target_global.z)
@@ -558,8 +596,16 @@ class SpecificWorker(GenericWorker):
             # print(side, cx, cy, target.z)
             color = cv2.rectangle(color, (cx - side // 2, cy - side // 2), (cx + side // 2, cy + side // 2), (255, 0, 0), 6)
             cv2.drawMarker(color, (all.image.width // 2, all.image.height // 2), (0, 255, 0), cv2.MARKER_CROSS, 300, 1)
-        cv2.imshow(name, color)
-        cv2.waitKey(1)
+        
+        color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
+        qt_color = QImage(color, 512, 512, QImage.Format_RGB888)
+        pix_color = QPixmap.fromImage(qt_color).scaled(self.ui.color.width(), self.ui.color.height())
+        self.ui.color.setPixmap(pix_color)
+
+        # depth = np.uint8(depth*255)
+        # qt_depth = QImage(depth, 512, 512, QImage.Format_Grayscale8)
+        # pix_depth = QPixmap.fromImage(qt_depth).scaled(self.ui.depth.width(), self.ui.depth.height())
+        # self.ui.depth.setPixmap(pix_depth)
 
     def compute_april_tags(self, color, depth):
         tags = self.detector.detect(cv2.cvtColor(color, cv2.COLOR_BGR2GRAY))
