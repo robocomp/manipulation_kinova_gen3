@@ -12,6 +12,8 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
+from DWidget import DWidget
+
 
 class Ui_guiDlg(object):
     def setupUi(self, guiDlg):
@@ -35,7 +37,7 @@ class Ui_guiDlg(object):
 
         self.arriba.addWidget(self.color)
 
-        self.widget = QWidget(self.horizontalLayoutWidget)
+        self.widget = DWidget(self.horizontalLayoutWidget)
         self.widget.setObjectName(u"widget")
         self.linea = QFrame(self.widget)
         self.linea.setObjectName(u"linea")

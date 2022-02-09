@@ -98,6 +98,7 @@ class SpecificWorker(GenericWorker):
             # Planning 
             self.step = 0
             self.end = False
+            self.endState = []
             self.plan = []
 
             # Dictionary to organize actions
@@ -162,34 +163,6 @@ class SpecificWorker(GenericWorker):
 
             self.ui.generar.clicked.connect(self.create_final_state)
 
-    def create_final_state(self):
-        finalState = ["  (handempty)"]
-        
-        b1 = (1, self.ui.cubo1.x(), self.ui.cubo1.y())
-        b2 = (2, self.ui.cubo2.x(), self.ui.cubo2.y())
-        b3 = (3, self.ui.cubo3.x(), self.ui.cubo3.y())
-        b4 = (4, self.ui.cubo4.x(), self.ui.cubo4.y())
-        b5 = (5, self.ui.cubo5.x(), self.ui.cubo5.y())
-        b6 = (6, self.ui.cubo6.x(), self.ui.cubo6.y())
-        cubos = [b1, b2, b3, b4, b5, b6]
-        cubos.sort(key=lambda x: 1 / x[2])
-        
-        cubo_mesa = cubos[0]
-        cubos_aux = []
-        for cubo in cubos:
-            if cubo_mesa[2] == cubo[2]:
-                finalState.append(f"  (ontable {cubo[0]})")
-                cubos_aux.append(cubo)
-            else:
-                for c_aux in cubos_aux:
-                    if cubo[1] == c_aux[1] and cubo[0] != c_aux[0]:
-                        finalState.append(f"  (on {cubo[0]} {c_aux[0]})")
-                        cubos_aux.remove(c_aux)
-                        cubos_aux.append(cubo)
-        for cubo in cubos_aux:
-            finalState.append(f"  (clear {cubo[0]})")
-        print(finalState)
-
     def __del__(self):
         print('SpecificWorker destructor')
 
@@ -210,10 +183,10 @@ class SpecificWorker(GenericWorker):
             print("PLAN ENDED")
         else:
             if self.begin_plan:
-                tag_list, self.initState = self.create_initial_state(all.image)
+                tag_list = self.create_initial_state()
                 # for rule in self.initState:
                 #     print(rule)
-                self.save_to_file(self.initState, tag_list)
+                self.save_to_file(self.initState, self.endState, tag_list)
                 self.exec_planner()
                 self.load_plan()
                 print(self.plan)
@@ -261,13 +234,41 @@ class SpecificWorker(GenericWorker):
     # =======================================================================================
     # State related functions 
     # =======================================================================================
-    def create_initial_state(self, image):
-        initialState = ["  (handempty)"]
+    def create_final_state(self):
+        self.endState = ["  (handempty)"]
+        
+        b1 = (1, self.ui.cubo1.x(), self.ui.cubo1.y())
+        b2 = (2, self.ui.cubo2.x(), self.ui.cubo2.y())
+        b3 = (3, self.ui.cubo3.x(), self.ui.cubo3.y())
+        b4 = (4, self.ui.cubo4.x(), self.ui.cubo4.y())
+        b5 = (5, self.ui.cubo5.x(), self.ui.cubo5.y())
+        b6 = (6, self.ui.cubo6.x(), self.ui.cubo6.y())
+        cubos = [b1, b2, b3, b4, b5, b6]
+        cubos.sort(key=lambda x: 1 / x[2])
+        
+        cubo_mesa = cubos[0]
+        cubos_aux = []
+        for cubo in cubos:
+            if cubo_mesa[2] == cubo[2]:
+                self.endState.append(f"  (ontable {cubo[0]})")
+                cubos_aux.append(cubo)
+            else:
+                for c_aux in cubos_aux:
+                    if cubo[1] == c_aux[1] and cubo[0] != c_aux[0]:
+                        self.endState.append(f"  (on {cubo[0]} {c_aux[0]})")
+                        cubos_aux.remove(c_aux)
+                        cubos_aux.append(cubo)
+        for cubo in cubos_aux:
+            self.endState.append(f"  (clear {cubo[0]})")
+        print(self.endState)
+        
+    def create_initial_state(self):
+        self.initState = ["  (handempty)"]
         
         tags = [] # Discriminar las tags verticales
         for tag in self.tags:
             if self.is_horizontal(tag):
-                initialState.append(f"  (clear {tag.tag_id})")
+                self.initState.append(f"  (clear {tag.tag_id})")
             else:
                 tags.append(tag)
         ret_tags = tags
@@ -276,15 +277,15 @@ class SpecificWorker(GenericWorker):
         tags_aux = []
         for tag in tags:
             if abs(tag_base.center[1] - tag.center[1]) < self.constants["tag_center_distance_threshold"]:
-                initialState.append(f"  (ontable {tag.tag_id})")
+                self.initState.append(f"  (ontable {tag.tag_id})")
                 tags_aux.append(tag)
             else:
                 for tag_aux in tags_aux:
                     if abs(tag.center[0] - tag_aux.center[0]) < self.constants["tag_center_distance_threshold"] and tag.tag_id != tag_aux.tag_id:
-                        initialState.append(f"  (on {tag.tag_id} {tag_aux.tag_id})")
+                        self.initState.append(f"  (on {tag.tag_id} {tag_aux.tag_id})")
                         tags_aux.remove(tag_aux)
                         tags_aux.append(tag)
-        return ret_tags, initialState
+        return ret_tags
     
     def is_horizontal(self, tag):
         up_line = LA.norm(np.array(tag.corners[3]) - np.array(tag.corners[2]))
