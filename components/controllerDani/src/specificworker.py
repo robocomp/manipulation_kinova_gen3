@@ -145,9 +145,10 @@ class SpecificWorker(GenericWorker):
                 "min_X_tip_position": -300,
                 "min_Y_tip_position": -550,
                 # "min_Z_tip_position": 0,
-                "tag_center_distance_threshold": 25, #pixels
+                "tag_center_distance_threshold": 30, #pixels
                 "init_state_file": "init_state.pdll",
-                "plan_file": "/home/danipeix/software/fast-downward-20.06/sas_plan",
+                "init_state_path": f"/home/robocomp/robocomp/components/manipulation_kinova_gen3/components/controllerDani/init_state.pdll",
+                "plan_file": "/home/robocomp/software/fast-downward-20.06/sas_plan",
             }
 
             # set of candidate positions for blocks on the table
@@ -290,7 +291,7 @@ class SpecificWorker(GenericWorker):
         down_line = LA.norm(np.array(tag.corners[1]) - np.array(tag.corners[0]))
         return down_line > up_line
     
-    def save_to_file(self, state, tag_list):
+    def save_to_file(self, init_state, end_state, tag_list):
         blocks = ""
         for tag in tag_list:
             blocks += str(tag.tag_id) + " "
@@ -300,19 +301,20 @@ class SpecificWorker(GenericWorker):
             "(:domain blocks)",
             "(:objects {}- block)".format(blocks),
             "(:init",
-            *state,
+            *init_state,
             ")",
             "(:goal",
-            "  (and (ontable 1)",
-            "       (ontable 2)",
-            "       (on 3 1)", 
-            "       (on 5 3)",
-            "       (on 4 2)", 
-            "       (on 6 4)", 
-            "       (clear 5)", 
-            "       (clear 6)", 
-            "       (handempty)",
-            "  )",
+            *end_state, 
+            # "  (and (ontable 1)",
+            # "       (ontable 2)",
+            # "       (on 3 1)", 
+            # "       (on 5 3)",
+            # "       (on 4 2)", 
+            # "       (on 6 4)", 
+            # "       (clear 5)", 
+            # "       (clear 6)", 
+            # "       (handempty)",
+            # "  )",
             ")",
             ")"
         ]
@@ -323,9 +325,8 @@ class SpecificWorker(GenericWorker):
             f.write('\n'.join(lines))
     
     def exec_planner(self):
-        os.system("cd /home/danipeix/software/fast-downward-20.06/ && ls && \
-        ./fast-downward.py --alias lama-first /home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/domain.pddl \
-        /home/robocomp/robocomp/components/manipulation_kinova_gen3/components/controllerDani/{}".format(self.constants["plan_file"]))
+        os.system("cd /home/robocomp/software/fast-downward-20.06/ && ls && \
+        ./fast-downward.py --alias lama-first /home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/domain.pddl {}".format(self.constants["init_state_path"]))
     
     def load_plan(self):
         with open(self.constants["plan_file"], 'r') as f:
