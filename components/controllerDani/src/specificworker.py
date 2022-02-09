@@ -322,7 +322,7 @@ class SpecificWorker(GenericWorker):
         # print("CONTENT OF {}".format(self.constants["init_state_file"]))
         # for line in lines:
         #     print(line)
-        with open(self.constants["init_state_file"], 'w') as f:
+        with open(self.constants["init_state_file"], 'w+') as f:
             f.write('\n'.join(lines))
     
     def exec_planner(self):
@@ -330,7 +330,7 @@ class SpecificWorker(GenericWorker):
         ./fast-downward.py --alias lama-first /home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/domain.pddl {}".format(self.constants["init_state_path"]))
     
     def load_plan(self):
-        with open(self.constants["plan_file"], 'r') as f:
+        with open(self.constants["plan_file"], 'r+') as f:
             lines = f.readlines()
             for line in lines:
                 # print(line, len(line))

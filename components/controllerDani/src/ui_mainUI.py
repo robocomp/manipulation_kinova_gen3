@@ -118,6 +118,8 @@ class Ui_guiDlg(object):
 
         self.abajo.addWidget(self.grafic)
 
+        # LISTA DE CUBOS; POR SI FUERA ÚTIL
+        # self.cubos = [(1, self.cubo1), (2, self.cubo2), (3, self.cubo3), (4, self.cubo4), (5, self.cubo5), (6, self.cubo6)]
 
         self.retranslateUi(guiDlg)
 
