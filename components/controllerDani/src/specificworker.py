@@ -150,6 +150,7 @@ class SpecificWorker(GenericWorker):
                 "init_state_file": "init_state.pdll",
                 "init_state_path": f"/home/robocomp/robocomp/components/manipulation_kinova_gen3/components/controllerDani/init_state.pdll",
                 "plan_file": "/home/robocomp/software/fast-downward-20.06/sas_plan",
+                "block_threshold": 10
             }
 
             # set of candidate positions for blocks on the table
@@ -249,12 +250,12 @@ class SpecificWorker(GenericWorker):
         cubo_mesa = cubos[0]
         cubos_aux = []
         for cubo in cubos:
-            if cubo_mesa[2] == cubo[2]:
+            if abs(cubo_mesa[2] - cubo[2]) < self.constants["block_threshold"]:
                 self.endState.append(f"  (ontable {cubo[0]})")
                 cubos_aux.append(cubo)
             else:
                 for c_aux in cubos_aux:
-                    if cubo[1] == c_aux[1] and cubo[0] != c_aux[0]:
+                    if abs(cubo[1] - c_aux[1]) < self.constants["block_threshold"] and cubo[0] != c_aux[0]:
                         self.endState.append(f"  (on {cubo[0]} {c_aux[0]})")
                         cubos_aux.remove(c_aux)
                         cubos_aux.append(cubo)

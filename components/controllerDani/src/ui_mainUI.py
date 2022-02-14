@@ -102,6 +102,10 @@ class Ui_guiDlg(object):
         self.cubo3.setFont(font)
         self.cubo3.setFrameShape(QFrame.Box)
         self.cubo3.setAlignment(Qt.AlignCenter)
+        
+        blocks = [self.cubo1, self.cubo2, self.cubo3, self.cubo4, self.cubo5, self.cubo6]
+        # blocks = [[1, self.cubo1], [2, self.cubo2], [3, self.cubo3], [4, self.cubo4], [5, self.cubo5], [6, self.cubo6]]
+        self.widget.setBlocks(blocks)
 
         self.arriba.addWidget(self.widget)
 
