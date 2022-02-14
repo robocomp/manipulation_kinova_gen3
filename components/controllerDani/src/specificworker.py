@@ -160,7 +160,7 @@ class SpecificWorker(GenericWorker):
             # self.timer.setSingleShot(True)
             self.timer.start(self.Period)
 
-            self.begin_plan = True
+            self.begin_plan = False
 
             self.ui.generar.clicked.connect(self.create_final_state)
 
@@ -198,45 +198,46 @@ class SpecificWorker(GenericWorker):
                 #self.wait_to_complete_movement(self.working_pose_np)
                 self.begin_plan = False
             else:
-                current_step = self.plan[self.step]
-                current_action = self.actions[current_step[0]]
-                params = current_step[1] if len(current_step) > 1 else None
-                args_list = []
-                if current_action["do_action"]:
-                    if current_action["thread"] == None:
-                        if current_step[0] == "pick_up":
-                            args_list = [params, all.image]
-                        elif current_step[0] == "put_down":
-                            args_list = [color, depth, all.image]
-                        elif current_step[0] == "stack":
-                            pass
-                        elif current_step[0] == "unstack":
-                            args_list = [params[0], all.image, True]
-                        current_action["thread"] = threading.Thread(name=current_step[0], target=current_action["func"], args=tuple(args_list))
-                        current_action["thread"].start()
-                    else:
-                        try:
-                            state = current_action["queue"].get_nowait()
-                            print(state)
-                            if "Finish" in state:
-                                current_action["do_action"] = False
-                                current_action["thread"] = None
-                                print(f"{current_step[0]} DONE")
-                                self.step += 1
-                                if self.step == len(self.plan):
-                                    self.end = True
-                                else:
-                                    next_step = self.plan[self.step]
-                                    next_action = self.actions[next_step[0]]
-                                    next_action["do_action"] = True
-                        except:
-                            pass
+                if self.plan != []:
+                    current_step = self.plan[self.step]
+                    current_action = self.actions[current_step[0]]
+                    params = current_step[1] if len(current_step) > 1 else None
+                    args_list = []
+                    if current_action["do_action"]:
+                        if current_action["thread"] == None:
+                            if current_step[0] == "pick_up":
+                                args_list = [params, all.image]
+                            elif current_step[0] == "put_down":
+                                args_list = [color, depth, all.image]
+                            elif current_step[0] == "stack":
+                                pass
+                            elif current_step[0] == "unstack":
+                                args_list = [params[0], all.image, True]
+                            current_action["thread"] = threading.Thread(name=current_step[0], target=current_action["func"], args=tuple(args_list))
+                            current_action["thread"].start()
+                        else:
+                            try:
+                                state = current_action["queue"].get_nowait()
+                                print(state)
+                                if "Finish" in state:
+                                    current_action["do_action"] = False
+                                    current_action["thread"] = None
+                                    print(f"{current_step[0]} DONE")
+                                    self.step += 1
+                                    if self.step == len(self.plan):
+                                        self.end = True
+                                    else:
+                                        next_step = self.plan[self.step]
+                                        next_action = self.actions[next_step[0]]
+                                        next_action["do_action"] = True
+                            except:
+                                pass
 
     # =======================================================================================
     # State related functions 
     # =======================================================================================
     def create_final_state(self):
-        self.endState = ["  (handempty)"]
+        self.endState = ["  (and(handempty)"]
         
         b1 = (1, self.ui.cubo1.x(), self.ui.cubo1.y())
         b2 = (2, self.ui.cubo2.x(), self.ui.cubo2.y())
@@ -245,22 +246,23 @@ class SpecificWorker(GenericWorker):
         b5 = (5, self.ui.cubo5.x(), self.ui.cubo5.y())
         b6 = (6, self.ui.cubo6.x(), self.ui.cubo6.y())
         cubos = [b1, b2, b3, b4, b5, b6]
-        cubos.sort(key=lambda x: 1 / x[2])
+        cubos.sort(key=lambda x: x[2], reverse=True)
         
         cubo_mesa = cubos[0]
         cubos_aux = []
         for cubo in cubos:
             if abs(cubo_mesa[2] - cubo[2]) < self.constants["block_threshold"]:
-                self.endState.append(f"  (ontable {cubo[0]})")
+                self.endState.append(f"     (ontable {cubo[0]})")
                 cubos_aux.append(cubo)
             else:
                 for c_aux in cubos_aux:
                     if abs(cubo[1] - c_aux[1]) < self.constants["block_threshold"] and cubo[0] != c_aux[0]:
-                        self.endState.append(f"  (on {cubo[0]} {c_aux[0]})")
+                        self.endState.append(f"     (on {cubo[0]} {c_aux[0]})")
                         cubos_aux.remove(c_aux)
                         cubos_aux.append(cubo)
         for cubo in cubos_aux:
-            self.endState.append(f"  (clear {cubo[0]})")
+            self.endState.append(f"     (clear {cubo[0]})")
+        self.begin_plan = True
         print(self.endState)
         
     def create_initial_state(self):
@@ -273,7 +275,7 @@ class SpecificWorker(GenericWorker):
             else:
                 tags.append(tag)
         ret_tags = tags
-        tags.sort(key=lambda x: 1 / x.center[1])
+        tags.sort(key=lambda x: x.center[1], reverse=True)
         tag_base = tags[0]
         tags_aux = []
         for tag in tags:
@@ -294,10 +296,15 @@ class SpecificWorker(GenericWorker):
         return down_line > up_line
     
     def save_to_file(self, init_state, end_state, tag_list):
+        tag_list.sort()
         blocks = ""
         for tag in tag_list:
             blocks += str(tag.tag_id) + " "
 
+        for r in init_state:
+            print(r)
+        for r in end_state:
+            print(r)
         lines = [
             "(define (problem BLOCKS-{}-1)".format(len(tag_list)),
             "(:domain blocks)",
@@ -307,16 +314,7 @@ class SpecificWorker(GenericWorker):
             ")",
             "(:goal",
             *end_state, 
-            # "  (and (ontable 1)",
-            # "       (ontable 2)",
-            # "       (on 3 1)", 
-            # "       (on 5 3)",
-            # "       (on 4 2)", 
-            # "       (on 6 4)", 
-            # "       (clear 5)", 
-            # "       (clear 6)", 
-            # "       (handempty)",
-            # "  )",
+            "   )",
             ")",
             ")"
         ]
