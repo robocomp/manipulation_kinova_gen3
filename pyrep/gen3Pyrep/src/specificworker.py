@@ -330,4 +330,5 @@ class SpecificWorker(GenericWorker):
         #   target.set_position([position[0] + pose.x / 1000, position[1] + pose.y / 1000, position[2] + pose.z / 1000], parent_frame_object)
         # check limits
         target.set_position([pose.x / 1000, pose.y / 1000, pose.z / 1000], parent_frame_object)
+        target.set_orientation([pose.rx, pose.ry, pose.rz], parent_frame_object)
 

@@ -87,9 +87,12 @@ class SpecificWorker(GenericWorker):
             self.target_global = None
 
             self.working_pose = self.kinovaarm_proxy.getCenterOfTool(self.base)
-            self.working_pose.x = 27.692739486694336
-            self.working_pose.y = -393.2345275878906
-            self.working_pose.z = 309.0543212890625
+            self.working_pose.x = 27
+            self.working_pose.y = -500
+            self.working_pose.z = 250
+            self.working_pose.rx = -90 * 3.14 / 180
+            self.working_pose.ry = 0 * 3.14 / 180
+            self.working_pose.rz = -90 * 3.14 / 180
 
             # TODO: Definir y aplicar rotación para poner la mano en vertical (se ven los cubos desde arriba)
 
@@ -104,7 +107,7 @@ class SpecificWorker(GenericWorker):
             # Dictionary to organize actions
             self.actions = {
                 "pick-up" : {
-                    "do_action" : True,
+                    "do_action" : False,
                     "thread": None,
                     "queue": queue.Queue(),
                     "func": self.pick_up,
@@ -184,6 +187,7 @@ class SpecificWorker(GenericWorker):
             print("PLAN ENDED")
         else:
             if self.begin_plan:
+                self.begin_plan = False
                 tag_list = self.create_initial_state()
                 # for rule in self.initState:
                 #     print(rule)
@@ -191,28 +195,32 @@ class SpecificWorker(GenericWorker):
                 self.exec_planner()
                 self.load_plan()
                 print(self.plan)
-                #self.kinovaarm_proxy.setCenterOfTool(self.working_pose, self.base)
 
                 # TODO: Corregir posición del codo
+                self.kinovaarm_proxy.setCenterOfTool(self.working_pose, self.base)
+                self.wait_to_complete_movement(self.working_pose_np)
 
-                #self.wait_to_complete_movement(self.working_pose_np)
-                self.begin_plan = False
+                current_step = self.plan[self.step]
+                current_action = self.actions[current_step[0]]
+                current_action["do_action"] = True
+                # self.actions[self.plan[0][0]]["do_action"] = True
             else:
                 if self.plan != []:
                     current_step = self.plan[self.step]
+                    # print(current_step)
                     current_action = self.actions[current_step[0]]
                     params = current_step[1] if len(current_step) > 1 else None
                     args_list = []
                     if current_action["do_action"]:
                         if current_action["thread"] == None:
-                            if current_step[0] == "pick_up":
+                            if current_step[0] == "pick-up":
                                 args_list = [params, all.image]
-                            elif current_step[0] == "put_down":
+                            elif current_step[0] == "put-down":
                                 args_list = [color, depth, all.image]
                             elif current_step[0] == "stack":
-                                pass
+                                args_list = [color, depth, all.image, params[1]]
                             elif current_step[0] == "unstack":
-                                args_list = [params[0], all.image, True]
+                                args_list = [params[0], all.image]
                             current_action["thread"] = threading.Thread(name=current_step[0], target=current_action["func"], args=tuple(args_list))
                             current_action["thread"].start()
                         else:
@@ -222,7 +230,7 @@ class SpecificWorker(GenericWorker):
                                 if "Finish" in state:
                                     current_action["do_action"] = False
                                     current_action["thread"] = None
-                                    print(f"{current_step[0]} DONE")
+                                    # print(f"{current_step[0]} DONE")
                                     self.step += 1
                                     if self.step == len(self.plan):
                                         self.end = True
@@ -263,12 +271,14 @@ class SpecificWorker(GenericWorker):
         for cubo in cubos_aux:
             self.endState.append(f"     (clear {cubo[0]})")
         self.begin_plan = True
+        self.end = False
+        self.step = 0
         print(self.endState)
         
     def create_initial_state(self):
         self.initState = ["  (handempty)"]
         
-        tags = [] # Discriminar las tags verticales
+        tags = []
         for tag in self.tags:
             if self.is_horizontal(tag):
                 self.initState.append(f"  (clear {tag.tag_id})")
@@ -318,9 +328,6 @@ class SpecificWorker(GenericWorker):
             ")",
             ")"
         ]
-        # print("CONTENT OF {}".format(self.constants["init_state_file"]))
-        # for line in lines:
-        #     print(line)
         with open(self.constants["init_state_file"], 'w+') as f:
             f.write('\n'.join(lines))
     
@@ -332,7 +339,6 @@ class SpecificWorker(GenericWorker):
         with open(self.constants["plan_file"], 'r+') as f:
             lines = f.readlines()
             for line in lines:
-                # print(line, len(line))
                 if ";" not in line:
                     action, *rest = line[1:-2].split()
                     self.plan.append([action, list(map(lambda x: int(x), rest))])
@@ -367,6 +373,9 @@ class SpecificWorker(GenericWorker):
         target.x = current_pose.x - tr[0]
         target.y = current_pose.y + tr[1] - self.constants["camera_y_offset"]   # plus distance from camera to top along Y
         target.z = current_pose.z - tr[2] + self.constants["camera_z_offset"]   # distance from camera to tip along Z
+        target.rx = -90 * 3.14 / 180
+        target.ry = 0 * 3.14 / 180
+        target.rz = -90 * 3.14 / 180
         action_queue.put(action + ": Tip sent to target")
         self.kinovaarm_proxy.setCenterOfTool(target, self.base)
         target_pose = np.array([target.x, target.y, target.z])
@@ -458,29 +467,30 @@ class SpecificWorker(GenericWorker):
         action_queue.put(action + ": Finish")
         return True       
 
-    def put_down(self, color, depth, image,):
-        action_queue = self.actions["put_down"]["queue"]
+    def put_down(self, color, depth, image, stack=0):
+        action_queue = self.actions["put-down"]["queue"] if stack == 0 else self.actions["stack"]["queue"]
+        action = "PUT_DOWN" if stack == 0 else "STACK" 
         #####################################################################################
         # STEP A: Search for a free spot for the current object
         #####################################################################################
         
-        action_queue.put("PUT_DOWN: Searching for free spot")
-        target, current_pose = self.find_free_spot(depth, image)
+        action_queue.put(action + ": Searching for {} spot".format("free" if stack != 0 else "target"))
+        target, current_pose, target_z = self.find_free_spot(depth, image) if stack == 0 else self.find_target_spot(depth, image, stack)
         self.target_global = target     # for drawing
-        action_queue.put("PUT_DOWN: free SPOT found at " + str([target.x, target.y, target.z]))
+        action_queue.put(action + ": {} SPOT found at ".format("free" if stack != 0 else "target") + str([target.x, target.y, target.z]))
 
         #####################################################################################
         # STEP B: Move to target spot
         #####################################################################################
         # B.1 move to target position at same Z level
         target.z = current_pose.z
-        action_queue.put("PUT_DOWN: Tip sent to target")
+        action_queue.put(action + ": Tip sent to target")
         self.kinovaarm_proxy.setCenterOfTool(target, self.base)
         target_np = np.array([target.x, target.y, target.z])
         self.wait_to_complete_movement(target_np)
 
         # B.2 move down to free spot position
-        target.z = self.constants["final_tip_position_over_table_before_releasing"]
+        target.z = target_z
         target_np = np.array([target.x, target.y, target.z])
         self.kinovaarm_proxy.setCenterOfTool(target, self.base)
         self.wait_to_complete_movement(target_np)
@@ -488,7 +498,7 @@ class SpecificWorker(GenericWorker):
         #####################################################################################
         # STEP C: release block
         #####################################################################################
-        action_queue.put("PUT_DOWN: Initiating release")
+        action_queue.put(action + ": Initiating release")
         self.kinovaarm_proxy.openGripper()
         time.sleep(0.5)
 
@@ -502,16 +512,16 @@ class SpecificWorker(GenericWorker):
         time.sleep(0.5)
         # keep moving to initial position
         self.kinovaarm_proxy.setCenterOfTool(self.working_pose, self.base)
-        action_queue.put("PUT_DOWN: Tip sent to initial position")
+        action_queue.put(action + ": Tip sent to initial position")
         self.wait_to_complete_movement(self.working_pose_np)
-        action_queue.put("PUT_DOWN: Finish")
+        action_queue.put(action + ": Finish")
 
         # TODO: Check if the block is in a correct position
 
         return True
 
-    def stack(self, target_block):
-        pass
+    def stack(self, color, depth, image, target_block):
+        self.put_down(color, depth, image, target_block)
 
     def unstack(self, x, image):
         self.pick_up(x, image, True)
@@ -676,11 +686,14 @@ class SpecificWorker(GenericWorker):
             target.x += current_pose.x
             target.y += current_pose.y
             target.z += current_pose.z
+            target.rx = -90 * 3.14 / 180
+            target.ry = 0 * 3.14 / 180
+            target.rz = -90 * 3.14 / 180
 
             #print("Hits", hits, "from total size", roi_depth.size, "in ", counter, "iters", "In bounds:", self.in_limits(target))
 
         if counter == self.constants["max_iter_free_spot"]:
-            action_queue.put("PUT_DOWN: Could NOT find a free spot")
+            self.actions["put_down"]["queue"].put("PUT_DOWN: Could NOT find a free spot")
             return False
 
         # rgb = color.copy()
@@ -692,7 +705,35 @@ class SpecificWorker(GenericWorker):
         print("Center in image row,col: ", row, col)
         print("target:", int(target.x), int(target.y), int(target.z))
 
-        return target, current_pose 
+        return target, current_pose, self.constants["final_tip_position_over_table_before_releasing"]
+
+    def find_target_spot(self, depth, image, target_tag):
+        # TODO : Find the target block and return its position
+        target = interfaces.RoboCompKinovaArm.TPose()
+        current_pose = self.kinovaarm_proxy.getCenterOfTool(self.base)
+        z = current_pose.z + self.constants["camera_z_offset"]    # camera distance from gripper tip along Z
+        for tag in self.tags:
+            if tag.tag_id == target_tag:
+                # print(tag)
+                row = tag.center[1]
+                col = tag.center[0]
+                # compute target coordinates. x, y, z in camera CS: x+ right, y+ up, z+ outwards
+                target.x = (image.width // 2 - col) * z / image.focalx
+                target.y = (image.height // 2 - row) * z / image.focaly
+
+                # transform to tip coordinate system: x+ right, y+ backwards, z+ up
+                target.y = - target.y - self.constants["camera_y_offset"]  # distance from camera to tip along Y
+                target.z = - current_pose.z
+
+                # transform to base coordinate system
+                target.x += current_pose.x
+                target.y += current_pose.y +10
+                target.z += current_pose.z
+                target.rx = -90 * 3.14 / 180
+                target.ry = 0 * 3.14 / 180
+                target.rz = -90 * 3.14 / 180
+                break
+        return target, current_pose, current_pose.z - depth[int(row)][int(col)] * 400
 
     #########################################################################################
     # From the RoboCompKinovaArm you can call this methods:
