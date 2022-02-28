@@ -21,6 +21,7 @@
 
 import os
 import cv2
+import math
 import time
 import random
 import apriltag
@@ -90,9 +91,9 @@ class SpecificWorker(GenericWorker):
             self.working_pose.x = 27
             self.working_pose.y = -500
             self.working_pose.z = 250
-            self.working_pose.rx = -90 * 3.14 / 180
-            self.working_pose.ry = 0 * 3.14 / 180
-            self.working_pose.rz = -90 * 3.14 / 180
+            self.working_pose.rx = -90 * math.pi / 180
+            self.working_pose.ry = 0 * math.pi / 180
+            self.working_pose.rz = -90 * math.pi / 180
 
             # TODO: Definir y aplicar rotación para poner la mano en vertical (se ven los cubos desde arriba)
 
@@ -347,7 +348,7 @@ class SpecificWorker(GenericWorker):
     # Functions for the different actions actions
     # =======================================================================================
     def pick_up(self, x, image, unstack=False):
-        action_queue = self.actions["pick_up"]["queue"] if not unstack else self.actions["unstack"]["queue"]
+        action_queue = self.actions["pick-up"]["queue"] if not unstack else self.actions["unstack"]["queue"]
         action = "PICK_UP" if not unstack else "UNSTACK"
         #####################################################################################
         # STEP A: locate object X and compute target coordinates to approach it
@@ -373,9 +374,9 @@ class SpecificWorker(GenericWorker):
         target.x = current_pose.x - tr[0]
         target.y = current_pose.y + tr[1] - self.constants["camera_y_offset"]   # plus distance from camera to top along Y
         target.z = current_pose.z - tr[2] + self.constants["camera_z_offset"]   # distance from camera to tip along Z
-        target.rx = -90 * 3.14 / 180
-        target.ry = 0 * 3.14 / 180
-        target.rz = -90 * 3.14 / 180
+        target.rx = -90 * math.pi / 180
+        target.ry = 0 * math.pi / 180
+        target.rz = -90 * math.pi / 180
         action_queue.put(action + ": Tip sent to target")
         self.kinovaarm_proxy.setCenterOfTool(target, self.base)
         target_pose = np.array([target.x, target.y, target.z])
@@ -450,12 +451,6 @@ class SpecificWorker(GenericWorker):
                 self.wait_to_complete_movement(self.tool_initial_pose_np)
                 action_queue.put(action + ": Fail while grasping block " + str(x) + " Missed the block. Sent to initial position")
                 return False
-                print("dist", int(self.gripper.distance),
-                      "close", int(self.gripper.opening),
-                      "rforce", int(self.gripper.rforce),
-                      "rtip", int(self.gripper.rtipforce),
-                      "lforce", int(self.gripper.lforce),
-                      "ltip", int(self.gripper.ltipforce))  # mm
             time.sleep(0.1)
 
         #####################################################################################
@@ -686,9 +681,9 @@ class SpecificWorker(GenericWorker):
             target.x += current_pose.x
             target.y += current_pose.y
             target.z += current_pose.z
-            target.rx = -90 * 3.14 / 180
-            target.ry = 0 * 3.14 / 180
-            target.rz = -90 * 3.14 / 180
+            target.rx = -90 * math.pi / 180
+            target.ry = 0 * math.pi / 180
+            target.rz = -90 * math.pi / 180
 
             #print("Hits", hits, "from total size", roi_depth.size, "in ", counter, "iters", "In bounds:", self.in_limits(target))
 
@@ -715,25 +710,30 @@ class SpecificWorker(GenericWorker):
         for tag in self.tags:
             if tag.tag_id == target_tag:
                 # print(tag)
-                row = tag.center[1]
-                col = tag.center[0]
+                row = int(tag.center[1])
+                col = int(tag.center[0])
                 # compute target coordinates. x, y, z in camera CS: x+ right, y+ up, z+ outwards
                 target.x = (image.width // 2 - col) * z / image.focalx
                 target.y = (image.height // 2 - row) * z / image.focaly
 
                 # transform to tip coordinate system: x+ right, y+ backwards, z+ up
                 target.y = - target.y - self.constants["camera_y_offset"]  # distance from camera to tip along Y
+                z_block = depth[row][col]
                 target.z = - current_pose.z
+                print(z_block)
+                move_x =  (image.width - col) * z_block / 11
+                if col < image.width:
+                    move_x = - move_x
 
                 # transform to base coordinate system
-                target.x += current_pose.x
-                target.y += current_pose.y +10
+                target.x += current_pose.x + move_x
+                target.y += current_pose.y + 20
                 target.z += current_pose.z
-                target.rx = -90 * 3.14 / 180
-                target.ry = 0 * 3.14 / 180
-                target.rz = -90 * 3.14 / 180
+                target.rx = -90 * math.pi / 180
+                target.ry = 0 * math.pi / 180
+                target.rz = -90 * math.pi / 180
                 break
-        return target, current_pose, current_pose.z - depth[int(row)][int(col)] * 400
+        return target, current_pose, current_pose.z  - depth[int(row)][int(col)] * 400
 
     #########################################################################################
     # From the RoboCompKinovaArm you can call this methods:
