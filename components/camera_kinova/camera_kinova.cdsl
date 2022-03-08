@@ -1,0 +1,11 @@
+import "CameraRGBDSimple.idsl";
+
+Component camera_kinova
+{
+    Communications
+    {
+        implements CameraRGBDSimple;
+    };
+    language Cpp11;
+};
+

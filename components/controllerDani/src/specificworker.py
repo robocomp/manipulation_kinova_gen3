@@ -81,6 +81,8 @@ class SpecificWorker(GenericWorker):
             self.ah1.legend(loc="upper right", fontsize=12, fancybox=True, framealpha=0.5)
             self.x_data = 0
 
+            plt.show()
+
             # get current position
             self.osberving_pose = self.kinovaarm_proxy.getCenterOfTool(self.base)
             self.osberving_pose_np = np.array([self.osberving_pose.x, self.osberving_pose.y, self.osberving_pose.z])
