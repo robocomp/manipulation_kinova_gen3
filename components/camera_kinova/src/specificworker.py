@@ -25,6 +25,12 @@ from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
 
+import multiprocessing as mp
+import time
+import vid_streamv32 as vs
+import cv2
+import numpy as np
+
 sys.path.append('/opt/robocomp/lib')
 console = Console(highlight=False)
 
@@ -38,7 +44,46 @@ console = Console(highlight=False)
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 2000
+        self.Period = 0
+
+        #Current Cam
+        self.camProcess = None
+        self.cam_queue = None
+        self.stopbit = None
+        self.camlink = 'rtsp://192.168.1.10/depth' # Add your RTSP cam link
+        self.framerate = 15
+
+        #Current Cam
+        self.colorCamProcess = None
+        self.color_queue = None
+        self.colorStopbit = None
+        self.colorLink = 'rtsp://192.168.1.10/color' # Add your RTSP cam link
+        self.colorFramerate = 15
+
+        #set  queue size
+        self.cam_queue = mp.Queue(maxsize=1)
+        self.color_queue = mp.Queue(maxsize=1)
+
+        #get all cams
+        time.sleep(3)
+
+        self.stopbit = mp.Event()
+        self.camProcess = vs.StreamCapture( self.camlink,
+                                            self.stopbit,
+                                            self.cam_queue,
+                                            self.framerate)
+
+                            
+        self.camProcess.start()
+        
+        self.colorStopbit = mp.Event()
+        self.colorCamProcess = vs.StreamCapture(self.colorLink,
+                                                self.colorStopbit,
+                                                self.color_queue,
+                                                self.colorFramerate)
+        self.colorCamProcess.start()
+
+
         if startup_check:
             self.startup_check()
         else:
@@ -47,6 +92,30 @@ class SpecificWorker(GenericWorker):
 
     def __del__(self):
         """Destructor"""
+        if self.stopbit is not None:
+            self.stopbit.set()
+            while not self.cam_queue.empty():
+                try:
+                    _ = self.cam_queue.get()
+                except:
+                    break
+                self.cam_queue.close()
+
+            self.camProcess.join()
+
+        if self.colorStopbit is not None:
+            self.colorStopbit.set()
+            while not self.color_queue.empty():
+                try:
+                    _ = self.color_queue.get()
+                except:
+                    break
+                self.color_queue.close()
+
+            self.colorCamProcess.join()
+
+
+        
 
     def setParams(self, params):
         # try:
@@ -59,20 +128,48 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
-        print('SpecificWorker.compute...')
-        # computeCODE
-        # try:
-        #   self.differentialrobot_proxy.setSpeedBase(100, 0)
-        # except Ice.Exception as e:
-        #   traceback.print_exc()
-        #   print(e)
+        # print('SpecificWorker.compute...')
+        
+        if not self.cam_queue.empty():
+            # print('Got frame')
+            cmd, val = self.cam_queue.get()
 
-        # The API of python-innermodel is not exactly the same as the C++ version
-        # self.innermodel.updateTransformValues('head_rot_tilt_pose', 0, 0, 0, 1.3, 0, 0)
-        # z = librobocomp_qmat.QVec(3,0)
-        # r = self.innermodel.transform('rgbd', z, 'laser')
-        # r.printvector('d')
-        # print(r[0], r[1], r[2])
+            # if cmd == vs.StreamCommands.RESOLUTION:
+            #     pass #print(val)
+
+            if cmd == vs.StreamCommands.FRAME:
+                if val is not None:
+                    
+                    print ("depth: ", val[240][127])
+
+                    val = val.astype(np.uint8)
+
+                    color = cv2.cvtColor(val, cv2.COLOR_GRAY2RGB)
+                    qt_color = QImage(color, val.shape[1], val.shape[0], QImage.Format_RGB888)
+                    pix_color = QPixmap.fromImage(qt_color).scaled(self.ui.depth.width(), self.ui.depth.height())
+                    self.ui.depth.setPixmap(pix_color)
+
+                    # print (val.shape, val)
+
+
+        if not self.color_queue.empty():
+            # print('Got frame')
+            color_cmd, color_val = self.color_queue.get()
+
+            # if cmd == vs.StreamCommands.RESOLUTION:
+            #     pass #print(val)
+
+            if color_cmd == vs.StreamCommands.FRAME:
+                if color_val is not None:
+                    
+                    # print ("img: ", val.shape[1], val.shape[0], " UI: ", self.ui.color.width(), self.ui.color.height() )
+
+                    color_color = cv2.cvtColor(color_val, cv2.COLOR_BGR2RGB)
+                    color_qt_color = QImage(color_color, color_val.shape[1], color_val.shape[0], QImage.Format_RGB888)
+                    color_pix_color = QPixmap.fromImage(color_qt_color).scaled(self.ui.color.width(), self.ui.color.height())
+                    self.ui.color.setPixmap(color_pix_color)
+
+                    # print (val.shape, val)
 
         return True
 

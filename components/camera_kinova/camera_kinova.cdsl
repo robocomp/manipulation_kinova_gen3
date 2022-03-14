@@ -7,6 +7,6 @@ Component camera_kinova
         implements CameraRGBDSimple;
     };
     language python;
-    gui Qt(QWidget);
+    gui Qt(QMainWindow);
 };
 
