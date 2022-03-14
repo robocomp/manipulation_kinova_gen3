@@ -187,15 +187,12 @@ class SpecificWorker(GenericWorker):
         new_pos = None
         arm_pose = self.arm.get_pose()
 
-        # print (np.multiply(arm_pose[:3], 1000), np.radians(arm_pose[3:]))
-
-        # arm_pose[2] = 1 # Visualization 
-
-        # gripper = self.g.get_node('gripper')
         world   = self.g.get_node('arm')
 
         if self.gripper is not None and world is not None:
-            new_pos = [self.gripper.id, np.multiply(arm_pose[:3], 1000), np.radians(arm_pose[3:])]
+            arm_rot = np.radians(arm_pose[3:])
+            arm_rot[0],arm_rot[1] = arm_rot[1],arm_rot[0] 
+            new_pos = [self.gripper.id, np.multiply(arm_pose[:3], 1000), arm_rot]
             self.rt.insert_or_assign_edge_RT(world, *new_pos)
             self.g.update_node(world)
 
@@ -203,6 +200,8 @@ class SpecificWorker(GenericWorker):
         
         target_xyz = np.multiply(target_position[:3], 0.001)
         target_rpy = np.degrees (target_position[3:])
+
+        target_rpy[0],target_rpy[1] = target_rpy[1],target_rpy[0] 
 
         print (target_xyz, target_rpy)
 

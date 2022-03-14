@@ -178,10 +178,12 @@ class SpecificWorker(GenericWorker):
             pos_y = - (tag.center[0] * pos_z) / self.focal_y
             pos = [pos_x, pos_y, pos_z]
 
-            ori = [0, 0, 0]
+            r_x = 0
+            r_y = 0
+            r_z = (np.arctan2(tag.corners[0][1] - tag.center[1], tag.corner[0][0] - tag.center[0]) + 135) % 360
+            ori = [r_x, r_y, r_z]
 
-            s_tag = [tag.tag_id, pos, ori]
-            s_tags.append(s_tag)
+            s_tags[tag.tag_id] = {"pos": pos, "rot": ori}
 
             cv2.drawMarker(self.depth, (int((tag.center[0]) / 1.96 + 100), int(tag.center[1] / 1.91 + 10)), (0, 255, 0), cv2.MARKER_CROSS, 150, 1)
 
