@@ -28,7 +28,8 @@ import interfaces as ifaces
 
 import numpy as np
 import cv2
-import time 
+
+from pynput import keyboard
 
 import apriltag
 
@@ -54,6 +55,18 @@ class SpecificWorker(GenericWorker):
         self.g = DSRGraph(0, "pythonAgent", self.agent_id)
         self.depth = None
 
+        self.CUBE_PREFIX = 1000
+
+        self.tf = inner_api(self.g)
+        self.tag_detection_count = {}
+        self.tags = {}
+        self.cube_pos = {}
+
+        listener = keyboard.Listener(
+            on_press=self.on_press,
+            on_release=self.on_release)
+        listener.start()
+
         try:
             signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
             signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
@@ -75,6 +88,33 @@ class SpecificWorker(GenericWorker):
 
     def __del__(self):
         """Destructor"""
+        pass
+
+    def on_press(self, key):
+        pass
+        # try:
+        #     print('Alphanumeric key pressed: {0} '.format(
+        #         key.char))
+        # except AttributeError:
+        #     print('special key pressed: {0}'.format(
+        #         key))
+
+    def on_release(self, key):
+        print('Key released: {0}'.format(
+            key))
+        
+        try:
+            if key.char == 'c':
+                self.close_gripper()
+                return True
+            cube_id = int (key.char)
+            self.pick_cube (cube_id)
+        except:
+            print ("not an int")
+
+        if key == keyboard.Key.esc:
+            # Stop listener
+            return False
 
     def setParams(self, params):
         # try:
@@ -84,9 +124,55 @@ class SpecificWorker(GenericWorker):
         #	print("Error reading config params")
         return True
 
-    def get_cube_pos (self, cube_id):
-        cube = self.tags[cube_id]
+    def close_gripper  (self):
+        gripper = self.g.get_node ("gripper")
+        gripper.attrs["gripper_target_finger_distance"].value = 0.0
+        self.g.update_node (gripper)
 
+    def pick_cube (self, cube_id):
+
+        if cube_id == 0:
+            dest_pose = [400, 0, 400, np.pi, 0, np.pi/2]
+
+        elif cube_id not in self.tags.keys():
+            return
+        else:
+        # cube_node = self.g.get_node ("cube_" + str(cube_id))
+            dest_pose = self.g.get_edge ("world", "cube_" + str(cube_id), "RT")
+            dest_pose = np.concatenate((dest_pose.attrs["rt_translation"].value, dest_pose.attrs["rt_rotation_euler_xyz"].value))
+        print ("Grabbin in ", dest_pose)
+        gripper = self.g.get_node ("gripper")
+
+        dest_pose[3] = 0.0
+        dest_pose[4] = np.pi
+
+        print (dest_pose)
+        gripper.attrs["gripper_target_finger_distance"].value = 1.0
+        gripper.attrs["target"].value = dest_pose
+        self.g.update_node (gripper)
+
+    def insert_or_update_cube (self, cube_id):
+        cube = self.tags[cube_id]
+       
+        
+        new_pos = self.tf.transform_axis ("world", cube["pos"] + cube["rot"], "hand_camera")
+
+        if (cube_node := self.g.get_node("cube_" + str(cube_id))) is None:
+            new_node = Node(cube_id + self.CUBE_PREFIX, "box", "cube_" + str(cube_id))
+            self.g.insert_node (new_node)
+
+            cube_node = new_node
+        
+        # print ("Inserted cube " + str(cube_id))
+
+        world = self.g.get_node ("world")
+        self.rt = rt_api(self.g)
+        self.rt.insert_or_assign_edge_RT(world, cube_node.id, new_pos[:3], new_pos[3:])
+        self.g.update_node(world)
+
+    def delete_cube (self, cube_id):
+        if (cube := self.g.get_node ("cube_" + str(cube_id))):
+            self.g.delete_node (cube.id)
 
     @QtCore.Slot()
     def compute(self):
@@ -105,8 +191,23 @@ class SpecificWorker(GenericWorker):
 
             self.color = np.frombuffer(self.color_raw, dtype=np.uint8)
             self.color = self.color.reshape((480, 640, 3))
-            self.tags = self.compute_april_tags()
-            print (self.tags)
+            self.inmediate_tags = self.compute_april_tags()
+
+            for id in self.inmediate_tags.keys():
+                if id not in self.tag_detection_count.keys():
+                    self.tag_detection_count[id] = 0
+
+            for id in self.tag_detection_count.keys():
+                if id in self.inmediate_tags.keys():
+                    self.tag_detection_count[id] = np.minimum (30, self.tag_detection_count[id]+1)
+                else:
+                    self.tag_detection_count[id] = np.maximum (0, self.tag_detection_count[id]-1)
+                
+                if (self.tag_detection_count[id] > 20):
+                    self.tags[id] = self.inmediate_tags[id]
+                    self.insert_or_update_cube (id)
+                else:
+                    self.delete_cube (id)
 
             
             cv2.imshow('Color', cv2.cvtColor(self.depth.astype(np.uint8), cv2.COLOR_RGB2BGR)) #depth.astype(np.uint8))
@@ -155,6 +256,7 @@ class SpecificWorker(GenericWorker):
         tags = self.detector.detect(cv2.cvtColor(self.color, cv2.COLOR_RGB2GRAY))
         if len(tags) > 0:
             for tag in tags:
+                print (tag)
                 for idx in range(len(tag.corners)):
                     cv2.line(self.color, tuple(tag.corners[idx - 1, :].astype(int)), tuple(tag.corners[idx, :].astype(int)), (0, 255, 0))
                     cv2.putText(self.color, str(tag.tag_id),
@@ -179,7 +281,8 @@ class SpecificWorker(GenericWorker):
             pos_z = self.depth[index_x][index_y]
             pos_x = - ((tag.center[1] - self.color.shape[0] // 2) * pos_z) / self.focal_x  
             pos_y = - ((tag.center[0] - self.color.shape[1] // 2) * pos_z) / self.focal_y
-            pos = [pos_x, pos_y, pos_z]
+
+            pos = [pos_y, pos_x, pos_z] # Acording to gripper reference frame
 
             r_x = 0
             r_y = 0

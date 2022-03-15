@@ -176,8 +176,9 @@ class SpecificWorker(GenericWorker):
         return True
 
     def update_gripper_state(self):
+
         self.gripper = self.g.get_node('gripper')
-        gr_state = self.arm.get_gripper_state()
+        gr_state = self.arm.get_gripper_state()            
         self.gripper.attrs['gripper_finger_distance'].value = 1 - gr_state
         self.g.update_node (self.gripper)
         
@@ -217,7 +218,7 @@ class SpecificWorker(GenericWorker):
         # print('SpecificWorker.compute...')
 
         self.update_arm_pose()
-        self.update_gripper_state()
+        # self.update_gripper_state()
         
         depth, color = self.get_rgbd_stream()
 
@@ -309,13 +310,13 @@ class SpecificWorker(GenericWorker):
     def update_node_att(self, id: int, attribute_names: [str]):
         # console.print(f"UPDATE NODE ATT: {id} {attribute_names}", style='green')
 
-        if id == self.GRIPPER_ID and 'target' in attribute_names: # AND is the right node
+        if id == self.GRIPPER_ID and 'target' in attribute_names:
             updated_node = self.g.get_node(id)
             target_position  = updated_node.attrs['target'].value
             print ("Received target position", target_position)
             self.move_arm_to (target_position)
 
-        if id == self.GRIPPER_ID and 'gripper_target_finger_distance' in attribute_names: # AND is the right node
+        if id == self.GRIPPER_ID and 'gripper_target_finger_distance' in attribute_names:
             updated_node = self.g.get_node(id)
             target_distance  = updated_node.attrs['gripper_target_finger_distance'].value
             print ("Received target finger distance", target_distance)
