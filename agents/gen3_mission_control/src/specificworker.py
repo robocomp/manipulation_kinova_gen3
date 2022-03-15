@@ -84,6 +84,9 @@ class SpecificWorker(GenericWorker):
         #	print("Error reading config params")
         return True
 
+    def get_cube_pos (self, cube_id):
+        cube = self.tags[cube_id]
+
 
     @QtCore.Slot()
     def compute(self):
@@ -103,7 +106,7 @@ class SpecificWorker(GenericWorker):
             self.color = np.frombuffer(self.color_raw, dtype=np.uint8)
             self.color = self.color.reshape((480, 640, 3))
             self.tags = self.compute_april_tags()
-            print (self.tags[0])
+            print (self.tags)
 
             
             cv2.imshow('Color', cv2.cvtColor(self.depth.astype(np.uint8), cv2.COLOR_RGB2BGR)) #depth.astype(np.uint8))
@@ -158,8 +161,6 @@ class SpecificWorker(GenericWorker):
                                org = (tag.corners[0, 0].astype(int) + 10, tag.corners[0, 1].astype(int) + 10),
                                fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8, color=(0, 0, 255))
                     cv2.rectangle(self.color, tuple(tag.center.astype(int) - 1), tuple(tag.center.astype(int) + 1), (255, 0, 255))
-        
-        
         else:
             print("Compute_april_tags: No tags detected")
             pass
@@ -169,18 +170,20 @@ class SpecificWorker(GenericWorker):
         return tags
 
     def simplify_tags(self, tags):
-        s_tags = []
+        s_tags = {}
         for tag in tags:
             # print (tag.center)
             # print (int(tag.center[1] / 1.77), int(tag.center[0] / 1.33))
-            pos_z = self.depth[int(tag.center[1] / 1.91 + 10)][int((tag.center[0]) / 1.96 + 100)]
-            pos_x = - (tag.center[1] * pos_z) / self.focal_x  
-            pos_y = - (tag.center[0] * pos_z) / self.focal_y
+            index_x = int(tag.center[1] / 1.91 + 10 )
+            index_y = int(tag.center[0] / 1.96 + 100)
+            pos_z = self.depth[index_x][index_y]
+            pos_x = - ((tag.center[1] - self.color.shape[0] // 2) * pos_z) / self.focal_x  
+            pos_y = - ((tag.center[0] - self.color.shape[1] // 2) * pos_z) / self.focal_y
             pos = [pos_x, pos_y, pos_z]
 
             r_x = 0
             r_y = 0
-            r_z = (np.arctan2(tag.corners[0][1] - tag.center[1], tag.corner[0][0] - tag.center[0]) + 135) % 360
+            r_z = (np.arctan2(tag.corners[0][1] - tag.center[1], tag.corners[0][0] - tag.center[0]) + ( 3 * np.pi )/4) # % 360
             ori = [r_x, r_y, r_z]
 
             s_tags[tag.tag_id] = {"pos": pos, "rot": ori}
