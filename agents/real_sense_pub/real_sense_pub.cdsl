@@ -1,0 +1,9 @@
+Component real_sense_pub
+{
+    Communications
+    {
+    };
+    language python;
+    options dsr;
+};
+
