@@ -3,4 +3,4 @@ PROJECT(  real_sense_pub )
 
 INCLUDE( /opt/robocomp/cmake/robocomp.cmake )
 
-ROBOCOMP_IDSL_TO_ICE( CommonBehavior  )
+ROBOCOMP_IDSL_TO_ICE( CommonBehavior CameraRGBDSimple )
