@@ -26,6 +26,7 @@ from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
 
+import pyrealsense2 as rs
 import numpy as np
 import cv2
 
@@ -57,7 +58,6 @@ class SpecificWorker(GenericWorker):
 
         self.CUBE_PREFIX = 1000
 
-        self.tf = inner_api(self.g)
         self.tag_detection_count = {}
         self.tags = {}
         self.cube_pos = {}
@@ -66,6 +66,9 @@ class SpecificWorker(GenericWorker):
             on_press=self.on_press,
             on_release=self.on_release)
         listener.start()
+
+        self.align_to = rs.stream.color
+        self.align = rs.align(self.align_to)
 
         try:
             signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
@@ -146,6 +149,15 @@ class SpecificWorker(GenericWorker):
         dest_pose[3] = 0.0
         dest_pose[4] = np.pi
 
+        # -45 para minizar giro, + 90 para cuadrar con el gripper
+        dest_pose[5] = np.degrees(dest_pose[5]) % 90
+        if dest_pose[5] < 45:
+            dest_pose[5] += 90
+
+        dest_pose[5] -= 45
+        dest_pose[5] = (90 - dest_pose[5]) % 90 + 45
+        dest_pose[5] = np.radians(dest_pose[5])
+
         print (dest_pose)
         gripper.attrs["gripper_target_finger_distance"].value = 1.0
         gripper.attrs["target"].value = dest_pose
@@ -154,8 +166,8 @@ class SpecificWorker(GenericWorker):
     def insert_or_update_cube (self, cube_id):
         cube = self.tags[cube_id]
        
-        
-        new_pos = self.tf.transform_axis ("world", cube["pos"] + cube["rot"], "hand_camera")
+        tf = inner_api(self.g)
+        new_pos = tf.transform_axis ("world", cube["pos"] + cube["rot"], "hand_camera")
 
         if (cube_node := self.g.get_node("cube_" + str(cube_id))) is None:
             new_node = Node(cube_id + self.CUBE_PREFIX, "box", "cube_" + str(cube_id))
@@ -165,9 +177,9 @@ class SpecificWorker(GenericWorker):
         
         # print ("Inserted cube " + str(cube_id))
 
+        rt = rt_api(self.g)
         world = self.g.get_node ("world")
-        self.rt = rt_api(self.g)
-        self.rt.insert_or_assign_edge_RT(world, cube_node.id, new_pos[:3], new_pos[3:])
+        rt.insert_or_assign_edge_RT(world, cube_node.id, new_pos[:3], new_pos[3:])
         self.g.update_node(world)
 
     def delete_cube (self, cube_id):
@@ -180,7 +192,7 @@ class SpecificWorker(GenericWorker):
             # print (type(self.depth), self.depth.shape)
 
             self.depth = np.frombuffer(self.depth_raw, dtype=np.uint16)
-            self.depth = self.depth.reshape((270, 480))
+            self.depth = self.depth.reshape((480, 640))
 
             # depth[ depth > 2000] = 0
             # print (depth.dtype, depth[135, 240])
@@ -191,8 +203,9 @@ class SpecificWorker(GenericWorker):
 
             self.color = np.frombuffer(self.color_raw, dtype=np.uint8)
             self.color = self.color.reshape((480, 640, 3))
-            self.inmediate_tags = self.compute_april_tags()
+            self.color = cv2.resize(self.color, (1280, 960), interpolation=cv2.INTER_NEAREST)
 
+            self.inmediate_tags = self.compute_april_tags()
             for id in self.inmediate_tags.keys():
                 if id not in self.tag_detection_count.keys():
                     self.tag_detection_count[id] = 0
@@ -209,8 +222,10 @@ class SpecificWorker(GenericWorker):
                 else:
                     self.delete_cube (id)
 
-            
-            cv2.imshow('Color', cv2.cvtColor(self.depth.astype(np.uint8), cv2.COLOR_RGB2BGR)) #depth.astype(np.uint8))
+            dept_show = cv2.applyColorMap(cv2.convertScaleAbs(self.depth, alpha=0.03), cv2.COLORMAP_JET)
+            # dept_show = cv2.rectangle (dept_show, (450, 268), (118, 81), (255, 255, 255))  
+            # dept_show = cv2.resize(dept_show, dsize=(1280, 720))          
+            cv2.imshow('Color', self.color) #depth.astype(np.uint8))
 
         return True
 
@@ -228,7 +243,7 @@ class SpecificWorker(GenericWorker):
     def update_node(self, id: int, type: str):
         # console.print(f"UPDATE NODE: {id} {type}", style='green')
 
-        if type=='rgbd':
+        if type=='rgbd' and id == 62842907933016084:
             updated_node = self.g.get_node(id)
             self.depth_raw = updated_node.attrs['cam_depth'].value
             self.color_raw = updated_node.attrs['cam_rgb'].value
@@ -256,7 +271,6 @@ class SpecificWorker(GenericWorker):
         tags = self.detector.detect(cv2.cvtColor(self.color, cv2.COLOR_RGB2GRAY))
         if len(tags) > 0:
             for tag in tags:
-                print (tag)
                 for idx in range(len(tag.corners)):
                     cv2.line(self.color, tuple(tag.corners[idx - 1, :].astype(int)), tuple(tag.corners[idx, :].astype(int)), (0, 255, 0))
                     cv2.putText(self.color, str(tag.tag_id),
@@ -276,23 +290,32 @@ class SpecificWorker(GenericWorker):
         for tag in tags:
             # print (tag.center)
             # print (int(tag.center[1] / 1.77), int(tag.center[0] / 1.33))
-            index_x = int(tag.center[1] / 1.91 + 10 )
-            index_y = int(tag.center[0] / 1.96 + 100)
-            pos_z = self.depth[index_x][index_y]
-            pos_x = - ((tag.center[1] - self.color.shape[0] // 2) * pos_z) / self.focal_x  
-            pos_y = - ((tag.center[0] - self.color.shape[1] // 2) * pos_z) / self.focal_y
+            index_x = int(tag.center[1]) // 2
+            index_y = int(tag.center[0]) // 2
+            pos_z = np.mean(self.depth[index_x-10:index_x+10,index_y-10:index_y+10])
+
+
+            pos_x = - ((tag.center[1]//2 - self.color.shape[0] // 4) * pos_z) / self.focal_x  
+            pos_y = - ((tag.center[0]//2 - self.color.shape[1] // 4) * pos_z) / self.focal_y
 
             pos = [pos_y, pos_x, pos_z] # Acording to gripper reference frame
+            # pos = [pos_x, pos_y, pos_z] # Acording to world reference frame
 
             r_x = 0
             r_y = 0
             r_z = (np.arctan2(tag.corners[0][1] - tag.center[1], tag.corners[0][0] - tag.center[0]) + ( 3 * np.pi )/4) # % 360
+            # print (tag.center[0] - self.color.shape[1] // 2,  tag.center[1] - self.color.shape[0] // 2)
             ori = [r_x, r_y, r_z]
+
+            # print (pos)
+
 
             s_tags[tag.tag_id] = {"pos": pos, "rot": ori}
 
-            cv2.drawMarker(self.depth, (int((tag.center[0]) / 1.96 + 100), int(tag.center[1] / 1.91 + 10)), (0, 255, 0), cv2.MARKER_CROSS, 150, 1)
+            # cv2.drawMarker(self.depth, (int(tag.center[0]), int(tag.center[1])), (0, 255, 0), cv2.MARKER_CROSS, 150, 1)
+            # cv2.drawMarker(self.depth, (int(tag.corners[0][0]), int(tag.corners[0][1])), (0, 255, 0), cv2.MARKER_CROSS, 150, 1)
+            # cv2.drawMarker(self.depth, (int(tag.corners[1][0]), int(tag.corners[2][1])), (0, 255, 0), cv2.MARKER_CROSS, 150, 1)
 
-            self.depth = cv2.rectangle (self.depth, (95, 15), (430, 260), (0, 255, 0))
+            # self.depth = cv2.rectangle (self.depth, (300, 220), (340, 260), (0, 255, 0))
         return s_tags
         

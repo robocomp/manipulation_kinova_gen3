@@ -19,13 +19,14 @@
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from turtle import color
+# from turtle import color
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
 from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
 
+import pyrealsense2 as rs
 import numpy as np
 import cv2
 
@@ -44,19 +45,66 @@ from pydsr import *
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 2000
+        self.Period = 100
 
         # YOU MUST SET AN UNIQUE ID FOR THIS AGENT IN YOUR DEPLOYMENT. "_CHANGE_THIS_ID_" for a valid unique integer
-        self.agent_id = "_CHANGE_THIS_ID_"
-        self.g = DSRGraph(0, "pythonAgent", self.agent_id)
+        self.agent_id = 1123
+        self.g = DSRGraph(0, "real_sense_pub", self.agent_id)
+        self.rt = rt_api(self.g)
+
+        self.TOP_CAMERA_SN = '151422251126'
+
+        
+        self.camera_node = self.g.get_node('top_view_camera')
+        if self.camera_node is not None: # TODO: Edit camera params
+            self.camera_node.attrs['cam_rgb'         ] = Attribute (np.zeros((480,640,3), np.uint8), self.agent_id)
+            self.camera_node.attrs['cam_rgb_width'   ] = Attribute (640,        self.agent_id)
+            self.camera_node.attrs['cam_rgb_height'  ] = Attribute (480,        self.agent_id)
+            self.camera_node.attrs['cam_rgb_depth'   ] = Attribute (3,          self.agent_id)
+            self.camera_node.attrs['cam_rgb_focalx'  ] = Attribute (653.68229,  self.agent_id)
+            self.camera_node.attrs['cam_rgb_focaly'  ] = Attribute (651.855994, self.agent_id)
+            self.camera_node.attrs['cam_rgb_cameraID'] = Attribute (0,          self.agent_id)
+
+            self.camera_node.attrs['cam_depth'         ] = Attribute (np.zeros((480,640,2), np.uint8), self.agent_id)
+            self.camera_node.attrs['cam_depth_width'   ] = Attribute (640,           self.agent_id)
+            self.camera_node.attrs['cam_depth_height'  ] = Attribute (480,           self.agent_id)
+            self.camera_node.attrs['cam_depth_depth'   ] = Attribute (2,             self.agent_id)
+            self.camera_node.attrs['cam_depth_focalx'  ] = Attribute (360.01333,     self.agent_id)
+            self.camera_node.attrs['cam_depth_focaly'  ] = Attribute (360.013366699, self.agent_id)
+            self.camera_node.attrs['cam_depthFactor'   ] = Attribute (0.01,          self.agent_id)
+            self.camera_node.attrs['cam_depth_cameraID'] = Attribute (1,             self.agent_id)
+
+            self.g.update_node(self.camera_node)
+        
+            # TODO: Edit camera RT
+            # world   = self.g.get_node('world')
+            # camera_pos = [0, 0, 0]
+            # camera_rot = [0, 0, 0]
+            # new_pos = [self.camera_node.id, camera_pos, camera_rot]
+            # self.rt.insert_or_assign_edge_RT(world, *new_pos)
+            # self.g.update_node(world)
+        
+
+        # Real Sense generic configuration
+        # Top camera configuration
+        self.pipeline_top = rs.pipeline()
+        config_top = rs.config()
+        config_top.enable_device(self.TOP_CAMERA_SN)
+        config_top.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+        config_top.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+
+        self.pipeline_top.start(config_top)
+
+        align_to = rs.stream.color
+        self.align = rs.align(align_to)
 
         try:
-            signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
-            signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
-            signals.connect(self.g, signals.DELETE_NODE, self.delete_node)
-            signals.connect(self.g, signals.UPDATE_EDGE, self.update_edge)
-            signals.connect(self.g, signals.UPDATE_EDGE_ATTR, self.update_edge_att)
-            signals.connect(self.g, signals.DELETE_EDGE, self.delete_edge)
+            # signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
+            # signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
+            # signals.connect(self.g, signals.DELETE_NODE, self.delete_node)
+            # signals.connect(self.g, signals.UPDATE_EDGE, self.update_edge)
+            # signals.connect(self.g, signals.UPDATE_EDGE_ATTR, self.update_edge_att)
+            # signals.connect(self.g, signals.DELETE_EDGE, self.delete_edge)
             console.print("signals connected")
         except RuntimeError as e:
             print(e)
@@ -69,6 +117,7 @@ class SpecificWorker(GenericWorker):
 
     def __del__(self):
         """Destructor"""
+        self.pipeline_top.stop()
 
     def setParams(self, params):
         return True
@@ -76,15 +125,62 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
-        print('SpecificWorker.compute...')
+
+        # Wait for a coherent pair of frames: depth and color
+        frames = self.pipeline_top.wait_for_frames()
+
+        aligned_frames = self.align.process(frames)
+
+        depth_frame = aligned_frames.get_depth_frame()
+        color_frame = aligned_frames.get_color_frame()
+
+        if not depth_frame or not color_frame:
+            print ('No top frame')
+            return True
         
-        all_raw, color_raw, dept_rawh = self.camerargbdsimple_proxy.getAll()
-        color = np.frombuffer(color_raw.image, np.uint8).reshape(color_raw.width, color_raw.height, color_raw.depth)
-        color = cv2.cvtColor(color, cv2.COLOR_BGR2RGB)
+         # Convert images to numpy arrays
+        depth_image = np.asanyarray(depth_frame.get_data())
+        color_image = np.asanyarray(color_frame.get_data())
 
-        cv2.imshow("COLOR", color)
-        cv2.waitKey(1)
+        depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
+        color_intrin = color_frame.profile.as_video_stream_profile().intrinsics
+        
+        # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
+        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
 
+        # images = np.hstack((color_image, depth_colormap))
+        # images = np.hstack((color_image_h, depth_colormap_h))
+
+        # Show images
+        # cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
+        # cv2.imshow('RealSense', images)
+        # cv2.waitKey(1)
+
+        # Suboptimal, should treat them independently
+        if color_image is not None and depth_image is not None: 
+            
+            depth = depth_image.tobytes()
+            depth = np.frombuffer(depth, dtype=np.uint8)
+            depth = depth.reshape((480, 640, 2)) 
+
+            self.camera_node = self.g.get_node('top_view_camera')
+
+            if self.camera_node is not None:
+                self.camera_node.attrs['cam_rgb'].value = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
+                self.camera_node.attrs['cam_rgb_height'].value = color_image.shape[0]
+                self.camera_node.attrs['cam_rgb_width' ].value  = color_image.shape[1]
+                self.camera_node.attrs['cam_rgb_depth' ].value  = color_image.shape[2]
+                self.camera_node.attrs['cam_rgb_focalx'].value = float(color_intrin.fx)
+                self.camera_node.attrs['cam_rgb_focaly'].value = float(color_intrin.fy)
+
+                self.camera_node.attrs['cam_depth'].value = depth
+                self.camera_node.attrs['cam_depth_height'].value = depth.shape[0]
+                self.camera_node.attrs['cam_depth_width' ].value  = depth.shape[1]
+                # self.camera_node.attrs['cam_ed_depth'].value = color.shape[2]
+                self.camera_node.attrs['cam_depth_focalx'].value = float(depth_intrin.fx)
+                self.camera_node.attrs['cam_depth_focaly'].value = float(depth_intrin.fy)
+
+                self.g.update_node(self.camera_node)
         return True
 
     def startup_check(self):

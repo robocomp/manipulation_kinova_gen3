@@ -27,11 +27,9 @@ import interfaces as ifaces
 
 import kinovaControl
 
-import multiprocessing as mp
-import time
-import vid_streamv32 as vs
-import cv2
+import pyrealsense2 as rs
 import numpy as np
+import cv2
 
 sys.path.append('/opt/robocomp/lib')
 console = Console(highlight=False)
@@ -56,43 +54,16 @@ class SpecificWorker(GenericWorker):
 
         self.arm = kinovaControl.KinovaGen3()
 
-        #Current Cam
-        self.camProcess = None
-        self.cam_queue = None
-        self.stopbit = None
-        self.camlink = 'rtsp://192.168.1.10/depth' # Add your RTSP cam link
-        self.framerate = 15
+        self.HAND_CAMERA_SN = '839112060624'
 
-        #Current Cam
-        self.colorCamProcess = None
-        self.color_queue = None
-        self.colorStopbit = None
-        self.colorLink = 'rtsp://192.168.1.10/color' # Add your RTSP cam link
-        self.colorFramerate = 15
+        # Hand camera configuration
+        self.pipeline_hand = rs.pipeline()
+        config_hand = rs.config()
+        config_hand.enable_device(self.HAND_CAMERA_SN)
+        config_hand.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+        config_hand.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
 
-        #set  queue size
-        self.cam_queue = mp.Queue(maxsize=1)
-        self.color_queue = mp.Queue(maxsize=1)
-
-        #get all cams
-        time.sleep(3)
-
-
-        self.stopbit = mp.Event()
-        self.camProcess = vs.StreamCapture( self.camlink,
-                                            self.stopbit,
-                                            self.cam_queue,
-                                            self.framerate)
-
-                            
-        self.camProcess.start()
-        
-        self.colorStopbit = mp.Event()
-        self.colorCamProcess = vs.StreamCapture(self.colorLink,
-                                                self.colorStopbit,
-                                                self.color_queue,
-                                                self.colorFramerate)
-        self.colorCamProcess.start()
+        self.pipeline_hand.start(config_hand)
 
         self.camera_node = self.g.get_node('hand_camera')
         
@@ -105,9 +76,9 @@ class SpecificWorker(GenericWorker):
             self.camera_node.attrs['cam_rgb_focaly'  ] = Attribute (651.855994, self.agent_id)
             self.camera_node.attrs['cam_rgb_cameraID'] = Attribute (0,          self.agent_id)
 
-            self.camera_node.attrs['cam_depth'         ] = Attribute (np.zeros((270,480,3), np.uint8), self.agent_id)
-            self.camera_node.attrs['cam_depth_width'   ] = Attribute (270,           self.agent_id)
-            self.camera_node.attrs['cam_depth_height'  ] = Attribute (480,           self.agent_id)
+            self.camera_node.attrs['cam_depth'         ] = Attribute (np.zeros((480,640,2), np.uint8), self.agent_id)
+            self.camera_node.attrs['cam_depth_width'   ] = Attribute (480,           self.agent_id)
+            self.camera_node.attrs['cam_depth_height'  ] = Attribute (640,           self.agent_id)
             self.camera_node.attrs['cam_depth_depth'   ] = Attribute (2,             self.agent_id)
             self.camera_node.attrs['cam_depth_focalx'  ] = Attribute (360.01333,     self.agent_id)
             self.camera_node.attrs['cam_depth_focaly'  ] = Attribute (360.013366699, self.agent_id)
@@ -118,12 +89,17 @@ class SpecificWorker(GenericWorker):
 
             self.g.update_node(self.camera_node)
 
+        align_to = rs.stream.color
+        self.align = rs.align(align_to)
+
         self.gripper = self.g.get_node('gripper')
         self.gripper.attrs['gripper_finger_distance'] = Attribute (float(0.0), self.agent_id)
         self.gripper.attrs['gripper_target_finger_distance'] = Attribute (float(0.0), self.agent_id)
         self.g.update_node(self.gripper)
 
         self.GRIPPER_ID = self.gripper.id
+
+        self.moving = False
 
 
         try:
@@ -145,34 +121,10 @@ class SpecificWorker(GenericWorker):
 
     def __del__(self):
         """Destructor"""
-        if self.stopbit is not None:
-            self.stopbit.set()
-            while not self.cam_queue.empty():
-                try:
-                    _ = self.cam_queue.get()
-                except:
-                    break
-                self.cam_queue.close()
-
-            self.camProcess.join()
-
-        if self.colorStopbit is not None:
-            self.colorStopbit.set()
-            while not self.color_queue.empty():
-                try:
-                    _ = self.color_queue.get()
-                except:
-                    break
-                self.color_queue.close()
-
-            self.colorCamProcess.join()
+        self.pipeline_hand.stop()
+        
 
     def setParams(self, params):
-        # try:
-        #	self.innermodel = InnerModel(params["InnerModelPath"])
-        # except:
-        #	traceback.print_exc()
-        #	print("Error reading config params")
         return True
 
     def update_gripper_state(self):
@@ -180,7 +132,11 @@ class SpecificWorker(GenericWorker):
         self.gripper = self.g.get_node('gripper')
         gr_state = self.arm.get_gripper_state()            
         self.gripper.attrs['gripper_finger_distance'].value = 1 - gr_state
-        self.g.update_node (self.gripper)
+        if not self.moving:
+            self.g.update_node (self.gripper)
+        else:
+            self.moving = False
+
         
 
     def update_arm_pose(self):
@@ -215,93 +171,69 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
-        # print('SpecificWorker.compute...')
 
         self.update_arm_pose()
-        # self.update_gripper_state()
+        self.update_gripper_state()
+
+        frames = self.pipeline_hand.wait_for_frames()
+        aligned_frames = self.align.process(frames)
+
+        depth_frame = aligned_frames.get_depth_frame()
+        color_frame = aligned_frames.get_color_frame()
+        if not depth_frame or not color_frame:
+            print ('No hand frame')
+            return True
         
-        depth, color = self.get_rgbd_stream()
+
+         # Convert images to numpy arrays
+        depth_image = np.asanyarray(depth_frame.get_data())
+        color_image = np.asanyarray(color_frame.get_data())
+
+        depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
+        color_intrin = color_frame.profile.as_video_stream_profile().intrinsics
+
+        # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
+        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
+
+        # images = np.hstack((color_image, depth_colormap))
+        # images = np.hstack((color_image_h, depth_colormap_h))
+
+        # Show images
+        # cv2.namedWindow('RealSense hand', cv2.WINDOW_AUTOSIZE)
+        # cv2.imshow('RealSense hand', images)
+        # cv2.waitKey(1)
 
         # Suboptimal, should treat them independently
-        if color is not None and depth is not None: 
+        if color_image is not None and depth_image is not None: 
             
-            depth = depth.tobytes()
+            depth = depth_image.tobytes()
             depth = np.frombuffer(depth, dtype=np.uint8)
-            depth = depth.reshape((270, 480, 2)) 
+            depth = depth.reshape((480, 640, 2)) 
 
             self.camera_node = self.g.get_node('hand_camera')
 
             if self.camera_node is not None:
-                self.camera_node.attrs['cam_rgb'].value = color
-                self.camera_node.attrs['cam_rgb_height'].value = color.shape[0]
-                self.camera_node.attrs['cam_rgb_width'].value  = color.shape[1]
-                self.camera_node.attrs['cam_rgb_depth'].value  = color.shape[2]
+                self.camera_node.attrs['cam_rgb'].value = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
+                self.camera_node.attrs['cam_rgb_height'].value = color_image.shape[0]
+                self.camera_node.attrs['cam_rgb_width'].value  = color_image.shape[1]
+                self.camera_node.attrs['cam_rgb_depth'].value  = color_image.shape[2]
+                self.camera_node.attrs['cam_rgb_focalx'].value = float(color_intrin.fx)
+                self.camera_node.attrs['cam_rgb_focaly'].value = float(color_intrin.fy)
 
                 self.camera_node.attrs['cam_depth'].value = depth
                 self.camera_node.attrs['cam_depth_height'].value = depth.shape[0]
                 self.camera_node.attrs['cam_depth_width'].value  = depth.shape[1]
                 # self.camera_node.attrs['cam_ed_depth'].value = color.shape[2]
+                self.camera_node.attrs['cam_depth_focalx'].value = float(depth_intrin.fx)
+                self.camera_node.attrs['cam_depth_focaly'].value = float(depth_intrin.fy)
 
                 self.g.update_node(self.camera_node)
-
-                # camera_node.attrs['cam_rgb'].value = color.data
-                # camera_node.attrs['cam_rgb_width'].value = color.cols
-                # camera_node.attrs['cam_rgb_height'].value = color.rows
+        
 
         return True
 
     def startup_check(self):
         QTimer.singleShot(200, QApplication.instance().quit)
-
-    def get_rgbd_stream(self):
-        depth = None 
-        color_color = None
-        if not self.cam_queue.empty():
-            # print('Got frame')
-            cmd, val = self.cam_queue.get()
-
-            # if cmd == vs.StreamCommands.RESOLUTION:
-            #     pass #print(val)
-
-            if cmd == vs.StreamCommands.FRAME:
-                if val is not None:
-                    
-                    # print ("depth: ", val[240][127])
-
-                    # val = val.astype(np.uint8)
-
-                    depth = val # cv2.cvtColor(val, cv2.COLOR_GRAY2RGB)
-
-                    # cv2.imshow('depth', color)
-                    # qt_color = QImage(color, val.shape[1], val.shape[0], QImage.Format_RGB888)
-                    # pix_color = QPixmap.fromImage(qt_color).scaled(self.ui.depth.width(), self.ui.depth.height())
-                    # self.ui.depth.setPixmap(pix_color)
-
-                    # print (val.shape, val)
-
-
-        if not self.color_queue.empty():
-            # print('Got frame')
-            color_cmd, color_val = self.color_queue.get()
-
-            # if cmd == vs.StreamCommands.RESOLUTION:
-            #     pass #print(val)
-
-            if color_cmd == vs.StreamCommands.FRAME:
-                if color_val is not None:
-                    
-                    # print ("img: ", val.shape[1], val.shape[0], " UI: ", self.ui.color.width(), self.ui.color.height() )
-
-                    color_color = cv2.cvtColor(color_val, cv2.COLOR_BGR2RGB)
-                    # color_qt_color = QImage(color_color, color_val.shape[1], color_val.shape[0], QImage.Format_RGB888)
-                    # color_pix_color = QPixmap.fromImage(color_qt_color).scaled(self.ui.color.width(), self.ui.color.height())
-                    # self.ui.color.setPixmap(color_pix_color)
-                    # cv2.imshow('color', color_color)
-
-                    # print (val.shape, val)
-
-        return depth, color_color
-
 
 
     # =============== DSR SLOTS  ================
@@ -311,6 +243,7 @@ class SpecificWorker(GenericWorker):
         # console.print(f"UPDATE NODE ATT: {id} {attribute_names}", style='green')
 
         if id == self.GRIPPER_ID and 'target' in attribute_names:
+            self.moving = True
             updated_node = self.g.get_node(id)
             target_position  = updated_node.attrs['target'].value
             print ("Received target position", target_position)
