@@ -1,0 +1,769 @@
+{
+    "DSRModel": {
+        "symbols": {
+            "1": {
+                "attribute": {
+                    "OuterRegionBottom": {
+                        "type": 1,
+                        "value": -7500
+                    },
+                    "OuterRegionLeft": {
+                        "type": 1,
+                        "value": -7500
+                    },
+                    "OuterRegionRight": {
+                        "type": 1,
+                        "value": 7500
+                    },
+                    "OuterRegionTop": {
+                        "type": 1,
+                        "value": 7500
+                    },
+                    "color": {
+                        "type": 0,
+                        "value": "SeaGreen"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 0
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "0"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": 64.817116
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -2.078605
+                    }
+                },
+                "id": "1",
+                "links": [
+                    {
+                        "dst": "74",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    -0.6995884776115417
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    124.4864501953125,
+                                    138.7539825439453,
+                                    0
+                                ]
+                            }
+                        },
+                        "src": "1"
+                    },
+                    {
+                        "dst": "200",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            }
+                        },
+                        "src": "1"
+                    },
+                    {
+                        "dst": "63693811452215316",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    3.14159265,
+                                    -1.57079633
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    382,
+                                    -52,
+                                    1020
+                                ]
+                            }
+                        },
+                        "src": "1"
+                    }
+                ],
+                "name": "world",
+                "type": "world"
+            },
+            "200": {
+                "attribute": {
+                    "base_target_x": {
+                        "type": 2,
+                        "value": 3600
+                    },
+                    "base_target_y": {
+                        "type": 2,
+                        "value": 1550
+                    },
+                    "color": {
+                        "type": 0,
+                        "value": "Blue"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 1
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "1"
+                    },
+                    "port": {
+                        "type": 1,
+                        "value": 12238
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -174.637238
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -74.730019
+                    },
+                    "robot_ref_adv_speed": {
+                        "type": 2,
+                        "value": 0
+                    },
+                    "robot_ref_rot_speed": {
+                        "type": 2,
+                        "value": 0
+                    },
+                    "robot_ref_side_speed": {
+                        "type": 2,
+                        "value": 0
+                    }
+                },
+                "id": "200",
+                "links": [
+                    {
+                        "dst": "500",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            }
+                        },
+                        "src": "200"
+                    }
+                ],
+                "name": "robot",
+                "type": "omnirobot"
+            },
+            "220": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Orange"
+                    },
+                    "fingers": {
+                        "type": 2,
+                        "value": 0
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 3
+                    },
+                    "mass": {
+                        "type": 1,
+                        "value": 0
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "500"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -262.009766
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -235.44632
+                    },
+                    "target": {
+                        "type": 3,
+                        "value": [
+                            -237,
+                            312,
+                            516,
+                            2.799999952316284,
+                            0,
+                            1.6820000410079956
+                        ]
+                    }
+                },
+                "id": "220",
+                "links": [
+                    {
+                        "dst": "61974579161071636",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            }
+                        },
+                        "src": "220"
+                    },
+                    {
+                        "dst": "62842907933016084",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    7,
+                                    107,
+                                    -150
+                                ]
+                            }
+                        },
+                        "src": "220"
+                    }
+                ],
+                "name": "gripper",
+                "type": "left_hand"
+            },
+            "500": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Orange"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 2
+                    },
+                    "mass": {
+                        "type": 1,
+                        "value": 0
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "200"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -263.540405
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -147.869156
+                    }
+                },
+                "id": "500",
+                "links": [
+                    {
+                        "dst": "220",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    500,
+                                    0,
+                                    1000
+                                ]
+                            }
+                        },
+                        "src": "500"
+                    }
+                ],
+                "name": "arm",
+                "type": "transform"
+            },
+            "61971173956648980": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "GoldenRod"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 2
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "74"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": 66.520645
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -236.64447
+                    }
+                },
+                "id": "61971173956648980",
+                "links": [
+                    {
+                        "dst": "61972483082813460",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            }
+                        },
+                        "src": "61971173956648980"
+                    }
+                ],
+                "name": "cup",
+                "type": "cup"
+            },
+            "61972483082813460": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "GoldenRod"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 3
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "61971173956648980"
+                    },
+                    "path": {
+                        "type": 0,
+                        "value": "/home/robocomp/robocomp/files/osgModels/basics/cylinder.3ds"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": 66.739235
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -309.980133
+                    },
+                    "scalex": {
+                        "type": 1,
+                        "value": 100
+                    },
+                    "scaley": {
+                        "type": 1,
+                        "value": 100
+                    },
+                    "scalez": {
+                        "type": 1,
+                        "value": 100
+                    }
+                },
+                "id": "61972483082813460",
+                "links": [
+                ],
+                "name": "cup_mesh",
+                "type": "mesh"
+            },
+            "61974579161071636": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "GoldenRod"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 4
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "220"
+                    },
+                    "path": {
+                        "type": 0,
+                        "value": "/home/robocomp/robocomp/files/osgModels/basics/sphere.3ds"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -227.200974
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -204.094498
+                    },
+                    "scalex": {
+                        "type": 1,
+                        "value": 50
+                    },
+                    "scaley": {
+                        "type": 1,
+                        "value": 50
+                    },
+                    "scalez": {
+                        "type": 1,
+                        "value": 50
+                    }
+                },
+                "id": "61974579161071636",
+                "links": [
+                ],
+                "name": "gripper_mesh",
+                "type": "mesh"
+            },
+            "62842907933016084": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "GoldenRod"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 4
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "220"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -262.246826
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -314.696198
+                    }
+                },
+                "id": "62842907933016084",
+                "links": [
+                    {
+                        "dst": "62846132111278100",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            }
+                        },
+                        "src": "62842907933016084"
+                    }
+                ],
+                "name": "hand_camera",
+                "type": "rgbd"
+            },
+            "62846132111278100": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "GoldenRod"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 5
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "62842907933016084"
+                    },
+                    "path": {
+                        "type": 0,
+                        "value": "/home/robocomp/robocomp/files/osgModels/basics/sphere.3ds"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -224.876938
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -286.476898
+                    },
+                    "scalex": {
+                        "type": 1,
+                        "value": 10
+                    },
+                    "scaley": {
+                        "type": 1,
+                        "value": 10
+                    },
+                    "scalez": {
+                        "type": 1,
+                        "value": 10
+                    }
+                },
+                "id": "62846132111278100",
+                "links": [
+                ],
+                "name": "camera_mesh",
+                "type": "mesh"
+            },
+            "63693811452215316": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "GoldenRod"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 1
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "1"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": 240.042603
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -115.255112
+                    }
+                },
+                "id": "63693811452215316",
+                "links": [
+                ],
+                "name": "top_view_camera",
+                "type": "rgbd"
+            },
+            "73": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "LightBlue"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 2
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "74"
+                    },
+                    "path": {
+                        "type": 0,
+                        "value": "/home/robocomp/robocomp/files/osgModels/basics/cylinder.3ds"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": 99.365082
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -180.850784
+                    },
+                    "scalex": {
+                        "type": 1,
+                        "value": 600
+                    },
+                    "scaley": {
+                        "type": 1,
+                        "value": 600
+                    },
+                    "scalez": {
+                        "type": 1,
+                        "value": 770
+                    }
+                },
+                "id": "73",
+                "links": [
+                ],
+                "name": "table_mesh",
+                "type": "mesh"
+            },
+            "74": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "GreenYellow"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 1
+                    },
+                    "obj_depth": {
+                        "type": 1,
+                        "value": 1200
+                    },
+                    "obj_height": {
+                        "type": 1,
+                        "value": 770
+                    },
+                    "obj_id": {
+                        "type": 1,
+                        "value": 0
+                    },
+                    "obj_interaction_angle": {
+                        "type": 2,
+                        "value": 0
+                    },
+                    "obj_interaction_shape": {
+                        "type": 0,
+                        "value": "circle"
+                    },
+                    "obj_interaction_space": {
+                        "type": 2,
+                        "value": 500
+                    },
+                    "obj_width": {
+                        "type": 1,
+                        "value": 1200
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "1"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": 64.638336
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -153.997665
+                    }
+                },
+                "id": "74",
+                "links": [
+                    {
+                        "dst": "73",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            }
+                        },
+                        "src": "74"
+                    },
+                    {
+                        "dst": "74",
+                        "label": "interactive",
+                        "linkAttribute": {
+                        },
+                        "src": "74"
+                    },
+                    {
+                        "dst": "61971173956648980",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    800
+                                ]
+                            }
+                        },
+                        "src": "74"
+                    }
+                ],
+                "name": "table",
+                "type": "object"
+            }
+        }
+    }
+}
