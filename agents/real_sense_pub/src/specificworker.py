@@ -76,14 +76,6 @@ class SpecificWorker(GenericWorker):
 
             self.g.update_node(self.camera_node)
         
-            # TODO: Edit camera RT
-            # world   = self.g.get_node('world')
-            # camera_pos = [0, 0, 0]
-            # camera_rot = [0, 0, 0]
-            # new_pos = [self.camera_node.id, camera_pos, camera_rot]
-            # self.rt.insert_or_assign_edge_RT(world, *new_pos)
-            # self.g.update_node(world)
-        
 
         # Real Sense generic configuration
         # Top camera configuration

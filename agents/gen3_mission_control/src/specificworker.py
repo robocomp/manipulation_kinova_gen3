@@ -29,6 +29,7 @@ import interfaces as ifaces
 import pyrealsense2 as rs
 import numpy as np
 import cv2
+from scipy.spatial.transform import Rotation as R
 
 from pynput import keyboard
 
@@ -58,9 +59,11 @@ class SpecificWorker(GenericWorker):
 
         self.CUBE_PREFIX = 1000
 
-        self.tag_detection_count = {}
-        self.tags = {}
-        self.cube_pos = {}
+        self.hand_tag_detection_count = {}
+        self.hand_tags = {}
+
+        self.top_tag_detection_count = {}
+        self.top_tags = {}
 
         listener = keyboard.Listener(
             on_press=self.on_press,
@@ -137,7 +140,7 @@ class SpecificWorker(GenericWorker):
         if cube_id == 0:
             dest_pose = [400, 0, 400, np.pi, 0, np.pi/2]
 
-        elif cube_id not in self.tags.keys():
+        elif cube_id not in self.hand_tags.keys():
             return
         else:
         # cube_node = self.g.get_node ("cube_" + str(cube_id))
@@ -163,36 +166,43 @@ class SpecificWorker(GenericWorker):
         gripper.attrs["target"].value = dest_pose
         self.g.update_node (gripper)
 
-    def insert_or_update_cube (self, cube_id):
-        cube = self.tags[cube_id]
-       
+    def insert_or_update_cube (self, tags, cube_id, is_top = "", offset = 0):
+        cube = tags[cube_id]
+        cube_name = "cube_" + str(cube_id) + is_top
         tf = inner_api(self.g)
-        new_pos = tf.transform_axis ("world", cube["pos"] + cube["rot"], "hand_camera")
+        camera_id = "top_view_camera" if is_top else "hand_camera"
+        new_pos = tf.transform_axis ("world", cube["pos"] + cube["rot"], camera_id)
 
-        if (cube_node := self.g.get_node("cube_" + str(cube_id))) is None:
-            new_node = Node(cube_id + self.CUBE_PREFIX, "box", "cube_" + str(cube_id))
+        if (cube_node := self.g.get_node(cube_name)) is None:
+            new_node = Node(cube_id + self.CUBE_PREFIX + offset, "box", cube_name)
             self.g.insert_node (new_node)
 
             cube_node = new_node
         
         # print ("Inserted cube " + str(cube_id))
 
+        # if is_top:
+        #     print ("top ", new_pos[3:5])
+        # else:
+        #     print ("hand", new_pos[3:5])
+
         rt = rt_api(self.g)
         world = self.g.get_node ("world")
         rt.insert_or_assign_edge_RT(world, cube_node.id, new_pos[:3], new_pos[3:])
         self.g.update_node(world)
 
-    def delete_cube (self, cube_id):
-        if (cube := self.g.get_node ("cube_" + str(cube_id))):
+    def delete_cube (self, cube_id, is_top=""):
+        if (cube := self.g.get_node ("cube_" + str(cube_id) + is_top)):
             self.g.delete_node (cube.id)
 
     @QtCore.Slot()
     def compute(self):
-        if self.color_raw is not None and self.depth_raw is not None:
+
+        if self.hand_color_raw is not None and self.hand_depth_raw is not None:
             # print (type(self.depth), self.depth.shape)
 
-            self.depth = np.frombuffer(self.depth_raw, dtype=np.uint16)
-            self.depth = self.depth.reshape((480, 640))
+            self.hand_depth = np.frombuffer(self.hand_depth_raw, dtype=np.uint16)
+            self.hand_depth = self.hand_depth.reshape((480, 640))
 
             # depth[ depth > 2000] = 0
             # print (depth.dtype, depth[135, 240])
@@ -201,31 +211,71 @@ class SpecificWorker(GenericWorker):
 
             # print ("max", depth[135, 240], np.max(depth))
 
-            self.color = np.frombuffer(self.color_raw, dtype=np.uint8)
-            self.color = self.color.reshape((480, 640, 3))
-            self.color = cv2.resize(self.color, (1280, 960), interpolation=cv2.INTER_NEAREST)
+            self.hand_color = np.frombuffer(self.hand_color_raw, dtype=np.uint8)
+            self.hand_color = self.hand_color.reshape((480, 640, 3))
+            self.hand_color = cv2.resize(self.hand_color, (1280, 960), interpolation=cv2.INTER_NEAREST)
 
-            self.inmediate_tags = self.compute_april_tags()
-            for id in self.inmediate_tags.keys():
-                if id not in self.tag_detection_count.keys():
-                    self.tag_detection_count[id] = 0
+            complete_tags = self.compute_april_tags(self.hand_color, (self.hand_focal_x, self.hand_focal_y))
+            simplified_inmediate_tags = self.simplify_tags(complete_tags, self.hand_color, (self.hand_focal_x, self.hand_focal_y), self.hand_depth)
 
-            for id in self.tag_detection_count.keys():
-                if id in self.inmediate_tags.keys():
-                    self.tag_detection_count[id] = np.minimum (30, self.tag_detection_count[id]+1)
+            for id in simplified_inmediate_tags.keys():
+                if id not in self.hand_tag_detection_count.keys():
+                    self.hand_tag_detection_count[id] = 0
+
+            for id in self.hand_tag_detection_count.keys():
+                if id in simplified_inmediate_tags.keys():
+                    self.hand_tag_detection_count[id] = np.minimum (30, self.hand_tag_detection_count[id]+1)
                 else:
-                    self.tag_detection_count[id] = np.maximum (0, self.tag_detection_count[id]-1)
+                    self.hand_tag_detection_count[id] = np.maximum (0, self.hand_tag_detection_count[id]-1)
                 
-                if (self.tag_detection_count[id] > 20):
-                    self.tags[id] = self.inmediate_tags[id]
-                    self.insert_or_update_cube (id)
+                if (self.hand_tag_detection_count[id] > 20):
+                    self.hand_tags[id] = simplified_inmediate_tags[id]
+                    self.insert_or_update_cube (self.hand_tags, id)
                 else:
                     self.delete_cube (id)
 
-            dept_show = cv2.applyColorMap(cv2.convertScaleAbs(self.depth, alpha=0.03), cv2.COLORMAP_JET)
+        if self.top_color_raw is not None and self.top_depth_raw is not None:
+            # print (type(self.depth), self.depth.shape)
+
+            self.top_depth = np.frombuffer(self.top_depth_raw, dtype=np.uint16)
+            self.top_depth = self.top_depth.reshape((480, 640))
+
+            # depth[ depth > 2000] = 0
+            # print (depth.dtype, depth[135, 240])
+
+            # depth = cv2.convertScaleAbs (depth, depth, 255.0/np.max(depth))
+
+            # print ("max", depth[135, 240], np.max(depth))
+
+            self.top_color = np.frombuffer(self.top_color_raw, dtype=np.uint8)
+            self.top_color = self.top_color.reshape((480, 640, 3))
+            self.top_color = cv2.resize(self.top_color, (1280, 960), interpolation=cv2.INTER_NEAREST)
+
+            top_complete_tags = self.compute_april_tags(self.top_color, (self.top_focal_x, self.top_focal_y))
+            top_simplified_inmediate_tags = self.simplify_tags(top_complete_tags, self.top_color, (self.top_focal_x, self.top_focal_y), self.top_depth)
+
+            for id in simplified_inmediate_tags.keys():
+                if id not in self.top_tag_detection_count.keys():
+                    self.top_tag_detection_count[id] = 0
+
+            for id in self.top_tag_detection_count.keys():
+                if id in top_simplified_inmediate_tags.keys():
+                    self.top_tag_detection_count[id] = np.minimum (30, self.top_tag_detection_count[id]+1)
+                else:
+                    self.top_tag_detection_count[id] = np.maximum (0, self.top_tag_detection_count[id]-1)
+                
+                if (self.top_tag_detection_count[id] > 20):
+                    self.top_tags[id] = top_simplified_inmediate_tags[id]
+                    self.insert_or_update_cube (self.top_tags, id, "**", 40)
+                else:
+                    self.delete_cube (id, "**")
+
+            dept_show = cv2.applyColorMap(cv2.convertScaleAbs(self.top_depth, alpha=0.03), cv2.COLORMAP_JET)
             # dept_show = cv2.rectangle (dept_show, (450, 268), (118, 81), (255, 255, 255))  
             # dept_show = cv2.resize(dept_show, dsize=(1280, 720))          
-            cv2.imshow('Color', self.color) #depth.astype(np.uint8))
+            cv2.imshow('Color', dept_show) #depth.astype(np.uint8))
+
+        # self.display_cube_diff (self.top_tags, self.hand_tags)
 
         return True
 
@@ -245,11 +295,19 @@ class SpecificWorker(GenericWorker):
 
         if type=='rgbd' and id == 62842907933016084:
             updated_node = self.g.get_node(id)
-            self.depth_raw = updated_node.attrs['cam_depth'].value
-            self.color_raw = updated_node.attrs['cam_rgb'].value
+            self.hand_depth_raw = updated_node.attrs['cam_depth'].value
+            self.hand_color_raw = updated_node.attrs['cam_rgb'].value
 
-            self.focal_x = updated_node.attrs['cam_rgb_focalx'].value
-            self.focal_y = updated_node.attrs['cam_rgb_focaly'].value
+            self.hand_focal_x = updated_node.attrs['cam_rgb_focalx'].value
+            self.hand_focal_y = updated_node.attrs['cam_rgb_focaly'].value
+
+        elif type=='rgbd' and id == 63693811452215316:
+            updated_node = self.g.get_node(id)
+            self.top_depth_raw = updated_node.attrs['cam_depth'].value
+            self.top_color_raw = updated_node.attrs['cam_rgb'].value
+
+            self.top_focal_x = updated_node.attrs['cam_rgb_focalx'].value
+            self.top_focal_y = updated_node.attrs['cam_rgb_focaly'].value
 
     def delete_node(self, id: int):
         # console.print(f"DELETE NODE:: {id} ", style='green')
@@ -267,46 +325,62 @@ class SpecificWorker(GenericWorker):
         # console.print(f"DELETE EDGE: {fr} to {type} {type}", style='green')
         pass
 
-    def compute_april_tags(self):
-        tags = self.detector.detect(cv2.cvtColor(self.color, cv2.COLOR_RGB2GRAY))
-        if len(tags) > 0:
-            for tag in tags:
-                for idx in range(len(tag.corners)):
-                    cv2.line(self.color, tuple(tag.corners[idx - 1, :].astype(int)), tuple(tag.corners[idx, :].astype(int)), (0, 255, 0))
-                    cv2.putText(self.color, str(tag.tag_id),
-                               org = (tag.corners[0, 0].astype(int) + 10, tag.corners[0, 1].astype(int) + 10),
-                               fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8, color=(0, 0, 255))
-                    cv2.rectangle(self.color, tuple(tag.center.astype(int) - 1), tuple(tag.center.astype(int) + 1), (255, 0, 255))
-        else:
-            print("Compute_april_tags: No tags detected")
-            pass
+    def display_cube_diff (self, top_tags, hand_tags):
+        tf = inner_api(self.g)
+        try:
+            hand_pos = tf.transform_axis ("world", "cube_3")
+            top_pos  = tf.transform_axis ("world", "cube_3**")
+
+            print ("diff=", hand_pos[:3] - top_pos[:3])
+        except:
+            print ("Couldn't")
+
+    def compute_april_tags(self, img, focals):
+        tags = self.detector.detect(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
+        # if len(tags) > 0:
+        #     for tag in tags:
+        #         for idx in range(len(tag.corners)):
+        #             cv2.line(self.color, tuple(tag.corners[idx - 1, :].astype(int)), tuple(tag.corners[idx, :].astype(int)), (0, 255, 0))
+        #             cv2.putText(self.color, str(tag.tag_id),
+        #                        org = (tag.corners[0, 0].astype(int) + 10, tag.corners[0, 1].astype(int) + 10),
+        #                        fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8, color=(0, 0, 255))
+        #             cv2.rectangle(self.color, tuple(tag.center.astype(int) - 1), tuple(tag.center.astype(int) + 1), (255, 0, 255))
+        # else:
+        #     print("Compute_april_tags: No tags detected")
+        #     pass
     
-        tags = self.simplify_tags(tags)
+        # tags = self.simplify_tags(tags)
 
         return tags
 
-    def simplify_tags(self, tags):
+    def simplify_tags(self, tags, img, focals, depth):
         s_tags = {}
         for tag in tags:
+            m = self.detector.detection_pose(tag,[focals[0], focals[1], 640, 480], 0.04)
             # print (tag.center)
             # print (int(tag.center[1] / 1.77), int(tag.center[0] / 1.33))
+            rot = m[0][:3,:3]
+            v = np.array([1, 0, 0, 1])
+            r = R.from_matrix(rot)
+            print (r.as_euler('xyz', degrees=True))
             index_x = int(tag.center[1]) // 2
             index_y = int(tag.center[0]) // 2
-            pos_z = np.mean(self.depth[index_x-10:index_x+10,index_y-10:index_y+10])
+            pos_z = np.mean(depth[index_x-10:index_x+10,index_y-10:index_y+10])
 
 
-            pos_x = - ((tag.center[1]//2 - self.color.shape[0] // 4) * pos_z) / self.focal_x  
-            pos_y = - ((tag.center[0]//2 - self.color.shape[1] // 4) * pos_z) / self.focal_y
+            pos_x = - ((tag.center[1]//2 - img.shape[0] // 4) * pos_z) / focals[0]  
+            pos_y = - ((tag.center[0]//2 - img.shape[1] // 4) * pos_z) / focals[1]
 
             pos = [pos_y, pos_x, pos_z] # Acording to gripper reference frame
             # pos = [pos_x, pos_y, pos_z] # Acording to world reference frame
 
-            r_x = 0
-            r_y = 0
-            r_z = (np.arctan2(tag.corners[0][1] - tag.center[1], tag.corners[0][0] - tag.center[0]) + ( 3 * np.pi )/4) # % 360
+            # r_x = 0
+            # r_y = 0
+            # r_z = (np.arctan2(tag.corners[0][1] - tag.center[1], tag.corners[0][0] - tag.center[0]) + ( 3 * np.pi )/4) # % 360
             # print (tag.center[0] - self.color.shape[1] // 2,  tag.center[1] - self.color.shape[0] // 2)
-            ori = [r_x, r_y, r_z]
-
+            
+            ori = np.multiply(r.as_euler('yxz'), -1).tolist() # [r_x, r_y, r_z]
+            ori[-1] *= -1
             # print (pos)
 
 
