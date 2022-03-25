@@ -25,6 +25,8 @@ from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
 from Simulation import *
+from scipy.spatial.transform import Rotation as R
+
 
 sys.path.append('/opt/robocomp/lib')
 console = Console(highlight=False)
@@ -41,10 +43,17 @@ class SpecificWorker(GenericWorker):
         self.g = DSRGraph(0, "pythonAgent", self.agent_id)
         self.boxes_ids =  []
         self.already_added = []
+        self.updated_cubes = []
 
         self.sim = Simulation()
         self.sim.load_scene ("/home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/gen3_cubes.ttt")
         self.sim.start_simulation()
+
+        # self.sim.set_object_pose("goal", [400, 0, 400, np.pi, 0, np.pi/2], "gen3")
+
+        # time.sleep (7)
+
+        # self.sim.set_object_pose("goal", [400, 0, 400, np.pi/2, 0, np.pi/2], "gen3")
 
         try:
             # signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
@@ -71,26 +80,45 @@ class SpecificWorker(GenericWorker):
     def setParams(self, params):
         return True
 
-
     @QtCore.Slot()
     def compute(self):
-        print('SpecificWorker.compute...')
+        # print('SpecificWorker.compute...')
+
+
+        # goal = self.sim.get_object_pose("goal")
+        # rot = R.from_quat(goal[1]).as_euler('xyz')
+        # print (np.degrees(rot))
+
+        # return True
+
+
+
         self.update_simulated_arm ()
 
-        for id in self.boxes_ids:
-            cube = self.g.get_node (id)
-            tf = inner_api(self.g)
-            if cube:
-                pos = tf.transform_axis ("world", cube.name)
-                pos[2] -= 20
-                if id not in self.already_added:
-                    self.sim.insert_cube (cube.name, pos[:3], "gen3")
-                    self.already_added.append(id)
 
-                    print ("Created new cube", id, self.boxes_ids, self.already_added)
-                else:
-                    self.sim.set_object_pose(cube.name, pos, "gen3")
-
+        # if self.updated_cubes:
+        # for id in self.updated_cubes:
+        #     print ("Updating cube", id)
+        #     cube = self.g.get_node (id)
+        #     tf = inner_api(self.g)
+        #     if cube:
+        #         pos = tf.transform_axis ("world", cube.name)
+        #         pos[2] -= 20
+        #         if id not in self.already_added:
+        #             if cube.name == "cube_1":
+        #                 self.sim.insert_box (cube.name, pos[:3], "gen3")
+        #             else:
+        #                 self.sim.insert_cube (cube.name, pos[:3], "gen3")
+        #             self.already_added.append(id)
+        #             print ("Created new cube", id, self.boxes_ids, self.already_added)
+        #         else:
+        #             self.sim.set_object_pose(cube.name, pos, "gen3")
+        # # print ("Updating simulation")
+        # self.updated_cubes = []
+        
+        
+        # self.update_cubes_beliefs ()
+        
         return True
 
     def startup_check(self):
@@ -100,7 +128,27 @@ class SpecificWorker(GenericWorker):
     def update_simulated_arm (self):
         tf = inner_api(self.g)
         new_pos = tf.transform_axis ("world", "gripper")
-        self.sim.set_arm_position (new_pos)
+        self.sim.set_object_pose("goal", new_pos, "gen3")
+        # self.sim.set_arm_position (new_pos)
+
+    def update_cubes_beliefs (self):
+
+        for id in self.boxes_ids:
+
+            cube = self.g.get_node(id)
+            pos, rot = self.sim.get_object_pose(cube.name)
+
+            pos[2] += 20
+
+            rot = R.from_quat(rot).as_euler('xyz')
+
+            world = self.g.get_node("world")
+
+            v_rt = Edge (cube.id, world.id, "virtual_RT", self.agent_id)
+            
+            v_rt.attrs["rt_rotation_euler_xyz"] = Attribute(rot, self.agent_id)
+            v_rt.attrs["rt_translation"]        = Attribute(pos, self.agent_id)
+            self.g.insert_or_assign_edge (v_rt)
 
 
     # =============== DSR SLOTS  ================
@@ -117,8 +165,11 @@ class SpecificWorker(GenericWorker):
 
     def update_edge(self, fr: int, to: int, type: str):
         dest = self.g.get_node(to)
-        if dest.type == 'box' and dest.name[-1] != '*' and (dest.name not in self.boxes_ids):
-            self.boxes_ids.append (dest.name)
+        if dest.type == 'box' and type == "RT" and dest.name[-1] != '*':
+            print ("Update received")
+            self.updated_cubes.append (dest.name)
+            if (dest.name not in self.boxes_ids):
+                self.boxes_ids.append (dest.name)
         # console.print(f"UPDATE EDGE: {fr} to {to}", type, style='green')
 
     def update_edge_att(self, fr: int, to: int, type: str, attribute_names: [str]):

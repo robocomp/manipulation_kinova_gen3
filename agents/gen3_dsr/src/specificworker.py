@@ -143,12 +143,12 @@ class SpecificWorker(GenericWorker):
 
         new_pos = None
         arm_pose = self.arm.get_pose()
+        print (arm_pose[3:])
 
         world   = self.g.get_node('arm')
 
         if self.gripper is not None and world is not None:
             arm_rot = np.radians(arm_pose[3:])
-            arm_rot[0],arm_rot[1] = arm_rot[1],arm_rot[0] 
             new_pos = [self.gripper.id, np.multiply(arm_pose[:3], 1000), arm_rot]
             self.rt.insert_or_assign_edge_RT(world, *new_pos)
             self.g.update_node(world)

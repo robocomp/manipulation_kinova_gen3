@@ -21,6 +21,7 @@
 
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
+from attr import Attribute
 from cv2 import norm
 from rich.console import Console
 from genericworker import *
@@ -56,6 +57,8 @@ class SpecificWorker(GenericWorker):
         self.agent_id = 31
         self.g = DSRGraph(0, "pythonAgent", self.agent_id)
         self.depth = None
+
+        print ("Insertede dummie edge")
 
         self.CUBE_PREFIX = 1000
 
@@ -114,7 +117,7 @@ class SpecificWorker(GenericWorker):
                 self.close_gripper()
                 return True
             cube_id = int (key.char)
-            self.pick_cube (cube_id)
+            # self.pick_cube (cube_id)
         except:
             print ("not an int")
 
@@ -187,6 +190,17 @@ class SpecificWorker(GenericWorker):
         #     print ("hand", new_pos[3:5])
 
         rt = rt_api(self.g)
+        try:
+            current_pos = tf.transform_axis ("world", cube_name)
+            pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
+            rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
+            if pos_diff < 5 and rot_diff < 0.1:
+                print ("Not updating pose", pos_diff, rot_diff)
+                return
+        except:
+            print ("Does not exist")
+
+        print ("update")
         world = self.g.get_node ("world")
         rt.insert_or_assign_edge_RT(world, cube_node.id, new_pos[:3], new_pos[3:])
         self.g.update_node(world)
@@ -231,8 +245,8 @@ class SpecificWorker(GenericWorker):
                 if (self.hand_tag_detection_count[id] > 20):
                     self.hand_tags[id] = simplified_inmediate_tags[id]
                     self.insert_or_update_cube (self.hand_tags, id)
-                else:
-                    self.delete_cube (id)
+                # else:
+                #     self.delete_cube (id)
 
         if self.top_color_raw is not None and self.top_depth_raw is not None:
             # print (type(self.depth), self.depth.shape)
@@ -267,8 +281,8 @@ class SpecificWorker(GenericWorker):
                 if (self.top_tag_detection_count[id] > 20):
                     self.top_tags[id] = top_simplified_inmediate_tags[id]
                     self.insert_or_update_cube (self.top_tags, id, "**", 40)
-                else:
-                    self.delete_cube (id, "**")
+                # else:
+                #     self.delete_cube (id, "**")
 
             dept_show = cv2.applyColorMap(cv2.convertScaleAbs(self.top_depth, alpha=0.03), cv2.COLORMAP_JET)
             # dept_show = cv2.rectangle (dept_show, (450, 268), (118, 81), (255, 255, 255))  
@@ -362,7 +376,7 @@ class SpecificWorker(GenericWorker):
             rot = m[0][:3,:3]
             v = np.array([1, 0, 0, 1])
             r = R.from_matrix(rot)
-            print (r.as_euler('xyz', degrees=True))
+            # print (r.as_euler('xyz', degrees=True))
             index_x = int(tag.center[1]) // 2
             index_y = int(tag.center[0]) // 2
             pos_z = np.mean(depth[index_x-10:index_x+10,index_y-10:index_y+10])
