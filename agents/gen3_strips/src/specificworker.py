@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
-#    Copyright (C) 2022 by YOUR NAME HERE
+#    Copyright (C) 2022 by Daniel Peix del Río
 #
 #    This file is part of RoboComp
 #
@@ -25,8 +25,6 @@ from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
 
-import kinovaControl
-
 import pyrealsense2 as rs
 import numpy as np
 import cv2
@@ -37,20 +35,13 @@ console = Console(highlight=False)
 from pydsr import *
 
 
-# If RoboComp was compiled with Python bindings you can use InnerModel in Python
-# import librobocomp_qmat
-# import librobocomp_osgviewer
-# import librobocomp_innermodel
-
-
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
         self.Period = 100
 
-        self.agent_id = 30
-        self.g = DSRGraph(0, "gen3 DSR", self.agent_id)
-        self.rt = rt_api(self.g)
+        self.agent_id = 280322
+        self.g = DSRGraph(0, "gen3_strips", self.agent_id)
 
         self.arm = kinovaControl.KinovaGen3()
 
@@ -101,14 +92,13 @@ class SpecificWorker(GenericWorker):
 
         self.moving = False
 
-
         try:
             signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
             signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
-            # signals.connect(self.g, signals.DELETE_NODE, self.delete_node)
-            # signals.connect(self.g, signals.UPDATE_EDGE, self.update_edge)
-            # signals.connect(self.g, signals.UPDATE_EDGE_ATTR, self.update_edge_att)
-            # signals.connect(self.g, signals.DELETE_EDGE, self.delete_edge)
+            signals.connect(self.g, signals.DELETE_NODE, self.delete_node)
+            signals.connect(self.g, signals.UPDATE_EDGE, self.update_edge)
+            signals.connect(self.g, signals.UPDATE_EDGE_ATTR, self.update_edge_att)
+            signals.connect(self.g, signals.DELETE_EDGE, self.delete_edge)
             console.print("signals connected")
         except RuntimeError as e:
             print(e)
@@ -121,63 +111,19 @@ class SpecificWorker(GenericWorker):
 
     def __del__(self):
         """Destructor"""
-        self.pipeline_hand.stop()
-        
 
     def setParams(self, params):
+        # try:
+        #	self.innermodel = InnerModel(params["InnerModelPath"])
+        # except:
+        #	traceback.print_exc()
+        #	print("Error reading config params")
         return True
-
-    def update_gripper_state(self):
-
-        self.gripper = self.g.get_node('gripper')
-        gr_state = self.arm.get_gripper_state()            
-        self.gripper.attrs['gripper_finger_distance'].value = 1 - gr_state
-        if not self.moving:
-            self.g.update_node (self.gripper)
-        else:
-            self.moving = False
-
-        
-
-    def update_arm_pose(self):
-
-        new_pos = None
-        arm_pose = self.arm.get_pose()
-        # print (arm_pose[3:])
-
-        world   = self.g.get_node('arm')
-
-        if self.gripper is not None and world is not None:
-            arm_rot = np.radians(arm_pose[3:])
-            ### TODO sacar esta linea para que ande bien en la simulacion
-            arm_rot[0],arm_rot[1] = arm_rot[1],arm_rot[0] 
-            #############################################################
-            new_pos = [self.gripper.id, np.multiply(arm_pose[:3], 1000), arm_rot]
-            self.rt.insert_or_assign_edge_RT(world, *new_pos)
-            self.g.update_node(world)
-
-    def move_arm_to (self, target_position):
-        
-        target_xyz = np.multiply(target_position[:3], 0.001)
-        target_rpy = np.degrees (target_position[3:])
-
-        target_rpy[0],target_rpy[1] = target_rpy[1],target_rpy[0] 
-
-        print (target_xyz, target_rpy)
-
-        self.arm.cartesian_move_to (*target_xyz, *target_rpy)
-
-    def move_gripper_to (self, dest_distance):
-        inv_dest = 1 - dest_distance
-        self.arm.move_gripper_speed_dest(inv_dest)
 
 
     @QtCore.Slot()
     def compute(self):
-
-        self.update_arm_pose()
-        self.update_gripper_state()
-
+        print('SpecificWorker.compute...')
         frames = self.pipeline_hand.wait_for_frames()
         aligned_frames = self.align.process(frames)
 
@@ -239,33 +185,24 @@ class SpecificWorker(GenericWorker):
         QTimer.singleShot(200, QApplication.instance().quit)
 
 
+
+
+
+
     # =============== DSR SLOTS  ================
     # =============================================
 
     def update_node_att(self, id: int, attribute_names: [str]):
-        # console.print(f"UPDATE NODE ATT: {id} {attribute_names}", style='green')
-
-        if id == self.GRIPPER_ID and 'target' in attribute_names:
-            self.moving = True
-            updated_node = self.g.get_node(id)
-            target_position  = updated_node.attrs['target'].value
-            print ("Received target position", target_position)
-            self.move_arm_to (target_position)
-
-        if id == self.GRIPPER_ID and 'gripper_target_finger_distance' in attribute_names:
-            updated_node = self.g.get_node(id)
-            target_distance  = updated_node.attrs['gripper_target_finger_distance'].value
-            print ("Received target finger distance", target_distance)
-            self.move_gripper_to (target_distance)
+        console.print(f"UPDATE NODE ATT: {id} {attribute_names}", style='green')
 
     def update_node(self, id: int, type: str):
-        # console.print(f"UPDATE NODE: {id} {type}", style='green')
-        pass
+        console.print(f"UPDATE NODE: {id} {type}", style='green')
 
     def delete_node(self, id: int):
         console.print(f"DELETE NODE:: {id} ", style='green')
 
     def update_edge(self, fr: int, to: int, type: str):
+
         console.print(f"UPDATE EDGE: {fr} to {type}", type, style='green')
 
     def update_edge_att(self, fr: int, to: int, type: str, attribute_names: [str]):

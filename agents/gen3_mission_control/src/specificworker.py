@@ -117,7 +117,7 @@ class SpecificWorker(GenericWorker):
                 self.close_gripper()
                 return True
             cube_id = int (key.char)
-            # self.pick_cube (cube_id)
+            self.pick_cube (cube_id)
         except:
             print ("not an int")
 
@@ -195,12 +195,12 @@ class SpecificWorker(GenericWorker):
             pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
             rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
             if pos_diff < 5 and rot_diff < 0.1:
-                print ("Not updating pose", pos_diff, rot_diff)
+                # print ("Not updating pose", pos_diff, rot_diff)
                 return
         except:
             print ("Does not exist")
 
-        print ("update")
+        # print ("update")
         world = self.g.get_node ("world")
         rt.insert_or_assign_edge_RT(world, cube_node.id, new_pos[:3], new_pos[3:])
         self.g.update_node(world)
@@ -287,7 +287,7 @@ class SpecificWorker(GenericWorker):
             dept_show = cv2.applyColorMap(cv2.convertScaleAbs(self.top_depth, alpha=0.03), cv2.COLORMAP_JET)
             # dept_show = cv2.rectangle (dept_show, (450, 268), (118, 81), (255, 255, 255))  
             # dept_show = cv2.resize(dept_show, dsize=(1280, 720))          
-            cv2.imshow('Color', dept_show) #depth.astype(np.uint8))
+            cv2.imshow('Color', self.hand_color) #depth.astype(np.uint8))
 
         # self.display_cube_diff (self.top_tags, self.hand_tags)
 
@@ -351,17 +351,17 @@ class SpecificWorker(GenericWorker):
 
     def compute_april_tags(self, img, focals):
         tags = self.detector.detect(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY))
-        # if len(tags) > 0:
-        #     for tag in tags:
-        #         for idx in range(len(tag.corners)):
-        #             cv2.line(self.color, tuple(tag.corners[idx - 1, :].astype(int)), tuple(tag.corners[idx, :].astype(int)), (0, 255, 0))
-        #             cv2.putText(self.color, str(tag.tag_id),
-        #                        org = (tag.corners[0, 0].astype(int) + 10, tag.corners[0, 1].astype(int) + 10),
-        #                        fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8, color=(0, 0, 255))
-        #             cv2.rectangle(self.color, tuple(tag.center.astype(int) - 1), tuple(tag.center.astype(int) + 1), (255, 0, 255))
-        # else:
-        #     print("Compute_april_tags: No tags detected")
-        #     pass
+        if len(tags) > 0:
+            for tag in tags:
+                for idx in range(len(tag.corners)):
+                    cv2.line(self.hand_color, tuple(tag.corners[idx - 1, :].astype(int)), tuple(tag.corners[idx, :].astype(int)), (0, 255, 0))
+                    cv2.putText(self.hand_color, str(tag.tag_id),
+                               org = (tag.corners[0, 0].astype(int) + 10, tag.corners[0, 1].astype(int) + 10),
+                               fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8, color=(0, 0, 255))
+                    cv2.rectangle(self.hand_color, tuple(tag.center.astype(int) - 1), tuple(tag.center.astype(int) + 1), (255, 0, 255))
+        else:
+            print("Compute_april_tags: No tags detected")
+            pass
     
         # tags = self.simplify_tags(tags)
 
@@ -374,7 +374,6 @@ class SpecificWorker(GenericWorker):
             # print (tag.center)
             # print (int(tag.center[1] / 1.77), int(tag.center[0] / 1.33))
             rot = m[0][:3,:3]
-            v = np.array([1, 0, 0, 1])
             r = R.from_matrix(rot)
             # print (r.as_euler('xyz', degrees=True))
             index_x = int(tag.center[1]) // 2
@@ -395,9 +394,9 @@ class SpecificWorker(GenericWorker):
             
             ori = np.multiply(r.as_euler('yxz'), -1).tolist() # [r_x, r_y, r_z]
             ori[-1] *= -1
-            # print (pos)
+            # print (pos, ori)
 
-
+        
             s_tags[tag.tag_id] = {"pos": pos, "rot": ori}
 
             # cv2.drawMarker(self.depth, (int(tag.center[0]), int(tag.center[1])), (0, 255, 0), cv2.MARKER_CROSS, 150, 1)
