@@ -21,13 +21,21 @@
 
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
+from attr import Attribute
 from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
 
 import pyrealsense2 as rs
+import kinovaControl
 import numpy as np
 import cv2
+from pynput import keyboard
+import apriltag
+from scipy.spatial.transform import Rotation as R
+
+from image_processor import *
+import threading, queue
 
 sys.path.append('/opt/robocomp/lib')
 console = Console(highlight=False)
@@ -38,60 +46,34 @@ from pydsr import *
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
+
+        # CONSTANTS
         self.Period = 100
+        self.CUBE_PREFIX = 1000
+        self.agent_id = 2803
 
-        self.agent_id = 280322
-        self.g = DSRGraph(0, "gen3_strips", self.agent_id)
+        # EVENTS HANDLING [basic]
+        listener = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
+        listener.start()
 
-        self.arm = kinovaControl.KinovaGen3()
+        # EVENT HANDLING [pro]
+        self.thread_event = None
+        self.queue = queue.Queue()
 
-        self.HAND_CAMERA_SN = '839112060624'
+        # PLANNING
 
-        # Hand camera configuration
-        self.pipeline_hand = rs.pipeline()
-        config_hand = rs.config()
-        config_hand.enable_device(self.HAND_CAMERA_SN)
-        config_hand.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-        config_hand.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-
-        self.pipeline_hand.start(config_hand)
-
-        self.camera_node = self.g.get_node('hand_camera')
         
-        if self.camera_node is not None:
-            self.camera_node.attrs['cam_rgb'         ] = Attribute (np.zeros((480,640,3), np.uint8), self.agent_id)
-            self.camera_node.attrs['cam_rgb_width'   ] = Attribute (640,        self.agent_id)
-            self.camera_node.attrs['cam_rgb_height'  ] = Attribute (480,        self.agent_id)
-            self.camera_node.attrs['cam_rgb_depth'   ] = Attribute (3,          self.agent_id)
-            self.camera_node.attrs['cam_rgb_focalx'  ] = Attribute (653.68229,  self.agent_id)
-            self.camera_node.attrs['cam_rgb_focaly'  ] = Attribute (651.855994, self.agent_id)
-            self.camera_node.attrs['cam_rgb_cameraID'] = Attribute (0,          self.agent_id)
+        # IMPORTANT ATTRIBUTES
+        self.img_proc = ImageProcessor()
+        self.g = DSRGraph(0, "gen3_strips", self.agent_id)
+        self.observation_pose = [351.082, 1.33755, 256.42, 3.14157, -0.637315, -1.57085]
+        self.working_pose = [544, 0, 400, 3.14159, 0, -1.57089]
+        self.hand_tag_detection_count = {}
+        self.hand_tags = {}
 
-            self.camera_node.attrs['cam_depth'         ] = Attribute (np.zeros((480,640,2), np.uint8), self.agent_id)
-            self.camera_node.attrs['cam_depth_width'   ] = Attribute (480,           self.agent_id)
-            self.camera_node.attrs['cam_depth_height'  ] = Attribute (640,           self.agent_id)
-            self.camera_node.attrs['cam_depth_depth'   ] = Attribute (2,             self.agent_id)
-            self.camera_node.attrs['cam_depth_focalx'  ] = Attribute (360.01333,     self.agent_id)
-            self.camera_node.attrs['cam_depth_focaly'  ] = Attribute (360.013366699, self.agent_id)
-            self.camera_node.attrs['cam_depthFactor'   ] = Attribute (0.01,          self.agent_id)
-            self.camera_node.attrs['cam_depth_cameraID'] = Attribute (1,             self.agent_id)
-            
-
-
-            self.g.update_node(self.camera_node)
-
-        align_to = rs.stream.color
-        self.align = rs.align(align_to)
-
-        self.gripper = self.g.get_node('gripper')
-        self.gripper.attrs['gripper_finger_distance'] = Attribute (float(0.0), self.agent_id)
-        self.gripper.attrs['gripper_target_finger_distance'] = Attribute (float(0.0), self.agent_id)
-        self.g.update_node(self.gripper)
-
-        self.GRIPPER_ID = self.gripper.id
-
-        self.moving = False
-
+        # TODO: GO TO OBSERVATION POSE
+        self.thread_event = threading.Thread(name='OBSERVATING', target=self.move_arm, args=[self.working_pose])
+        self.thread_event.start()
         try:
             signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
             signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
@@ -113,100 +95,231 @@ class SpecificWorker(GenericWorker):
         """Destructor"""
 
     def setParams(self, params):
-        # try:
-        #	self.innermodel = InnerModel(params["InnerModelPath"])
-        # except:
-        #	traceback.print_exc()
-        #	print("Error reading config params")
         return True
 
 
     @QtCore.Slot()
     def compute(self):
-        print('SpecificWorker.compute...')
-        frames = self.pipeline_hand.wait_for_frames()
-        aligned_frames = self.align.process(frames)
-
-        depth_frame = aligned_frames.get_depth_frame()
-        color_frame = aligned_frames.get_color_frame()
-        if not depth_frame or not color_frame:
-            print ('No hand frame')
-            return True
+        print('SpecificWorker.compute...')       
+        if self.hand_color_raw is not None and self.hand_depth_raw is not None:
+            color, depth = self.img_proc.extract_color_and_depth(self.hand_color_raw, self.hand_depth_raw)
+            tags = self.img_proc.compute_april_tags(color, depth, (self.hand_focal_x, self.hand_focal_y))
+            self.cubes_to_dsr(tags)
         
+        # TODO: Estructura planificación
+        # if self.end:
+        #     print("PLAN ENDED")
+        # else:
+        #     if self.begin_plan:
+        #         self.begin_plan = False
+        #         tag_list = self.create_initial_state()
+        #         # for rule in self.initState:
+        #         #     print(rule)
+        #         self.save_to_file(self.initState, self.endState, tag_list)
+        #         self.exec_planner()
+        #         self.load_plan()
+        #         print(self.plan)
 
-         # Convert images to numpy arrays
-        depth_image = np.asanyarray(depth_frame.get_data())
-        color_image = np.asanyarray(color_frame.get_data())
+        #         # TODO: Corregir posición del codo
+        #         self.kinovaarm_proxy.setCenterOfTool(self.working_pose, self.base)
+        #         self.wait_to_complete_movement(self.working_pose_np)
 
-        depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
-        color_intrin = color_frame.profile.as_video_stream_profile().intrinsics
-
-        # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
-        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
-
-        # images = np.hstack((color_image, depth_colormap))
-        # images = np.hstack((color_image_h, depth_colormap_h))
-
-        # Show images
-        # cv2.namedWindow('RealSense hand', cv2.WINDOW_AUTOSIZE)
-        # cv2.imshow('RealSense hand', images)
-        # cv2.waitKey(1)
-
-        # Suboptimal, should treat them independently
-        if color_image is not None and depth_image is not None: 
-            
-            depth = depth_image.tobytes()
-            depth = np.frombuffer(depth, dtype=np.uint8)
-            depth = depth.reshape((480, 640, 2)) 
-
-            self.camera_node = self.g.get_node('hand_camera')
-
-            if self.camera_node is not None:
-                self.camera_node.attrs['cam_rgb'].value = cv2.cvtColor(color_image, cv2.COLOR_BGR2RGB)
-                self.camera_node.attrs['cam_rgb_height'].value = color_image.shape[0]
-                self.camera_node.attrs['cam_rgb_width'].value  = color_image.shape[1]
-                self.camera_node.attrs['cam_rgb_depth'].value  = color_image.shape[2]
-                self.camera_node.attrs['cam_rgb_focalx'].value = float(color_intrin.fx)
-                self.camera_node.attrs['cam_rgb_focaly'].value = float(color_intrin.fy)
-
-                self.camera_node.attrs['cam_depth'].value = depth
-                self.camera_node.attrs['cam_depth_height'].value = depth.shape[0]
-                self.camera_node.attrs['cam_depth_width'].value  = depth.shape[1]
-                # self.camera_node.attrs['cam_ed_depth'].value = color.shape[2]
-                self.camera_node.attrs['cam_depth_focalx'].value = float(depth_intrin.fx)
-                self.camera_node.attrs['cam_depth_focaly'].value = float(depth_intrin.fy)
-
-                self.g.update_node(self.camera_node)
-        
+        #         current_step = self.plan[self.step]
+        #         current_action = self.actions[current_step[0]]
+        #         current_action["do_action"] = True
+        #         # self.actions[self.plan[0][0]]["do_action"] = True
+        #     else:
+        #         if self.plan != []:
+        #             current_step = self.plan[self.step]
+        #             # print(current_step)
+        #             current_action = self.actions[current_step[0]]
+        #             params = current_step[1] if len(current_step) > 1 else None
+        #             args_list = []
+        #             if current_action["do_action"]:
+        #                 if current_action["thread"] == None:
+        #                     if current_step[0] == "pick-up":
+        #                         args_list = [params, all.image]
+        #                     elif current_step[0] == "put-down":
+        #                         args_list = [color, depth, all.image]
+        #                     elif current_step[0] == "stack":
+        #                         args_list = [color, depth, all.image, params[1]]
+        #                     elif current_step[0] == "unstack":
+        #                         args_list = [params[0], all.image]
+        #                     current_action["thread"] = threading.Thread(name=current_step[0], target=current_action["func"], args=tuple(args_list))
+        #                     current_action["thread"].start()
+        #                 else:
+        #                     try:
+        #                         state = current_action["queue"].get_nowait()
+        #                         print(state)
+        #                         if "Finish" in state:
+        #                             current_action["do_action"] = False
+        #                             current_action["thread"] = None
+        #                             # print(f"{current_step[0]} DONE")
+        #                             self.step += 1
+        #                             if self.step == len(self.plan):
+        #                                 self.end = True
+        #                             else:
+        #                                 next_step = self.plan[self.step]
+        #                                 next_action = self.actions[next_step[0]]
+        #                                 next_action["do_action"] = True
+        #                     except:
+        #                         pass
 
         return True
 
     def startup_check(self):
         QTimer.singleShot(200, QApplication.instance().quit)
 
+    # ARM MOVEMENTS
+    def move_arm(self, pose):
+        gripper = self.g.get_node ("gripper")
+        gripper.attrs["target"].value = pose
+        self.g.update_node(gripper)
+
+    def open_gripper(self):
+        gripper = self.g.get_node ("gripper")
+        gripper.attrs["gripper_target_finger_distance"].value = 1.0
+        self.g.update_node (gripper)
+    
+    def close_gripper(self):
+        gripper = self.g.get_node ("gripper")
+        gripper.attrs["gripper_target_finger_distance"].value = 0.0
+        self.g.update_node (gripper)
+
+    # EVENT FUNCTION TRIGGERS
+    def on_press(self, key):
+        pass
+
+    def on_release(self, key):
+        print('Key released: {0}'.format(key))
+        try:
+            if key.char == 'c':
+                self.close_gripper()
+                return True
+            cube_id = int (key.char)
+            self.pick_up(cube_id)
+        except:
+            print ("Not an INT")
+
+        if key == keyboard.Key.esc:
+            # Stop listener
+            return False
+
+    # ACTIONS
+    def pick_up(self, cube_id):
+        if cube_id == 0:
+            dest_pose = [400, 0, 400, np.pi, 0, np.pi/2]
+
+        elif cube_id not in self.hand_tags.keys():
+            return
+        else:
+            dest_pose = self.g.get_edge ("world", "cube_" + str(cube_id), "RT")
+            dest_pose = np.concatenate((dest_pose.attrs["rt_translation"].value, dest_pose.attrs["rt_rotation_euler_xyz"].value))
+        print ("Grabbin in ", dest_pose)
+
+        dest_pose[3] = 0.0
+        dest_pose[4] = np.pi
+
+        # -45 para minizar giro, + 90 para cuadrar con el gripper
+        dest_pose[5] = np.degrees(dest_pose[5]) % 90
+        if dest_pose[5] < 45:
+            dest_pose[5] += 90
+
+        dest_pose[5] -= 45
+        dest_pose[5] = (90 - dest_pose[5]) % 90 + 45
+        dest_pose[5] = np.radians(dest_pose[5])
+
+        self.open_gripper()
+        self.move_arm(dest_pose)
+        self.close_gripper()
+
+    def put_down(self, cube_id):
+        pass
+
+    def unstack(self, cube_id, cube_aux):
+        pass
+    
+    def stack(self, cube_id, cube_aux):
+        pass
 
 
+    # INTERFACE CUBES-DSR
+    def cubes_to_dsr(self, tags):
+        for id in tags.keys():
+            if id not in self.hand_tag_detection_count.keys():
+                self.hand_tag_detection_count[id] = 0
 
+        for id in self.hand_tag_detection_count.keys():
+            if id in tags.keys():
+                self.hand_tag_detection_count[id] = np.minimum (30, self.hand_tag_detection_count[id]+1)
+            else:
+                self.hand_tag_detection_count[id] = np.maximum (0, self.hand_tag_detection_count[id]-1)
+            
+            if (self.hand_tag_detection_count[id] > 20):
+                self.hand_tags[id] = tags[id]
+                self.__insert_or_update_cube (tags, id)
+            else:
+                self.__delete_cube (id)
 
+    def __insert_or_update_cube (self, tags, cube_id, offset = 0):
+        cube = tags[cube_id]
+        cube_name = "cube_" + str(cube_id)
+        tf = inner_api(self.g)
+        new_pos = tf.transform_axis ("world", cube["pos"] + cube["rot"], "hand_camera")
+        
+        if (cube_node := self.g.get_node(cube_name)) is None:
+            new_node = Node(cube_id + self.CUBE_PREFIX + offset, "box", cube_name)
+            new_node.attrs['pos_x'] = Attribute(float(-280 + 90 * cube_id), self.agent_id)
+            new_node.attrs['pos_y'] = Attribute(float(90), self.agent_id)
+            
+            self.g.insert_node (new_node)
+            cube_node = new_node
 
-    # =============== DSR SLOTS  ================
-    # =============================================
+        rt = rt_api(self.g)
+        try:
+            current_pos = tf.transform_axis ("world", cube_name)
+            pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
+            rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
+            if pos_diff < 5 and rot_diff < 0.1:
+                return
+        except:
+            print ("Does not exist")
 
+        world = self.g.get_node ("world")
+        rt.insert_or_assign_edge_RT(world, cube_node.id, new_pos[:3], new_pos[3:])
+        self.g.update_node(world)
+
+    def __delete_cube (self, cube_id):
+        if (cube := self.g.get_node ("cube_" + str(cube_id))):
+            self.g.delete_node (cube.id)
+
+    # DSR SLOTS
     def update_node_att(self, id: int, attribute_names: [str]):
-        console.print(f"UPDATE NODE ATT: {id} {attribute_names}", style='green')
+        pass
+        # console.print(f"UPDATE NODE ATT: {id} {attribute_names}", style='green')
 
     def update_node(self, id: int, type: str):
-        console.print(f"UPDATE NODE: {id} {type}", style='green')
+        # console.print(f"UPDATE NODE: {id} {type}", style='green')
+        if type=='rgbd' and id == 62842907933016084:
+            updated_node = self.g.get_node(id)
+            self.hand_depth_raw = updated_node.attrs['cam_depth'].value
+            self.hand_color_raw = updated_node.attrs['cam_rgb'].value
+
+            self.hand_focal_x = updated_node.attrs['cam_rgb_focalx'].value
+            self.hand_focal_y = updated_node.attrs['cam_rgb_focaly'].value
 
     def delete_node(self, id: int):
-        console.print(f"DELETE NODE:: {id} ", style='green')
+        pass
+        # console.print(f"DELETE NODE:: {id} ", style='green')
 
     def update_edge(self, fr: int, to: int, type: str):
-
-        console.print(f"UPDATE EDGE: {fr} to {type}", type, style='green')
+        pass
+        # console.print(f"UPDATE EDGE: {fr} to {type}", type, style='green')
 
     def update_edge_att(self, fr: int, to: int, type: str, attribute_names: [str]):
-        console.print(f"UPDATE EDGE ATT: {fr} to {type} {attribute_names}", style='green')
+        pass
+        # console.print(f"UPDATE EDGE ATT: {fr} to {type} {attribute_names}", style='green')
 
     def delete_edge(self, fr: int, to: int, type: str):
-        console.print(f"DELETE EDGE: {fr} to {type} {type}", style='green')
+        pass
+        # console.print(f"DELETE EDGE: {fr} to {type} {type}", style='green')
