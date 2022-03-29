@@ -31,10 +31,10 @@ import kinovaControl
 import numpy as np
 import cv2
 from pynput import keyboard
-import apriltag
 from scipy.spatial.transform import Rotation as R
 
 from image_processor import *
+#from planifier import *
 import threading, queue
 
 sys.path.append('/opt/robocomp/lib')
@@ -59,20 +59,22 @@ class SpecificWorker(GenericWorker):
         # EVENT HANDLING [pro]
         self.thread_event = None
         self.queue = queue.Queue()
-
-        # PLANNING
-
         
         # IMPORTANT ATTRIBUTES
         self.img_proc = ImageProcessor()
+        # self.planner = Planifier()
         self.g = DSRGraph(0, "gen3_strips", self.agent_id)
-        self.observation_pose = [351.082, 1.33755, 256.42, 3.14157, -0.637315, -1.57085]
+        # self.observation_pose = [351.082, 1.33755, 256.42, 3.14157, -0.637315, -1.57085]
+        self.observation_pose = [534.254, -0.419066, 68.6622, 3.13773, -0.802042, -1.58157]
         self.working_pose = [544, 0, 400, 3.14159, 0, -1.57089]
         self.hand_tag_detection_count = {}
         self.hand_tags = {}
 
+        # PLANNING
+        # self.ui.generar.clicked.connect(self.create_final_state)
+
         # TODO: GO TO OBSERVATION POSE
-        self.thread_event = threading.Thread(name='OBSERVATING', target=self.move_arm, args=[self.working_pose])
+        self.thread_event = threading.Thread(name='OBSERVATING', target=self.move_arm, args=[self.observation_pose])
         self.thread_event.start()
         try:
             signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
@@ -103,9 +105,11 @@ class SpecificWorker(GenericWorker):
         print('SpecificWorker.compute...')       
         if self.hand_color_raw is not None and self.hand_depth_raw is not None:
             color, depth = self.img_proc.extract_color_and_depth(self.hand_color_raw, self.hand_depth_raw)
-            tags = self.img_proc.compute_april_tags(color, depth, (self.hand_focal_x, self.hand_focal_y))
-            self.cubes_to_dsr(tags)
-        
+            tags, simple_tags = self.img_proc.compute_april_tags(color, depth, (self.hand_focal_x, self.hand_focal_y))
+            current_cubes = self.cubes_to_dsr(simple_tags)
+            
+            # state, _ = self.planner.create_initial_state(tags, current_cubes)
+            # print(state)
         # TODO: Estructura planificación
         # if self.end:
         #     print("PLAN ENDED")
@@ -196,8 +200,19 @@ class SpecificWorker(GenericWorker):
             if key.char == 'c':
                 self.close_gripper()
                 return True
-            cube_id = int (key.char)
-            self.pick_up(cube_id)
+            elif key.char == 'o':
+                self.open_gripper()
+                return True
+            elif key.char == 's':
+                self.put_down(int(key.char))
+                return True
+            elif key.char == 'w':
+                self.move_arm(self.working_pose)
+                return True
+            elif key.char == 'r':
+                self.move_arm(self.observation_pose)
+                return True
+            self.pick_up(int(key.char))
         except:
             print ("Not an INT")
 
@@ -232,12 +247,13 @@ class SpecificWorker(GenericWorker):
         self.open_gripper()
         self.move_arm(dest_pose)
         self.close_gripper()
+        self.move_arm(self.working_pose)
 
     def put_down(self, cube_id):
         pass
 
     def unstack(self, cube_id, cube_aux):
-        pass
+        self.pick_up(cube_id)
     
     def stack(self, cube_id, cube_aux):
         pass
@@ -245,6 +261,7 @@ class SpecificWorker(GenericWorker):
 
     # INTERFACE CUBES-DSR
     def cubes_to_dsr(self, tags):
+        cubes = []
         for id in tags.keys():
             if id not in self.hand_tag_detection_count.keys():
                 self.hand_tag_detection_count[id] = 0
@@ -258,8 +275,11 @@ class SpecificWorker(GenericWorker):
             if (self.hand_tag_detection_count[id] > 20):
                 self.hand_tags[id] = tags[id]
                 self.__insert_or_update_cube (tags, id)
+                cubes.append(id)
             else:
                 self.__delete_cube (id)
+        return cubes
+        
 
     def __insert_or_update_cube (self, tags, cube_id, offset = 0):
         cube = tags[cube_id]

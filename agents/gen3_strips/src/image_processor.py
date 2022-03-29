@@ -29,8 +29,8 @@ class ImageProcessor():
         #                        org = (tag.corners[0, 0].astype(int) + 10, tag.corners[0, 1].astype(int) + 10),
         #                        fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8, color=(0, 0, 255))
         #             cv2.rectangle(img, tuple(tag.center.astype(int) - 1), tuple(tag.center.astype(int) + 1), (255, 0, 255))
-        tags = self.__simplify_tags(tags, color, depth, focals)
-        return tags
+        simple_tags = self.__simplify_tags(tags, color, depth, focals)
+        return tags, simple_tags
 
     def __simplify_tags(self, tags, color, depth, focals):
         s_tags = {}
