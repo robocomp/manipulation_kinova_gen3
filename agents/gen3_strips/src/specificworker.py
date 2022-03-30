@@ -19,6 +19,7 @@
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+from concurrent.futures import thread
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
 from attr import Attribute
@@ -34,7 +35,7 @@ from pynput import keyboard
 from scipy.spatial.transform import Rotation as R
 
 from image_processor import *
-#from planifier import *
+from planifier import *
 import threading, queue
 
 sys.path.append('/opt/robocomp/lib')
@@ -59,10 +60,12 @@ class SpecificWorker(GenericWorker):
         # EVENT HANDLING [pro]
         self.thread_event = None
         self.queue = queue.Queue()
+        self.do_action = False
+        self.do_next_action = False
         
         # IMPORTANT ATTRIBUTES
         self.img_proc = ImageProcessor()
-        # self.planner = Planifier()
+        self.planner = Planifier()
         self.g = DSRGraph(0, "gen3_strips", self.agent_id)
         # self.observation_pose = [351.082, 1.33755, 256.42, 3.14157, -0.637315, -1.57085]
         self.observation_pose = [534.254, -0.419066, 68.6622, 3.13773, -0.802042, -1.58157]
@@ -71,7 +74,13 @@ class SpecificWorker(GenericWorker):
         self.hand_tags = {}
 
         # PLANNING
-        # self.ui.generar.clicked.connect(self.create_final_state)
+        self.init_state = []
+        self.end_state = []
+        self.ui.generar.clicked.connect(self.final_state)
+        self.begin_plan = False
+        self.end = True
+        self.plan = []
+        self.step = 0
 
         # TODO: GO TO OBSERVATION POSE
         self.thread_event = threading.Thread(name='OBSERVATING', target=self.move_arm, args=[self.observation_pose])
@@ -108,67 +117,61 @@ class SpecificWorker(GenericWorker):
             tags, simple_tags = self.img_proc.compute_april_tags(color, depth, (self.hand_focal_x, self.hand_focal_y))
             current_cubes = self.cubes_to_dsr(simple_tags)
             
-            # state, _ = self.planner.create_initial_state(tags, current_cubes)
-            # print(state)
-        # TODO: Estructura planificación
-        # if self.end:
-        #     print("PLAN ENDED")
-        # else:
-        #     if self.begin_plan:
-        #         self.begin_plan = False
-        #         tag_list = self.create_initial_state()
-        #         # for rule in self.initState:
-        #         #     print(rule)
-        #         self.save_to_file(self.initState, self.endState, tag_list)
-        #         self.exec_planner()
-        #         self.load_plan()
-        #         print(self.plan)
 
-        #         # TODO: Corregir posición del codo
-        #         self.kinovaarm_proxy.setCenterOfTool(self.working_pose, self.base)
-        #         self.wait_to_complete_movement(self.working_pose_np)
+            self.init_state, _ = self.planner.create_initial_state(tags, current_cubes)
 
-        #         current_step = self.plan[self.step]
-        #         current_action = self.actions[current_step[0]]
-        #         current_action["do_action"] = True
-        #         # self.actions[self.plan[0][0]]["do_action"] = True
-        #     else:
-        #         if self.plan != []:
-        #             current_step = self.plan[self.step]
-        #             # print(current_step)
-        #             current_action = self.actions[current_step[0]]
-        #             params = current_step[1] if len(current_step) > 1 else None
-        #             args_list = []
-        #             if current_action["do_action"]:
-        #                 if current_action["thread"] == None:
-        #                     if current_step[0] == "pick-up":
-        #                         args_list = [params, all.image]
-        #                     elif current_step[0] == "put-down":
-        #                         args_list = [color, depth, all.image]
-        #                     elif current_step[0] == "stack":
-        #                         args_list = [color, depth, all.image, params[1]]
-        #                     elif current_step[0] == "unstack":
-        #                         args_list = [params[0], all.image]
-        #                     current_action["thread"] = threading.Thread(name=current_step[0], target=current_action["func"], args=tuple(args_list))
-        #                     current_action["thread"].start()
-        #                 else:
-        #                     try:
-        #                         state = current_action["queue"].get_nowait()
-        #                         print(state)
-        #                         if "Finish" in state:
-        #                             current_action["do_action"] = False
-        #                             current_action["thread"] = None
-        #                             # print(f"{current_step[0]} DONE")
-        #                             self.step += 1
-        #                             if self.step == len(self.plan):
-        #                                 self.end = True
-        #                             else:
-        #                                 next_step = self.plan[self.step]
-        #                                 next_action = self.actions[next_step[0]]
-        #                                 next_action["do_action"] = True
-        #                     except:
-        #                         pass
+        if self.end:
+            print("PLAN ENDED")
+        else:
+            if self.begin_plan:
+                self.begin_plan = False
+                tag_list = self.create_initial_state()
+                for rule in self.initState:
+                    print(rule)
+                self.planner.save_to_file(self.initState, self.endState, tag_list)
+                self.planner.exec_planner()
+                self.plan = self.planner.load_plan()
+                print(self.plan)
 
+                self.move_arm(self.working_pose)
+
+                self.do_action = True
+
+            else:
+                if self.plan != []:
+                    current_step = self.plan[self.step]
+                    params = current_step[1] if len(current_step) > 1 else None                                                             # --
+                    arg_list = []                                                                                                           # --
+
+                    if self.do_action:
+                        if self.thread_event == None:
+                            if current_step[0] == "pick_up":                                                                                # --
+                                self.thread_event = threading.Thread(name='pick_up', target=self.pick_up, args=[self.observation_pose])     # --
+                            elif current_step[0] == "put_down":                                                                             # --
+                                self.thread_event = threading.Thread(name='put_down', target=self.put_down, args=[self.observation_pose])   # --
+                            elif current_step[0] == "stack":                                                                                # --
+                                self.thread_event = threading.Thread(name='stack', target=self.stack, args=[self.observation_pose])         # --
+                            elif current_step[0] == "unstack":                                                                              # --
+                                self.thread_event = threading.Thread(name='unstack', target=self.unstack, args=[self.observation_pose])     # --
+                            self.thread_event.start()                                                                                       # --
+
+                            # Josemi's way
+                            # self.thread_event = threading.Thread(name=current_step[0], target=self.__dict__[current_step[0]], args=[params])
+                            # self.thread_event.start()
+                        else:
+                            try:
+                                state = self.queue.get_nowait()
+                                print(state)
+                                if "Finish" in state:
+                                    self.do_action = False
+                                    self.thread_event = None
+                                    self.step += 1
+                                    if self.step == len(self.plan):
+                                        self.end = True
+                                    else:
+                                        self.do_next_action = True
+                            except:
+                                pass                           
         return True
 
     def startup_check(self):
@@ -193,6 +196,9 @@ class SpecificWorker(GenericWorker):
     # EVENT FUNCTION TRIGGERS
     def on_press(self, key):
         pass
+
+    def final_state(self):
+        self.end_state = self.planner.create_final_state()
 
     def on_release(self, key):
         print('Key released: {0}'.format(key))
