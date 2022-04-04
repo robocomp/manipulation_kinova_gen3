@@ -25,6 +25,7 @@ from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
 
+import numpy as np
 import cv2
 import mediapipe as mp
 import time
@@ -50,18 +51,19 @@ class SpecificWorker(GenericWorker):
         self.agent_id = 222
         self.g = DSRGraph(0, "pythonAgent", self.agent_id)
 
-        self.cap = cv2.VideoCapture(0)
+        self.color = []
+        self.has_image = False
 
         self.mpHands = mp.solutions.hands
         self.hands = self.mpHands.Hands(static_image_mode=False,
-                                        max_num_hands=1,
+                                        max_num_hands=2,
                                         min_detection_confidence=0.5,
                                         min_tracking_confidence=0.5)
         self.mpDraw = mp.solutions.drawing_utils
 
         try:
             # signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
-            # signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
+            signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
             # signals.connect(self.g, signals.DELETE_NODE, self.delete_node)
             # signals.connect(self.g, signals.UPDATE_EDGE, self.update_edge)
             # signals.connect(self.g, signals.UPDATE_EDGE_ATTR, self.update_edge_att)
@@ -90,9 +92,12 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
-        success, img = self.cap.read()
-        imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        results = self.hands.process(imgRGB)
+        if not self.has_image:
+            return True
+        self.hand_color = np.frombuffer(self.color, dtype=np.uint8)
+        img = self.hand_color.reshape((480, 640, 3))
+        # imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        results = self.hands.process(img)
         #print(results.multi_hand_landmarks)
         triangle = []
         if results.multi_hand_landmarks:
@@ -110,6 +115,7 @@ class SpecificWorker(GenericWorker):
             pos = self.get_hand_position(img, triangle, [300, 300])
             self.insert_or_update_hand (pos)
             print (pos)
+            
         cv2.imshow("Image", img)
         cv2.waitKey(1)
 
@@ -163,7 +169,12 @@ class SpecificWorker(GenericWorker):
         console.print(f"UPDATE NODE ATT: {id} {attribute_names}", style='green')
 
     def update_node(self, id: int, type: str):
-        console.print(f"UPDATE NODE: {id} {type}", style='green')
+        # console.print(f"UPDATE NODE: {id} {type}", style='green')
+        if type=='rgbd' and id == 63693811452215316: # 62842907933016084:
+            self.has_image = True
+            updated_node = self.g.get_node(id)
+            self.color = updated_node.attrs['cam_rgb'].value
+
 
     def delete_node(self, id: int):
         console.print(f"DELETE NODE:: {id} ", style='green')
