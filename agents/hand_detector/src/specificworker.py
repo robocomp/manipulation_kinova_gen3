@@ -51,12 +51,11 @@ class SpecificWorker(GenericWorker):
         self.agent_id = 222
         self.g = DSRGraph(0, "pythonAgent", self.agent_id)
 
-        self.color = []
-        self.has_image = False
-
+        self.color_raw = None
+        self.hand_pos = [0,0,0]
         self.mpHands = mp.solutions.hands
         self.hands = self.mpHands.Hands(static_image_mode=False,
-                                        max_num_hands=2,
+                                        max_num_hands=1,
                                         min_detection_confidence=0.5,
                                         min_tracking_confidence=0.5)
         self.mpDraw = mp.solutions.drawing_utils
@@ -65,7 +64,7 @@ class SpecificWorker(GenericWorker):
             # signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
             signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
             # signals.connect(self.g, signals.DELETE_NODE, self.delete_node)
-            # signals.connect(self.g, signals.UPDATE_EDGE, self.update_edge)
+            signals.connect(self.g, signals.UPDATE_EDGE, self.update_edge)
             # signals.connect(self.g, signals.UPDATE_EDGE_ATTR, self.update_edge_att)
             # signals.connect(self.g, signals.DELETE_EDGE, self.delete_edge)
             console.print("signals connected")
@@ -92,10 +91,15 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
-        if not self.has_image:
+        if self.color_raw is None:
             return True
-        self.hand_color = np.frombuffer(self.color, dtype=np.uint8)
-        img = self.hand_color.reshape((480, 640, 3))
+
+        self.color = np.frombuffer(self.color_raw, dtype=np.uint8)
+        img = self.color.reshape((480, 640, 3))
+
+        self.depth = np.frombuffer(self.depth_raw, dtype=np.uint16)
+        depth = self.depth.reshape((480, 640))
+
         # imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         results = self.hands.process(img)
         #print(results.multi_hand_landmarks)
@@ -112,14 +116,29 @@ class SpecificWorker(GenericWorker):
 
                 # self.mpDraw.draw_landmarks(img, handLms, self.mpHands.HAND_CONNECTIONS)
         if triangle:
-            pos = self.get_hand_position(img, triangle, [300, 300])
-            self.insert_or_update_hand (pos)
-            print (pos)
+            pos = self.get_hand_position(img, depth, triangle, [self.focal_x, self.focal_y])
+            self.pos = self.insert_or_update_hand (pos)
+            # print (pos)
             
         cv2.imshow("Image", img)
         cv2.waitKey(1)
 
+        self.check_grasp()
+
         return True
+
+    def check_grasp (self):
+        tf = inner_api(self.g)
+        cube_pos = tf.transform_axis ("world", "cube_6")[:3]
+
+        dist = np.linalg.norm(self.pos[:3] - cube_pos)
+
+        if dist < 100:
+            cube = self.g.get_node ("cube_6")
+            hand = self.g.get_node ("human_hand")
+            g_rt = Edge (cube.id, hand.id, "graspping", self.agent_id)
+            
+            self.g.insert_or_assign_edge (g_rt)
 
     def startup_check(self):
         QTimer.singleShot(200, QApplication.instance().quit)
@@ -147,14 +166,16 @@ class SpecificWorker(GenericWorker):
         rt.insert_or_assign_edge_RT(world, hand_node.id, new_pos[:3], new_pos[3:])
         self.g.update_node(world)
 
-    def get_hand_position (self, img, points, focals):
+        return new_pos
+
+    def get_hand_position (self, img, depth, points, focals):
 
         center_x = (points[0][0] + points[1][0] + points[2][0]) // 3
         center_y = (points[0][1] + points[1][1] + points[2][1]) // 3
 
-        pos_z = 100 # np.mean(depth[index_x-10:index_x+10,index_y-10:index_y+10])
-        pos_x = - ((center_y - img.shape[0]) * pos_z) / focals[0]  
-        pos_y = - ((center_x - img.shape[1]) * pos_z) / focals[1]
+        pos_z = depth[center_y, center_x] # np.mean(depth[index_x-10:index_x+10,index_y-10:index_y+10])
+        pos_y = - ((center_y - img.shape[0]//2) * pos_z) / focals[0]  
+        pos_x = - ((center_x - img.shape[1]//2) * pos_z) / focals[1]
 
         cv2.circle(img, (center_x,center_y), 3, (0,0,255), cv2.FILLED)
 
@@ -170,18 +191,22 @@ class SpecificWorker(GenericWorker):
 
     def update_node(self, id: int, type: str):
         # console.print(f"UPDATE NODE: {id} {type}", style='green')
-        if type=='rgbd' and id == 63693811452215316: # 62842907933016084:
+        if type=='rgbd' and id == 62842907933016084:
             self.has_image = True
+            
             updated_node = self.g.get_node(id)
-            self.color = updated_node.attrs['cam_rgb'].value
+            self.depth_raw = updated_node.attrs['cam_depth'].value
+            self.color_raw = updated_node.attrs['cam_rgb'].value
+
+            self.focal_x = updated_node.attrs['cam_rgb_focalx'].value
+            self.focal_y = updated_node.attrs['cam_rgb_focaly'].value
 
 
     def delete_node(self, id: int):
         console.print(f"DELETE NODE:: {id} ", style='green')
 
     def update_edge(self, fr: int, to: int, type: str):
-
-        console.print(f"UPDATE EDGE: {fr} to {type}", type, style='green')
+        pass
 
     def update_edge_att(self, fr: int, to: int, type: str, attribute_names: [str]):
         console.print(f"UPDATE EDGE ATT: {fr} to {type} {attribute_names}", style='green')

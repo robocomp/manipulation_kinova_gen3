@@ -247,8 +247,7 @@ class SpecificWorker(GenericWorker):
                     self.insert_or_update_cube (self.hand_tags, id)
                 # else:
                 #     self.delete_cube (id)
-        cv2.imshow('Color', self.hand_color) #depth.astype(np.uint8))
-        return True
+        # cv2.imshow('Color', self.hand_color) #depth.astype(np.uint8))
 
         if self.top_color_raw is not None and self.top_depth_raw is not None:
             # print (type(self.depth), self.depth.shape)
