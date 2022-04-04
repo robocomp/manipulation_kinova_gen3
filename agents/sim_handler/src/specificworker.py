@@ -96,28 +96,31 @@ class SpecificWorker(GenericWorker):
         self.update_simulated_arm ()
 
 
-        # if self.updated_cubes:
-        # for id in self.updated_cubes:
-        #     print ("Updating cube", id)
-        #     cube = self.g.get_node (id)
-        #     tf = inner_api(self.g)
-        #     if cube:
-        #         pos = tf.transform_axis ("world", cube.name)
-        #         pos[2] -= 20
-        #         if id not in self.already_added:
-        #             if cube.name == "cube_1":
-        #                 self.sim.insert_box (cube.name, pos[:3], "gen3")
-        #             else:
-        #                 self.sim.insert_cube (cube.name, pos[:3], "gen3")
-        #             self.already_added.append(id)
-        #             print ("Created new cube", id, self.boxes_ids, self.already_added)
-        #         else:
-        #             self.sim.set_object_pose(cube.name, pos, "gen3")
-        # # print ("Updating simulation")
-        # self.updated_cubes = []
+        if self.updated_cubes:
+            for id in self.updated_cubes:
+                print ("Updating cube", id)
+                cube = self.g.get_node (id)
+                tf = inner_api(self.g)
+                if cube:
+                    pos = tf.transform_axis ("world", cube.name)
+                    int_rot = pos[3:]
+                    ext_rot = R.from_euler('XYZ', int_rot).as_euler('xyz')
+                    pos[3:] = ext_rot
+                    pos[2] -= 20
+                    if id not in self.already_added:
+                        if cube.name == "cube_1":
+                            self.sim.insert_box (cube.name, pos[:3], "gen3")
+                        else:
+                            self.sim.insert_cube (cube.name, pos[:3], "gen3")
+                        self.already_added.append(id)
+                        print ("Created new cube", id, self.boxes_ids, self.already_added)
+                    else:
+                        self.sim.set_object_pose(cube.name, pos, "gen3")
+            # print ("Updating simulation")
+            self.updated_cubes = []
         
         
-        # self.update_cubes_beliefs ()
+        self.update_cubes_beliefs ()
         
         return True
 
@@ -128,6 +131,11 @@ class SpecificWorker(GenericWorker):
     def update_simulated_arm (self):
         tf = inner_api(self.g)
         new_pos = tf.transform_axis ("world", "gripper")
+
+        int_rot = new_pos[3:]
+        ext_rot = R.from_euler('XYZ', int_rot).as_euler('xyz')
+        new_pos[3:] = ext_rot
+
         self.sim.set_object_pose("goal", new_pos, "gen3")
         # self.sim.set_arm_position (new_pos)
 

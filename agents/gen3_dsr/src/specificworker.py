@@ -24,6 +24,7 @@ from PySide2.QtWidgets import QApplication
 from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
+from scipy.spatial.transform import Rotation as R
 
 import kinovaControl
 
@@ -143,15 +144,15 @@ class SpecificWorker(GenericWorker):
 
         new_pos = None
         arm_pose = self.arm.get_pose()
-        # print (arm_pose[3:])
 
         world   = self.g.get_node('arm')
 
         if self.gripper is not None and world is not None:
-            arm_rot = np.radians(arm_pose[3:])
-            ### TODO sacar esta linea para que ande bien en la simulacion
-            arm_rot[0],arm_rot[1] = arm_rot[1],arm_rot[0] 
-            #############################################################
+            # print ("arm reported: ", arm_pose[3:])
+            int_rot = R.from_euler('xyz', arm_pose[3:], degrees=True).as_euler('XYZ')
+            # print (arm_pose[3:], "--", np.degrees(int_rot))
+            arm_rot = int_rot
+
             new_pos = [self.gripper.id, np.multiply(arm_pose[:3], 1000), arm_rot]
             self.rt.insert_or_assign_edge_RT(world, *new_pos)
             self.g.update_node(world)
@@ -161,6 +162,7 @@ class SpecificWorker(GenericWorker):
         target_xyz = np.multiply(target_position[:3], 0.001)
         target_rpy = np.degrees (target_position[3:])
 
+        # TODO revisar luego de cambiar rotaciones
         target_rpy[0],target_rpy[1] = target_rpy[1],target_rpy[0] 
 
         print (target_xyz, target_rpy)

@@ -247,6 +247,8 @@ class SpecificWorker(GenericWorker):
                     self.insert_or_update_cube (self.hand_tags, id)
                 # else:
                 #     self.delete_cube (id)
+        cv2.imshow('Color', self.hand_color) #depth.astype(np.uint8))
+        return True
 
         if self.top_color_raw is not None and self.top_depth_raw is not None:
             # print (type(self.depth), self.depth.shape)
@@ -287,7 +289,6 @@ class SpecificWorker(GenericWorker):
             dept_show = cv2.applyColorMap(cv2.convertScaleAbs(self.top_depth, alpha=0.03), cv2.COLORMAP_JET)
             # dept_show = cv2.rectangle (dept_show, (450, 268), (118, 81), (255, 255, 255))  
             # dept_show = cv2.resize(dept_show, dsize=(1280, 720))          
-            cv2.imshow('Color', self.hand_color) #depth.astype(np.uint8))
 
         # self.display_cube_diff (self.top_tags, self.hand_tags)
 
@@ -360,7 +361,7 @@ class SpecificWorker(GenericWorker):
                                fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8, color=(0, 0, 255))
                     cv2.rectangle(self.hand_color, tuple(tag.center.astype(int) - 1), tuple(tag.center.astype(int) + 1), (255, 0, 255))
         else:
-            print("Compute_april_tags: No tags detected")
+            # print("Compute_april_tags: No tags detected")
             pass
     
         # tags = self.simplify_tags(tags)
@@ -371,11 +372,10 @@ class SpecificWorker(GenericWorker):
         s_tags = {}
         for tag in tags:
             m = self.detector.detection_pose(tag,[focals[0], focals[1], 640, 480], 0.04)
-            # print (tag.center)
-            # print (int(tag.center[1] / 1.77), int(tag.center[0] / 1.33))
+
             rot = m[0][:3,:3]
             r = R.from_matrix(rot)
-            # print (r.as_euler('xyz', degrees=True))
+            
             index_x = int(tag.center[1]) // 2
             index_y = int(tag.center[0]) // 2
             pos_z = np.mean(depth[index_x-10:index_x+10,index_y-10:index_y+10])
@@ -387,22 +387,14 @@ class SpecificWorker(GenericWorker):
             pos = [pos_y, pos_x, pos_z] # Acording to gripper reference frame
             # pos = [pos_x, pos_y, pos_z] # Acording to world reference frame
 
-            # r_x = 0
-            # r_y = 0
-            # r_z = (np.arctan2(tag.corners[0][1] - tag.center[1], tag.corners[0][0] - tag.center[0]) + ( 3 * np.pi )/4) # % 360
-            # print (tag.center[0] - self.color.shape[1] // 2,  tag.center[1] - self.color.shape[0] // 2)
             
-            ori = np.multiply(r.as_euler('yxz'), -1).tolist() # [r_x, r_y, r_z]
+            ori = np.multiply(r.as_euler('XYZ'), -1).tolist()
             ori[-1] *= -1
-            # print (pos, ori)
 
-        
+            # ori = np.multiply(r.as_euler('zyx'), -1).tolist()
+            # print ("zyx: ", np.degrees(ori))
+
             s_tags[tag.tag_id] = {"pos": pos, "rot": ori}
 
-            # cv2.drawMarker(self.depth, (int(tag.center[0]), int(tag.center[1])), (0, 255, 0), cv2.MARKER_CROSS, 150, 1)
-            # cv2.drawMarker(self.depth, (int(tag.corners[0][0]), int(tag.corners[0][1])), (0, 255, 0), cv2.MARKER_CROSS, 150, 1)
-            # cv2.drawMarker(self.depth, (int(tag.corners[1][0]), int(tag.corners[2][1])), (0, 255, 0), cv2.MARKER_CROSS, 150, 1)
-
-            # self.depth = cv2.rectangle (self.depth, (300, 220), (340, 260), (0, 255, 0))
         return s_tags
         
