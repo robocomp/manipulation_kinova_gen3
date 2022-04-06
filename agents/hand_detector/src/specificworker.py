@@ -19,6 +19,7 @@
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+from csv import excel_tab
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
 from rich.console import Console
@@ -45,11 +46,13 @@ from pydsr import *
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 25
+        self.Period = 100
 
         # YOU MUST SET AN UNIQUE ID FOR THIS AGENT IN YOUR DEPLOYMENT. "_CHANGE_THIS_ID_" for a valid unique integer
         self.agent_id = 222
         self.g = DSRGraph(0, "pythonAgent", self.agent_id)
+
+        self.grasped_cube = None
 
         self.color_raw = None
         self.hand_pos = [0,0,0]
@@ -66,7 +69,7 @@ class SpecificWorker(GenericWorker):
             # signals.connect(self.g, signals.DELETE_NODE, self.delete_node)
             signals.connect(self.g, signals.UPDATE_EDGE, self.update_edge)
             # signals.connect(self.g, signals.UPDATE_EDGE_ATTR, self.update_edge_att)
-            # signals.connect(self.g, signals.DELETE_EDGE, self.delete_edge)
+            signals.connect(self.g, signals.DELETE_EDGE, self.delete_edge)
             console.print("signals connected")
         except RuntimeError as e:
             print(e)
@@ -117,28 +120,39 @@ class SpecificWorker(GenericWorker):
                 # self.mpDraw.draw_landmarks(img, handLms, self.mpHands.HAND_CONNECTIONS)
         if triangle:
             pos = self.get_hand_position(img, depth, triangle, [self.focal_x, self.focal_y])
-            self.pos = self.insert_or_update_hand (pos)
-            # print (pos)
+            if pos is not None:
+                self.pos = self.insert_or_update_hand (pos)
+                self.check_grasp()
             
         cv2.imshow("Image", img)
         cv2.waitKey(1)
 
-        self.check_grasp()
 
         return True
 
     def check_grasp (self):
-        tf = inner_api(self.g)
-        cube_pos = tf.transform_axis ("world", "cube_6")[:3]
 
-        dist = np.linalg.norm(self.pos[:3] - cube_pos)
+        cubes = self.g.get_nodes_by_type("box")
+        hand = self.g.get_node ("human_hand")
 
-        if dist < 100:
-            cube = self.g.get_node ("cube_6")
-            hand = self.g.get_node ("human_hand")
-            g_rt = Edge (cube.id, hand.id, "graspping", self.agent_id)
-            
-            self.g.insert_or_assign_edge (g_rt)
+        for cube in cubes:    
+            tf = inner_api(self.g)
+            try:
+                cube_pos = tf.transform_axis ("world", cube.name)[:3]
+            except:
+                self.g.delete_edge (hand.id, cube.id, "graspping")
+                return
+
+            dist = np.linalg.norm(self.pos[:3] - cube_pos)
+
+            if dist < 100:
+                g_rt = Edge (cube.id, hand.id, "graspping", self.agent_id)
+                self.g.insert_or_assign_edge (g_rt)
+                self.grasped_cube = cube.id
+                # print ("graspping cube", cube.name)
+            else:
+                # print ("not grasping cube", cube.name)
+                self.g.delete_edge (hand.id, cube.id, "graspping")
 
     def startup_check(self):
         QTimer.singleShot(200, QApplication.instance().quit)
@@ -148,9 +162,10 @@ class SpecificWorker(GenericWorker):
         new_pos = tf.transform_axis ("world", pos + [0,0,0], "hand_camera")
 
         if (hand_node := self.g.get_node("human_hand")) is None:
-            hand_node = Node(44, "box", "human_hand")
+            hand_node = Node(44, "left_hand", "human_hand")
+            hand_node.attrs['pos_x'] = Attribute(float(67), self.agent_id)
+            hand_node.attrs['pos_y'] = Attribute(float(160), self.agent_id)
             self.g.insert_node (hand_node)
-            hand_node = new_node
         
         # print ("Inserted cube " + str(cube_id))
 
@@ -173,11 +188,14 @@ class SpecificWorker(GenericWorker):
         center_x = (points[0][0] + points[1][0] + points[2][0]) // 3
         center_y = (points[0][1] + points[1][1] + points[2][1]) // 3
 
-        pos_z = depth[center_y, center_x] # np.mean(depth[index_x-10:index_x+10,index_y-10:index_y+10])
-        pos_y = - ((center_y - img.shape[0]//2) * pos_z) / focals[0]  
-        pos_x = - ((center_x - img.shape[1]//2) * pos_z) / focals[1]
-
-        cv2.circle(img, (center_x,center_y), 3, (0,0,255), cv2.FILLED)
+        try:
+            pos_z = depth[center_y, center_x] # np.mean(depth[index_x-10:index_x+10,index_y-10:index_y+10])
+            pos_y = - ((center_y - img.shape[0]//2) * pos_z) / focals[0]  
+            pos_x = - ((center_x - img.shape[1]//2) * pos_z) / focals[1]
+            cv2.circle(img, (center_x,center_y), 3, (0,0,255), cv2.FILLED)
+        except:
+            print ("hand center out of frame")
+            return None
 
         return [pos_x, pos_y, pos_z]
 
@@ -212,4 +230,5 @@ class SpecificWorker(GenericWorker):
         console.print(f"UPDATE EDGE ATT: {fr} to {type} {attribute_names}", style='green')
 
     def delete_edge(self, fr: int, to: int, type: str):
-        console.print(f"DELETE EDGE: {fr} to {type} {type}", style='green')
+        pass
+        

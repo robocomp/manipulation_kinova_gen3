@@ -37,6 +37,7 @@ from scipy.spatial.transform import Rotation as R
 from image_processor import *
 from planifier import *
 import threading, queue
+import time
 
 sys.path.append('/opt/robocomp/lib')
 console = Console(highlight=False)
@@ -67,7 +68,6 @@ class SpecificWorker(GenericWorker):
         self.img_proc = ImageProcessor()
         self.planner = Planifier()
         self.g = DSRGraph(0, "gen3_strips", self.agent_id)
-        # self.observation_pose = [351.082, 1.33755, 256.42, 3.14157, -0.637315, -1.57085]
         self.observation_pose = [534.254, -0.419066, 68.6622, 3.13773, -0.802042, -1.58157]
         self.working_pose = [544, 0, 400, 3.14159, 0, -1.57089]
         self.hand_tag_detection_count = {}
@@ -81,10 +81,12 @@ class SpecificWorker(GenericWorker):
         self.end = True
         self.plan = []
         self.step = 0
+        self.tags = []
 
         # TODO: GO TO OBSERVATION POSE
-        self.thread_event = threading.Thread(name='OBSERVATING', target=self.move_arm, args=[self.observation_pose])
-        self.thread_event.start()
+        # self.thread_event = threading.Thread(name='OBSERVATING', target=self.move_arm, args=[self.observation_pose])
+        # self.thread_event.start()
+        
         try:
             signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
             signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
@@ -114,22 +116,29 @@ class SpecificWorker(GenericWorker):
         print('SpecificWorker.compute...')       
         if self.hand_color_raw is not None and self.hand_depth_raw is not None:
             color, depth = self.img_proc.extract_color_and_depth(self.hand_color_raw, self.hand_depth_raw)
-            tags, simple_tags = self.img_proc.compute_april_tags(color, depth, (self.hand_focal_x, self.hand_focal_y))
+            self.tags, simple_tags = self.img_proc.compute_april_tags(color, depth, (self.hand_focal_x, self.hand_focal_y))
             current_cubes = self.cubes_to_dsr(simple_tags)
             
-
-            self.init_state, _ = self.planner.create_initial_state(tags, current_cubes)
+            # self.init_state, cubes = self.planner.create_initial_state(tags)
+            # print("STATE", self.init_state)
+            # print("CUBES", cubes)
 
         if self.end:
             print("PLAN ENDED")
         else:
             if self.begin_plan:
                 self.begin_plan = False
-                tag_list = self.create_initial_state()
-                for rule in self.initState:
+                self.init_state, cubes = self.planner.create_initial_state(self.tags)
+                for rule in self.init_state:
                     print(rule)
-                self.planner.save_to_file(self.initState, self.endState, tag_list)
+                self.planner.save_to_file(self.init_state, self.end_state, cubes)
+
+                time.sleep(1)
+
                 self.planner.exec_planner()
+
+                time.sleep(1)
+                
                 self.plan = self.planner.load_plan()
                 print(self.plan)
 
@@ -139,7 +148,9 @@ class SpecificWorker(GenericWorker):
 
             else:
                 if self.plan != []:
-                    current_step = self.plan[self.step]
+                    print(self.plan)
+                    time.sleep(2)
+                    '''current_step = self.plan[self.step]
                     params = current_step[1] if len(current_step) > 1 else None                                                             # --
                     arg_list = []                                                                                                           # --
 
@@ -171,7 +182,7 @@ class SpecificWorker(GenericWorker):
                                     else:
                                         self.do_next_action = True
                             except:
-                                pass                           
+                                pass    '''                       
         return True
 
     def startup_check(self):
@@ -198,26 +209,29 @@ class SpecificWorker(GenericWorker):
         pass
 
     def final_state(self):
-        self.end_state = self.planner.create_final_state()
+        self.end_state = self.planner.create_final_state(self.ui)
+        self.begin_plan = True
+        self.end = False
+        self.step = 0
 
     def on_release(self, key):
         print('Key released: {0}'.format(key))
         try:
-            if key.char == 'c':
-                self.close_gripper()
-                return True
-            elif key.char == 'o':
-                self.open_gripper()
-                return True
-            elif key.char == 's':
-                self.put_down(int(key.char))
-                return True
-            elif key.char == 'w':
-                self.move_arm(self.working_pose)
-                return True
-            elif key.char == 'r':
-                self.move_arm(self.observation_pose)
-                return True
+            # if key.char == 'c':
+            #     self.close_gripper()
+            #     return True
+            # if key.char == 'o':
+            #     self.open_gripper()
+            #     return True
+            # if key.char == 's':
+            #     self.put_down(int(key.char))
+            #     return True
+            # if key.char == 'w':
+            #     self.move_arm(self.working_pose)
+            #     return True
+            # if key.char == 'r':
+            #     self.move_arm(self.observation_pose)
+            #     return True
             self.pick_up(int(key.char))
         except:
             print ("Not an INT")

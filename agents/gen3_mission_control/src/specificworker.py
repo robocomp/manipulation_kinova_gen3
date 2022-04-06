@@ -178,6 +178,8 @@ class SpecificWorker(GenericWorker):
 
         if (cube_node := self.g.get_node(cube_name)) is None:
             new_node = Node(cube_id + self.CUBE_PREFIX + offset, "box", cube_name)
+            new_node.attrs['pos_x'] = Attribute(float(-280 + 90 * cube_id), self.agent_id)
+            new_node.attrs['pos_y'] = Attribute(float(90), self.agent_id)
             self.g.insert_node (new_node)
 
             cube_node = new_node
@@ -205,9 +207,10 @@ class SpecificWorker(GenericWorker):
         rt.insert_or_assign_edge_RT(world, cube_node.id, new_pos[:3], new_pos[3:])
         self.g.update_node(world)
 
-    def delete_cube (self, cube_id, is_top=""):
+    def delete_cube_rt (self, cube_id, is_top=""):
         if (cube := self.g.get_node ("cube_" + str(cube_id) + is_top)):
-            self.g.delete_node (cube.id)
+            world = self.g.get_node ("world")
+            self.g.delete_edge (world.id, cube.id, "RT")
 
     @QtCore.Slot()
     def compute(self):
@@ -245,8 +248,8 @@ class SpecificWorker(GenericWorker):
                 if (self.hand_tag_detection_count[id] > 20):
                     self.hand_tags[id] = simplified_inmediate_tags[id]
                     self.insert_or_update_cube (self.hand_tags, id)
-                # else:
-                #     self.delete_cube (id)
+                else:
+                    self.delete_cube_rt (id)
         # cv2.imshow('Color', self.hand_color) #depth.astype(np.uint8))
 
         if self.top_color_raw is not None and self.top_depth_raw is not None:
@@ -282,8 +285,8 @@ class SpecificWorker(GenericWorker):
                 if (self.top_tag_detection_count[id] > 20):
                     self.top_tags[id] = top_simplified_inmediate_tags[id]
                     self.insert_or_update_cube (self.top_tags, id, "**", 40)
-                # else:
-                #     self.delete_cube (id, "**")
+                else:
+                    self.delete_cube_rt (id, "**")
 
             dept_show = cv2.applyColorMap(cv2.convertScaleAbs(self.top_depth, alpha=0.03), cv2.COLORMAP_JET)
             # dept_show = cv2.rectangle (dept_show, (450, 268), (118, 81), (255, 255, 255))  
@@ -385,6 +388,9 @@ class SpecificWorker(GenericWorker):
 
             pos = [pos_y, pos_x, pos_z] # Acording to gripper reference frame
             # pos = [pos_x, pos_y, pos_z] # Acording to world reference frame
+
+            offset = 90 if tag.tag_id == 1 else 20
+            pos[2] += offset
 
             
             ori = np.multiply(r.as_euler('XYZ'), -1).tolist()

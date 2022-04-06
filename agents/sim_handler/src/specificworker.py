@@ -45,6 +45,11 @@ class SpecificWorker(GenericWorker):
         self.already_added = []
         self.updated_cubes = []
 
+        self.grasped_cube = None
+        self.last_grasp   = None
+        self.new_grasp = False
+        self.grasp_released = False
+
         self.sim = Simulation()
         self.sim.load_scene ("/home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/gen3_cubes.ttt")
         self.sim.start_simulation()
@@ -61,7 +66,7 @@ class SpecificWorker(GenericWorker):
             # signals.connect(self.g, signals.DELETE_NODE, self.delete_node)
             signals.connect(self.g, signals.UPDATE_EDGE, self.update_edge)
             # signals.connect(self.g, signals.UPDATE_EDGE_ATTR, self.update_edge_att)
-            # signals.connect(self.g, signals.DELETE_EDGE, self.delete_edge)
+            signals.connect(self.g, signals.DELETE_EDGE, self.delete_edge)
             console.print("signals connected")
         except RuntimeError as e:
             print(e)
@@ -98,7 +103,7 @@ class SpecificWorker(GenericWorker):
 
         if self.updated_cubes:
             for id in self.updated_cubes:
-                print ("Updating cube", id)
+                # print ("Updating cube", id)
                 cube = self.g.get_node (id)
                 tf = inner_api(self.g)
                 if cube:
@@ -106,7 +111,6 @@ class SpecificWorker(GenericWorker):
                     int_rot = pos[3:]
                     ext_rot = R.from_euler('XYZ', int_rot).as_euler('xyz')
                     pos[3:] = ext_rot
-                    pos[2] -= 20
                     if id not in self.already_added:
                         if cube.name == "cube_1":
                             self.sim.insert_box (cube.name, pos[:3], "gen3")
@@ -119,6 +123,21 @@ class SpecificWorker(GenericWorker):
             # print ("Updating simulation")
             self.updated_cubes = []
         
+        # if self.new_grasp and self.grasped_cube is not None:
+        #     self.cube_grasped(self.grasped_cube)
+        #     self.new_grasp = False
+            
+        # if self.grasp_released:
+        #     self.grasp_released = False
+        #     self.cube_released(self.grasped_cube)
+
+        if self.last_grasp != self.grasped_cube:
+            if self.grasped_cube is None:
+                self.cube_released (self.last_grasp)
+            else:
+                self.cube_grasped (self.grasped_cube)
+            self.last_grasp = self.grasped_cube
+
         
         self.update_cubes_beliefs ()
         
@@ -158,6 +177,14 @@ class SpecificWorker(GenericWorker):
             v_rt.attrs["rt_translation"]        = Attribute(pos, self.agent_id)
             self.g.insert_or_assign_edge (v_rt)
 
+    def cube_grasped (self, name):
+        print ("Changing to static", name)
+        self.sim.change_static (name, 1)
+
+    def cube_released (self, name):
+        print ("Changing to dynamic", name)
+        self.grasped_cube = None
+        self.sim.change_static (name, 0)
 
     # =============== DSR SLOTS  ================
     # ===========================================
@@ -174,14 +201,22 @@ class SpecificWorker(GenericWorker):
     def update_edge(self, fr: int, to: int, type: str):
         dest = self.g.get_node(to)
         if dest.type == 'box' and type == "RT" and dest.name[-1] != '*':
-            print ("Update received")
             self.updated_cubes.append (dest.name)
             if (dest.name not in self.boxes_ids):
                 self.boxes_ids.append (dest.name)
+
+        if dest.type == 'box' and type == "graspping" and dest.name[-1] != '*':
+            self.grasped_cube = dest.name
+            # if dest.name != self.grasped_cube:
+            #     self.new_grasp = True
+            #     self.grasped_cube = dest.name
         # console.print(f"UPDATE EDGE: {fr} to {to}", type, style='green')
 
     def update_edge_att(self, fr: int, to: int, type: str, attribute_names: [str]):
         console.print(f"UPDATE EDGE ATT: {fr} to {type} {attribute_names}", style='green')
 
     def delete_edge(self, fr: int, to: int, type: str):
-        console.print(f"DELETE EDGE: {fr} to {type} {type}", style='green')
+        dest = self.g.get_node(to)
+        if dest.type == 'box' and type == "graspping" and dest.name[-1] != '*':
+            self.grasped_cube = None
+            # self.grasp_released = True
