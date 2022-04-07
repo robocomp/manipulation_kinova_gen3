@@ -198,9 +198,10 @@ class SpecificWorker(GenericWorker):
             # offset = 40 if cube_name == "cube_1" else 20
             # new_pos[2] -= offset
 
+            #### Publish only when changing
             pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
             rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
-            if pos_diff < 5 and rot_diff < 0.1:
+            if pos_diff < 3 and rot_diff < 0.1:
                 # print ("Not updating pose", pos_diff, rot_diff)
                 return
         except:
@@ -256,8 +257,15 @@ class SpecificWorker(GenericWorker):
                     self.insert_or_update_cube (self.hand_tags, id)
                 else:
                     self.delete_cube_rt (id)
+
+            dept_show = cv2.applyColorMap(cv2.convertScaleAbs(self.hand_depth, alpha=0.03), cv2.COLORMAP_JET)
+            # dept_show = cv2.rectangle (dept_show, (450, 268), (118, 81), (255, 255, 255))  
+            # dept_show = cv2.resize(dept_show, dsize=(1280, 720))          
+
         cv2.imshow('Color', self.hand_color) #depth.astype(np.uint8))
 
+        return True
+        
         if self.top_color_raw is not None and self.top_depth_raw is not None:
             # print (type(self.depth), self.depth.shape)
 
@@ -293,10 +301,6 @@ class SpecificWorker(GenericWorker):
                     self.insert_or_update_cube (self.top_tags, id, "**", 40)
                 else:
                     self.delete_cube_rt (id, "**")
-
-            dept_show = cv2.applyColorMap(cv2.convertScaleAbs(self.top_depth, alpha=0.03), cv2.COLORMAP_JET)
-            # dept_show = cv2.rectangle (dept_show, (450, 268), (118, 81), (255, 255, 255))  
-            # dept_show = cv2.resize(dept_show, dsize=(1280, 720))          
 
         # self.display_cube_diff (self.top_tags, self.hand_tags)
 
@@ -420,7 +424,7 @@ class SpecificWorker(GenericWorker):
                 old_pos = self.current_positions[tag.tag_id]["pos"]
                 old_ori = self.current_positions[tag.tag_id]["rot"]
                 
-                factor = 0.75
+                factor = 0.90
 
                 new_pos = np.multiply (old_pos, factor) +  np.multiply (pos, 1-factor)
                 new_ori = np.multiply (old_ori, factor) +  np.multiply (ori, 1-factor)

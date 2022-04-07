@@ -46,13 +46,14 @@ from pydsr import *
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 100
+        self.Period = 50
 
         # YOU MUST SET AN UNIQUE ID FOR THIS AGENT IN YOUR DEPLOYMENT. "_CHANGE_THIS_ID_" for a valid unique integer
         self.agent_id = 222
         self.g = DSRGraph(0, "pythonAgent", self.agent_id)
 
         self.grasped_cube = None
+        self.last_pos = [0,0,0]
 
         self.color_raw = None
         self.hand_pos = [0,0,0]
@@ -125,18 +126,43 @@ class SpecificWorker(GenericWorker):
         #         print ("no hand")
         # ##########################################
 
+
+        ####### using hand corner #########
+        # if results.multi_hand_landmarks:
+        #     for handLms in results.multi_hand_landmarks:
+        #         for id, lm in enumerate(handLms.landmark):
+        #             h, w, c = img.shape
+        #             cx, cy = int(lm.x *w), int(lm.y*h)
+        #             # cv2.circle(img, (cx,cy), 3, (255,0,255), cv2.FILLED)
+        #             # cv2.putText(img, str(id),
+        #             #            org = (cx, cy),
+        #             #            fontFace = cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.8, color=(0, 0, 255))
+        #             if id == 5:
+        #                 pos = self.get_hand_position(img, depth, (cx, cy), [self.focal_x, self.focal_y])
+        #                 if pos is not None:
+        #                     self.pos = self.insert_or_update_hand (pos)
+        #                 cv2.circle(img, (cx,cy), 3, (0,0,255), cv2.FILLED)
+
+
+        line = []
         if results.multi_hand_landmarks:
             for handLms in results.multi_hand_landmarks:
                 for id, lm in enumerate(handLms.landmark):
                     h, w, c = img.shape
                     cx, cy = int(lm.x *w), int(lm.y*h)
-                    if id == 5:
-                        pos = self.get_hand_position(img, depth, (cx, cy), [self.focal_x, self.focal_y])
-                        if pos is not None:
-                            self.pos = self.insert_or_update_hand (pos)
+                    if id in [4, 8]:
+                        line.append ((cx, cy))
                         cv2.circle(img, (cx,cy), 3, (255,0,255), cv2.FILLED)
-
-        
+        if line:
+            pos = self.get_hand_position(img, depth, line, [self.focal_x, self.focal_y])
+            if not np.isnan(pos[0]):
+                factor = 0.60
+                new_pos = (np.multiply (self.last_pos[:3], factor) +  np.multiply (pos[:3], 1-factor)).tolist()
+                # print (self.last_pos, new_pos, pos)
+                self.last_pos = new_pos
+                self.pos = self.insert_or_update_hand (new_pos)
+                # self.check_grasp()
+            
         cv2.imshow("Image", img)
         cv2.waitKey(1)
 
@@ -199,23 +225,25 @@ class SpecificWorker(GenericWorker):
 
     def get_hand_position (self, img, depth, points, focals):
 
-        center_x = points[0] # (points[0][0] + points[1][0] + points[2][0]) // 3
-        center_y = points[1] # (points[0][1] + points[1][1] + points[2][1]) // 3
+        points_3d = []
+        mean = [np.nan, np.nan, np.nan]
+        for point in points:
 
-        try:
-            pos_z = depth[center_y, center_x] # np.mean(depth[index_x-10:index_x+10,index_y-10:index_y+10])
+            center_x = point[0]
+            center_y = point[1]
+            slice = depth[center_y-1:center_y+1, center_x-1:center_x+1]
+            pos_z = np.mean(slice[np.nonzero(slice)])
             pos_y = - ((center_y - img.shape[0]//2) * pos_z) / focals[0]  
             pos_x = - ((center_x - img.shape[1]//2) * pos_z) / focals[1]
-            cv2.circle(img, (center_x,center_y), 3, (0,0,255), cv2.FILLED)
-        except:
-            print ("hand center out of frame")
-            return None
 
-        return [pos_x, pos_y, pos_z]
-
+            points_3d.append ([pos_x, pos_y, pos_z])
+            mean = np.mean (points_3d, axis=0).tolist()
+            
+        return mean # [pos_x, pos_y, pos_z]
 
 
-    # =============== DSR SLOTS  ================
+
+    # =============== DSR SLOTS  ==================
     # =============================================
 
     def update_node_att(self, id: int, attribute_names: [str]):
