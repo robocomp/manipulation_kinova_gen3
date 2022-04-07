@@ -36,6 +36,7 @@ from scipy.spatial.transform import Rotation as R
 
 from image_processor import *
 from planifier import *
+from constants import *
 import threading, queue
 import time
 
@@ -68,8 +69,8 @@ class SpecificWorker(GenericWorker):
         self.img_proc = ImageProcessor()
         self.planner = Planifier()
         self.g = DSRGraph(0, "gen3_strips", self.agent_id)
-        self.observation_pose = [534.254, -0.419066, 68.6622, 3.13773, -0.802042, -1.58157]
-        self.working_pose = [544, 0, 400, 3.14159, 0, -1.57089]
+        # self.observation_pose = [534.254, -0.419066, 68.6622, 3.13773, -0.802042, -1.58157]
+        # self.working_pose = [544, 0, 400, 3.14159, 0, -1.57089]
         self.hand_tag_detection_count = {}
         self.hand_tags = {}
 
@@ -142,7 +143,7 @@ class SpecificWorker(GenericWorker):
                 self.plan = self.planner.load_plan()
                 print(self.plan)
 
-                self.move_arm(self.working_pose)
+                self.move_arm(WORKING_POSE)
 
                 self.do_action = True
 
@@ -196,12 +197,12 @@ class SpecificWorker(GenericWorker):
 
     def open_gripper(self):
         gripper = self.g.get_node ("gripper")
-        gripper.attrs["gripper_target_finger_distance"].value = 1.0
+        gripper.attrs["gripper_target_finger_distance"].value = OPEN
         self.g.update_node (gripper)
     
     def close_gripper(self):
         gripper = self.g.get_node ("gripper")
-        gripper.attrs["gripper_target_finger_distance"].value = 0.0
+        gripper.attrs["gripper_target_finger_distance"].value = CLOSE
         self.g.update_node (gripper)
 
     # EVENT FUNCTION TRIGGERS
@@ -242,6 +243,7 @@ class SpecificWorker(GenericWorker):
 
     # ACTIONS
     def pick_up(self, cube_id):
+        # TODO Reimplementar o reorganizar
         if cube_id == 0:
             dest_pose = [400, 0, 400, np.pi, 0, np.pi/2]
 
@@ -267,7 +269,7 @@ class SpecificWorker(GenericWorker):
         self.open_gripper()
         self.move_arm(dest_pose)
         self.close_gripper()
-        self.move_arm(self.working_pose)
+        self.move_arm(WORKING_POSE)
 
     def put_down(self, cube_id):
         pass
@@ -309,8 +311,8 @@ class SpecificWorker(GenericWorker):
         
         if (cube_node := self.g.get_node(cube_name)) is None:
             new_node = Node(cube_id + self.CUBE_PREFIX + offset, "box", cube_name)
-            new_node.attrs['pos_x'] = Attribute(float(-280 + 90 * cube_id), self.agent_id)
-            new_node.attrs['pos_y'] = Attribute(float(90), self.agent_id)
+            new_node.attrs['pos_x'] = Attribute(float(REFERENCE_COORD + CUBE_OFFSET * cube_id), self.agent_id)
+            new_node.attrs['pos_y'] = Attribute(float(CUBE_OFFSET), self.agent_id)
             
             self.g.insert_node (new_node)
             cube_node = new_node
@@ -320,7 +322,7 @@ class SpecificWorker(GenericWorker):
             current_pos = tf.transform_axis ("world", cube_name)
             pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
             rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
-            if pos_diff < 5 and rot_diff < 0.1:
+            if pos_diff < MAX_POS_DIFF and rot_diff < MAX_ROT_DIFF:
                 return
         except:
             print ("Does not exist")
@@ -340,7 +342,7 @@ class SpecificWorker(GenericWorker):
 
     def update_node(self, id: int, type: str):
         # console.print(f"UPDATE NODE: {id} {type}", style='green')
-        if type=='rgbd' and id == 62842907933016084:
+        if type=='rgbd' and id == CAMERA_ID:
             updated_node = self.g.get_node(id)
             self.hand_depth_raw = updated_node.attrs['cam_depth'].value
             self.hand_color_raw = updated_node.attrs['cam_rgb'].value
