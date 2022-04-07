@@ -58,8 +58,6 @@ class SpecificWorker(GenericWorker):
         self.g = DSRGraph(0, "pythonAgent", self.agent_id)
         self.depth = None
 
-        print ("Insertede dummie edge")
-
         self.CUBE_PREFIX = 1000
 
         self.hand_tag_detection_count = {}
@@ -68,10 +66,12 @@ class SpecificWorker(GenericWorker):
         self.top_tag_detection_count = {}
         self.top_tags = {}
 
-        listener = keyboard.Listener(
-            on_press=self.on_press,
-            on_release=self.on_release)
-        listener.start()
+        self.current_positions = {}
+
+        # listener = keyboard.Listener(
+        #     on_press=self.on_press,
+        #     on_release=self.on_release)
+        # listener.start()
 
         self.align_to = rs.stream.color
         self.align = rs.align(self.align_to)
@@ -194,6 +194,10 @@ class SpecificWorker(GenericWorker):
         rt = rt_api(self.g)
         try:
             current_pos = tf.transform_axis ("world", cube_name)
+
+            # offset = 40 if cube_name == "cube_1" else 20
+            # new_pos[2] -= offset
+
             pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
             rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
             if pos_diff < 5 and rot_diff < 0.1:
@@ -235,6 +239,8 @@ class SpecificWorker(GenericWorker):
             complete_tags = self.compute_april_tags(self.hand_color, (self.hand_focal_x, self.hand_focal_y))
             simplified_inmediate_tags = self.simplify_tags(complete_tags, self.hand_color, (self.hand_focal_x, self.hand_focal_y), self.hand_depth)
 
+            self.current_positions = simplified_inmediate_tags.copy()
+
             for id in simplified_inmediate_tags.keys():
                 if id not in self.hand_tag_detection_count.keys():
                     self.hand_tag_detection_count[id] = 0
@@ -250,7 +256,7 @@ class SpecificWorker(GenericWorker):
                     self.insert_or_update_cube (self.hand_tags, id)
                 else:
                     self.delete_cube_rt (id)
-        # cv2.imshow('Color', self.hand_color) #depth.astype(np.uint8))
+        cv2.imshow('Color', self.hand_color) #depth.astype(np.uint8))
 
         if self.top_color_raw is not None and self.top_depth_raw is not None:
             # print (type(self.depth), self.depth.shape)
@@ -377,6 +383,9 @@ class SpecificWorker(GenericWorker):
 
             rot = m[0][:3,:3]
             r = R.from_matrix(rot)
+
+            offset = np.array ([0,0,20]) if tag.tag_id != 1 else np.array ([0,0,40])
+            
             
             index_x = int(tag.center[1]) // 2
             index_y = int(tag.center[0]) // 2
@@ -389,17 +398,36 @@ class SpecificWorker(GenericWorker):
             pos = [pos_y, pos_x, pos_z] # Acording to gripper reference frame
             # pos = [pos_x, pos_y, pos_z] # Acording to world reference frame
 
-            offset = 90 if tag.tag_id == 1 else 20
-            pos[2] += offset
 
-            
+
             ori = np.multiply(r.as_euler('XYZ'), -1).tolist()
             ori[-1] *= -1
 
-            # ori = np.multiply(r.as_euler('zyx'), -1).tolist()
-            # print ("zyx: ", np.degrees(ori))
+            r = R.from_euler("XYZ", ori)
+            rot_offset = r.apply(offset)
+            
+            ##### offset debug ######
+            # tf = inner_api(self.g)
+            # w_pos = tf.transform_axis ("world", [*pos, 0, 0, 0], "hand_camera")
+            # w_camera = tf.transform_axis ("world", "hand_camera")
+            # w_off = tf.transform_axis ("world", [*rot_offset, 0, 0, 0], "hand_camera")
+            # print ("tag", tag.tag_id, "res", (w_off - w_camera)[:3], "ori", np.degrees(ori))
+            #########################
+            
+            pos = (pos+rot_offset).tolist()
 
-            s_tags[tag.tag_id] = {"pos": pos, "rot": ori}
+            if tag.tag_id in self.current_positions:
+                old_pos = self.current_positions[tag.tag_id]["pos"]
+                old_ori = self.current_positions[tag.tag_id]["rot"]
+                
+                factor = 0.75
+
+                new_pos = np.multiply (old_pos, factor) +  np.multiply (pos, 1-factor)
+                new_ori = np.multiply (old_ori, factor) +  np.multiply (ori, 1-factor)
+
+                s_tags[tag.tag_id] = {"pos": new_pos.tolist(), "rot": new_ori.tolist()}
+            else:
+                s_tags[tag.tag_id] = {"pos": pos, "rot": ori}
 
         return s_tags
         

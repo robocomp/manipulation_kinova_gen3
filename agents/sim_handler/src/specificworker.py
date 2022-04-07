@@ -54,6 +54,8 @@ class SpecificWorker(GenericWorker):
         self.sim.load_scene ("/home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/gen3_cubes.ttt")
         self.sim.start_simulation()
 
+        self.sim.insert_hand ("human_hand", [0,0,0], "gen3")
+
         # self.sim.set_object_pose("goal", [400, 0, 400, np.pi, 0, np.pi/2], "gen3")
 
         # time.sleep (7)
@@ -108,6 +110,12 @@ class SpecificWorker(GenericWorker):
                 tf = inner_api(self.g)
                 if cube:
                     pos = tf.transform_axis ("world", cube.name)
+                    
+                    ### Trying to get all rts ######
+                    # rt = rt_api(self.g)
+                    # edge = self.g.get_edge ("world", cube.name, "RT")
+                    # print ("a verte", rt.get_edge_RT_as_rtmat (edge))
+
                     int_rot = pos[3:]
                     ext_rot = R.from_euler('XYZ', int_rot).as_euler('xyz')
                     pos[3:] = ext_rot
@@ -119,27 +127,25 @@ class SpecificWorker(GenericWorker):
                         self.already_added.append(id)
                         print ("Created new cube", id, self.boxes_ids, self.already_added)
                     else:
+                        # pass
                         self.sim.set_object_pose(cube.name, pos, "gen3")
             # print ("Updating simulation")
             self.updated_cubes = []
         
-        # if self.new_grasp and self.grasped_cube is not None:
-        #     self.cube_grasped(self.grasped_cube)
-        #     self.new_grasp = False
-            
-        # if self.grasp_released:
-        #     self.grasp_released = False
-        #     self.cube_released(self.grasped_cube)
-
+        
+        #### grasp detection w/distance ####
         if self.last_grasp != self.grasped_cube:
             if self.grasped_cube is None:
                 self.cube_released (self.last_grasp)
             else:
                 self.cube_grasped (self.grasped_cube)
             self.last_grasp = self.grasped_cube
+        #####################################
 
         
         self.update_cubes_beliefs ()
+
+        self.update_hand()
         
         return True
 
@@ -161,11 +167,8 @@ class SpecificWorker(GenericWorker):
     def update_cubes_beliefs (self):
 
         for id in self.boxes_ids:
-
             cube = self.g.get_node(id)
             pos, rot = self.sim.get_object_pose(cube.name)
-
-            pos[2] += 20
 
             rot = R.from_quat(rot).as_euler('xyz')
 
@@ -176,6 +179,28 @@ class SpecificWorker(GenericWorker):
             v_rt.attrs["rt_rotation_euler_xyz"] = Attribute(rot, self.agent_id)
             v_rt.attrs["rt_translation"]        = Attribute(pos, self.agent_id)
             self.g.insert_or_assign_edge (v_rt)
+
+    def update_hand (self):
+        tf = inner_api(self.g)
+        try:
+            pos = tf.transform_axis ("world", "human_hand")
+            self.sim.set_object_pose ("human_hand", pos, "gen3")
+        except:
+            return
+
+        colliding = self.sim.check_colisions("human_hand")
+        # for c in colliding:
+        hand = self.g.get_node ("human_hand")
+        if colliding:
+            cube = self.g.get_node (colliding)
+            g_rt = Edge (cube.id, hand.id, "graspping", self.agent_id)
+            self.g.insert_or_assign_edge (g_rt)
+        elif self.last_grasp:
+            cube = self.g.get_node (self.last_grasp)
+            self.g.delete_edge (hand.id, cube.id, "graspping")
+
+        self.grasped_cube = colliding
+
 
     def cube_grasped (self, name):
         print ("Changing to static", name)
@@ -205,8 +230,8 @@ class SpecificWorker(GenericWorker):
             if (dest.name not in self.boxes_ids):
                 self.boxes_ids.append (dest.name)
 
-        if dest.type == 'box' and type == "graspping" and dest.name[-1] != '*':
-            self.grasped_cube = dest.name
+        # if dest.type == 'box' and type == "graspping" and dest.name[-1] != '*':
+        #     self.grasped_cube = dest.name
             # if dest.name != self.grasped_cube:
             #     self.new_grasp = True
             #     self.grasped_cube = dest.name
@@ -216,7 +241,8 @@ class SpecificWorker(GenericWorker):
         console.print(f"UPDATE EDGE ATT: {fr} to {type} {attribute_names}", style='green')
 
     def delete_edge(self, fr: int, to: int, type: str):
-        dest = self.g.get_node(to)
-        if dest.type == 'box' and type == "graspping" and dest.name[-1] != '*':
-            self.grasped_cube = None
+        pass
+        # dest = self.g.get_node(to)
+        # if dest.type == 'box' and type == "graspping" and dest.name[-1] != '*':
+        #     self.grasped_cube = None
             # self.grasp_released = True

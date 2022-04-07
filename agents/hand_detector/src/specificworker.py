@@ -95,6 +95,7 @@ class SpecificWorker(GenericWorker):
     @QtCore.Slot()
     def compute(self):
         if self.color_raw is None:
+            print ("No Image received")
             return True
 
         self.color = np.frombuffer(self.color_raw, dtype=np.uint8)
@@ -103,27 +104,39 @@ class SpecificWorker(GenericWorker):
         self.depth = np.frombuffer(self.depth_raw, dtype=np.uint16)
         depth = self.depth.reshape((480, 640))
 
-        # imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         results = self.hands.process(img)
-        #print(results.multi_hand_landmarks)
-        triangle = []
+
+        # #### Center position of the hand #######
+        # triangle = []
+        # if results.multi_hand_landmarks:
+        #     for handLms in results.multi_hand_landmarks:
+        #         for id, lm in enumerate(handLms.landmark):
+        #             h, w, c = img.shape
+        #             cx, cy = int(lm.x *w), int(lm.y*h)
+        #             if id in [0, 5, 17]:
+        #                 triangle.append ((cx, cy))
+        #                 cv2.circle(img, (cx,cy), 3, (255,0,255), cv2.FILLED)
+        # if triangle:
+        #     pos = self.get_hand_position(img, depth, triangle, [self.focal_x, self.focal_y])
+        #     if pos is not None:
+        #         self.pos = self.insert_or_update_hand (pos)
+        #         # self.check_grasp()
+        #     else:
+        #         print ("no hand")
+        # ##########################################
+
         if results.multi_hand_landmarks:
             for handLms in results.multi_hand_landmarks:
                 for id, lm in enumerate(handLms.landmark):
-                    # print(id,lm)
                     h, w, c = img.shape
                     cx, cy = int(lm.x *w), int(lm.y*h)
-                    if id in [0, 5, 17]:
-                        triangle.append ((cx, cy))
+                    if id == 5:
+                        pos = self.get_hand_position(img, depth, (cx, cy), [self.focal_x, self.focal_y])
+                        if pos is not None:
+                            self.pos = self.insert_or_update_hand (pos)
                         cv2.circle(img, (cx,cy), 3, (255,0,255), cv2.FILLED)
 
-                # self.mpDraw.draw_landmarks(img, handLms, self.mpHands.HAND_CONNECTIONS)
-        if triangle:
-            pos = self.get_hand_position(img, depth, triangle, [self.focal_x, self.focal_y])
-            if pos is not None:
-                self.pos = self.insert_or_update_hand (pos)
-                self.check_grasp()
-            
+        
         cv2.imshow("Image", img)
         cv2.waitKey(1)
 
@@ -141,9 +154,10 @@ class SpecificWorker(GenericWorker):
                 cube_pos = tf.transform_axis ("world", cube.name)[:3]
             except:
                 self.g.delete_edge (hand.id, cube.id, "graspping")
-                return
+                continue
 
             dist = np.linalg.norm(self.pos[:3] - cube_pos)
+            print (dist)
 
             if dist < 100:
                 g_rt = Edge (cube.id, hand.id, "graspping", self.agent_id)
@@ -185,8 +199,8 @@ class SpecificWorker(GenericWorker):
 
     def get_hand_position (self, img, depth, points, focals):
 
-        center_x = (points[0][0] + points[1][0] + points[2][0]) // 3
-        center_y = (points[0][1] + points[1][1] + points[2][1]) // 3
+        center_x = points[0] # (points[0][0] + points[1][0] + points[2][0]) // 3
+        center_y = points[1] # (points[0][1] + points[1][1] + points[2][1]) // 3
 
         try:
             pos_z = depth[center_y, center_x] # np.mean(depth[index_x-10:index_x+10,index_y-10:index_y+10])
