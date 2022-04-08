@@ -72,7 +72,7 @@ class Planifier():
             ")"
         ]
 
-        print('\n'.join(lines))
+        print("FILE", '\n'.join(lines))
 
         with open("init_state.pdll", 'w+') as f:
             f.write('\n'.join(lines))
@@ -86,10 +86,14 @@ class Planifier():
     def load_plan(self):
         plan = []
         with open("/home/robocomp/software/fast-downward-20.06/sas_plan", 'r+') as f:
-           lines = f.readlines()
-           for line in lines:
-               if ";" not in line:
-                   action, *rest = line[1:-2].split()
-                   print ("LINE:", line, "ACTION:", action, "REST:", rest)
-                   plan.append([action, list(map(lambda x: int(x), rest))])
+            lines = f.readlines()
+            for line in lines:
+                if ";" not in line:
+                    action, *rest = line[1:-2].split()
+                    print ("LINE:", line, "ACTION:", action, "REST:", rest)
+                    if action == "put-down":
+                       action == "put_down"
+                    elif action == "pick-up":
+                        action = "pick_up"      
+                    plan.append([action, list(map(lambda x: int(x), rest))])
         return plan

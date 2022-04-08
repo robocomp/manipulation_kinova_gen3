@@ -37,7 +37,6 @@ from scipy.spatial.transform import Rotation as R
 from image_processor import *
 from planifier import *
 from constants import *
-import threading, queue
 import time
 
 sys.path.append('/opt/robocomp/lib')
@@ -60,8 +59,7 @@ class SpecificWorker(GenericWorker):
         listener.start()
 
         # EVENT HANDLING [pro]
-        self.thread_event = None
-        self.queue = queue.Queue()
+        self.working = False
         self.do_action = False
         self.do_next_action = False
         
@@ -83,11 +81,10 @@ class SpecificWorker(GenericWorker):
         self.plan = []
         self.step = 0
         self.tags = []
+        # self.depthImg = []
 
-        # TODO: GO TO OBSERVATION POSE
-        # self.thread_event = threading.Thread(name='OBSERVATING', target=self.move_arm, args=[self.observation_pose])
-        # self.thread_event.start()
-        
+        self.move_arm(WORKING_POSE)
+
         try:
             signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
             signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
@@ -116,74 +113,62 @@ class SpecificWorker(GenericWorker):
     def compute(self):
         print('SpecificWorker.compute...')       
         if self.hand_color_raw is not None and self.hand_depth_raw is not None:
-            color, depth = self.img_proc.extract_color_and_depth(self.hand_color_raw, self.hand_depth_raw)
-            self.tags, simple_tags = self.img_proc.compute_april_tags(color, depth, (self.hand_focal_x, self.hand_focal_y))
+            color, self.depthImg = self.img_proc.extract_color_and_depth(self.hand_color_raw, self.hand_depth_raw)
+            self.tags, simple_tags = self.img_proc.compute_april_tags(color, self.depthImg, (self.hand_focal_x, self.hand_focal_y))
             current_cubes = self.cubes_to_dsr(simple_tags)
             
             # self.init_state, cubes = self.planner.create_initial_state(tags)
             # print("STATE", self.init_state)
             # print("CUBES", cubes)
 
-        if self.end:
-            print("PLAN ENDED")
-        else:
+        if not self.end:
             if self.begin_plan:
                 self.begin_plan = False
                 self.init_state, cubes = self.planner.create_initial_state(self.tags)
-                for rule in self.init_state:
-                    print(rule)
+                # for rule in self.init_state:
+                #     print(rule)
                 self.planner.save_to_file(self.init_state, self.end_state, cubes)
-
-                time.sleep(1)
-
                 self.planner.exec_planner()
-
                 time.sleep(1)
                 
                 self.plan = self.planner.load_plan()
-                print(self.plan)
-
+                print("PLAN", self.plan)
                 self.move_arm(WORKING_POSE)
-
                 self.do_action = True
 
             else:
                 if self.plan != []:
                     print(self.plan)
-                    time.sleep(2)
-                    '''current_step = self.plan[self.step]
-                    params = current_step[1] if len(current_step) > 1 else None                                                             # --
-                    arg_list = []                                                                                                           # --
+                    
+                    current_step = self.plan[self.step]
+                    params = current_step[1] if len(current_step) > 1 else None                                                                                                           # --
 
                     if self.do_action:
-                        if self.thread_event == None:
-                            if current_step[0] == "pick_up":                                                                                # --
-                                self.thread_event = threading.Thread(name='pick_up', target=self.pick_up, args=[self.observation_pose])     # --
-                            elif current_step[0] == "put_down":                                                                             # --
-                                self.thread_event = threading.Thread(name='put_down', target=self.put_down, args=[self.observation_pose])   # --
-                            elif current_step[0] == "stack":                                                                                # --
-                                self.thread_event = threading.Thread(name='stack', target=self.stack, args=[self.observation_pose])         # --
-                            elif current_step[0] == "unstack":                                                                              # --
-                                self.thread_event = threading.Thread(name='unstack', target=self.unstack, args=[self.observation_pose])     # --
-                            self.thread_event.start()                                                                                       # --
+                        if not self.working:
+                            if current_step[0] == "pick_up":           
+                                self.pick_up(params)
+                            elif current_step[0] == "put_down":
+                                self.put_down(params)
+                            elif current_step[0] == "stack":                                                         
+                                self.stack(params)                     
+                            elif current_step[0] == "unstack":          
+                                self.unstack(params)
 
-                            # Josemi's way
-                            # self.thread_event = threading.Thread(name=current_step[0], target=self.__dict__[current_step[0]], args=[params])
-                            # self.thread_event.start()
                         else:
-                            try:
-                                state = self.queue.get_nowait()
-                                print(state)
-                                if "Finish" in state:
-                                    self.do_action = False
-                                    self.thread_event = None
-                                    self.step += 1
-                                    if self.step == len(self.plan):
-                                        self.end = True
-                                    else:
-                                        self.do_next_action = True
-                            except:
-                                pass    '''                       
+                            print("Working :)")
+                        #     try:
+                        #         state = self.queue.get_nowait()
+                        #         print(state)
+                        #         if "Finish" in state:
+                        #             self.do_action = False
+                        #             self.thread_event = None
+                        #             self.step += 1
+                        #             if self.step == len(self.plan):
+                        #                 self.end = True
+                        #             else:
+                        #                 self.do_next_action = True
+                        #     except:
+                        #         pass                      
         return True
 
     def startup_check(self):
@@ -205,53 +190,46 @@ class SpecificWorker(GenericWorker):
         gripper.attrs["gripper_target_finger_distance"].value = CLOSE
         self.g.update_node (gripper)
 
-    # EVENT FUNCTION TRIGGERS
+        # EVENT FUNCTION TRIGGERS
     def on_press(self, key):
         pass
 
+    def on_release(self, key):
+        print('Key released: {0}'.format(key))
+        try:
+            if key.char == 'c':
+                self.close_gripper()
+                return True
+            if key.char == 'o':
+                self.open_gripper()
+                return True
+            if int(key.char) == 0:
+                self.put_down(int(key.char))
+                return True
+            if key.char == 'w':
+                self.move_arm(WORKING_POSE)
+                return True
+            self.pick_up(int(key.char))
+        except:
+            print("c: close\n o: open\n w:working pose\n 0:put_down\n N:pick_up(N)")
+
+        if key == keyboard.Key.esc:
+            # Stop listener
+            return False
+    
     def final_state(self):
         self.end_state = self.planner.create_final_state(self.ui)
         self.begin_plan = True
         self.end = False
         self.step = 0
 
-    def on_release(self, key):
-        print('Key released: {0}'.format(key))
-        try:
-            # if key.char == 'c':
-            #     self.close_gripper()
-            #     return True
-            # if key.char == 'o':
-            #     self.open_gripper()
-            #     return True
-            # if key.char == 's':
-            #     self.put_down(int(key.char))
-            #     return True
-            # if key.char == 'w':
-            #     self.move_arm(self.working_pose)
-            #     return True
-            # if key.char == 'r':
-            #     self.move_arm(self.observation_pose)
-            #     return True
-            self.pick_up(int(key.char))
-        except:
-            print ("Not an INT")
-
-        if key == keyboard.Key.esc:
-            # Stop listener
-            return False
-
     # ACTIONS
-    def pick_up(self, cube_id):
-        # TODO Reimplementar o reorganizar
-        if cube_id == 0:
-            dest_pose = [400, 0, 400, np.pi, 0, np.pi/2]
+    def pick_up(self, cube_id, message=None):
+        print(f"-->PickUp {cube_id}" if message is None else message)
+        self.working = True
 
-        elif cube_id not in self.hand_tags.keys():
-            return
-        else:
-            dest_pose = self.g.get_edge ("world", "cube_" + str(cube_id), "RT")
-            dest_pose = np.concatenate((dest_pose.attrs["rt_translation"].value, dest_pose.attrs["rt_rotation_euler_xyz"].value))
+        dest_pose = self.g.get_edge ("world", "cube_" + str(cube_id), "RT")
+        dest_pose = np.concatenate((dest_pose.attrs["rt_translation"].value, dest_pose.attrs["rt_rotation_euler_xyz"].value))
         print ("Grabbin in ", dest_pose)
 
         dest_pose[3] = 0.0
@@ -270,16 +248,41 @@ class SpecificWorker(GenericWorker):
         self.move_arm(dest_pose)
         self.close_gripper()
         self.move_arm(WORKING_POSE)
+        self.working = False
 
-    def put_down(self, cube_id):
+    def put_down(self, cube_id, message=None):
+        print(f"-->PutDown {cube_id}" if message is None else message)
+        self.working = True
+
+        dest_pose = self.findPose(message is None)
+        self.move_arm(dest_pose)
+        self.open_gripper()
+        self.move_arm(WORKING_POSE)
+        self.working = False
         pass
 
     def unstack(self, cube_id, cube_aux):
-        self.pick_up(cube_id)
+        self.pick_up(cube_id, f"-->Unstack {cube_id} from {cube_aux}")
     
     def stack(self, cube_id, cube_aux):
-        pass
+        self.put_down(cube_id, f"-->Stack {cube_id} on {cube_aux}")
 
+    def findPose(self, free):
+        mean = np.mean(self.depthImg)
+        dImg = self.depthImg[self.depthImg > mean]
+
+        # BUSCAR ZONA LIBRE //O FIJAR ZONA LIBRE
+
+
+        pos = []
+        rot = []
+
+        if free:
+            pass
+        else:
+            pass
+
+        return pos + rot
 
     # INTERFACE CUBES-DSR
     def cubes_to_dsr(self, tags):
