@@ -91,9 +91,9 @@ class Planifier():
                 if ";" not in line:
                     action, *rest = line[1:-2].split()
                     print ("LINE:", line, "ACTION:", action, "REST:", rest)
-                    if action == "put-down":
-                       action == "put_down"
-                    elif action == "pick-up":
-                        action = "pick_up"      
+                    # if action == "put-down":
+                    #    action == "put_down"
+                    # elif action == "pick-up":
+                    #     action = "pick_up"      
                     plan.append([action, list(map(lambda x: int(x), rest))])
         return plan

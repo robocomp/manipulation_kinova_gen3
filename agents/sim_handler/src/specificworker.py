@@ -54,7 +54,7 @@ class SpecificWorker(GenericWorker):
         self.sim.load_scene ("/home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/gen3_cubes.ttt")
         self.sim.start_simulation()
 
-        self.sim.insert_hand ("human_hand", [0,0,0], "gen3")
+        self.sim.insert_hand ("human_hand", [0,0,0], "base")
 
         # self.sim.set_object_pose("goal", [400, 0, 400, np.pi, 0, np.pi/2], "gen3")
 
@@ -121,14 +121,14 @@ class SpecificWorker(GenericWorker):
                     pos[3:] = ext_rot
                     if id not in self.already_added:
                         if cube.name == "cube_1":
-                            self.sim.insert_box (cube.name, pos[:3], "gen3")
+                            self.sim.insert_box (cube.name, pos[:3], "base")
                         else:
-                            self.sim.insert_cube (cube.name, pos[:3], "gen3")
+                            self.sim.insert_cube (cube.name, pos[:3], "base")
                         self.already_added.append(id)
                         print ("Created new cube", id, self.boxes_ids, self.already_added)
                     else:
                         # pass
-                        self.sim.set_object_pose(cube.name, pos, "gen3")
+                        self.sim.set_object_pose(cube.name, pos, "base")
             # print ("Updating simulation")
             self.updated_cubes = []
         
@@ -161,7 +161,7 @@ class SpecificWorker(GenericWorker):
         ext_rot = R.from_euler('XYZ', int_rot).as_euler('xyz')
         new_pos[3:] = ext_rot
 
-        self.sim.set_object_pose("goal", new_pos, "gen3")
+        self.sim.set_object_pose("goal", new_pos, "base")
         # self.sim.set_arm_position (new_pos)
 
     def update_cubes_beliefs (self):
@@ -182,15 +182,19 @@ class SpecificWorker(GenericWorker):
 
     def update_hand (self):
         tf = inner_api(self.g)
-        try:
-            pos = tf.transform_axis ("world", "human_hand")
-            self.sim.set_object_pose ("human_hand", pos, "gen3")
-        except:
+        hand = self.g.get_node ("human_hand")
+
+        if hand is None:
+            self.sim.set_object_pose ("human_hand", [0,0,0,0,0,0], "base")
+            self.grasped_cube = None
             return
 
+        pos = tf.transform_axis ("world", "human_hand")
+        self.sim.set_object_pose ("human_hand", pos, "base")
+        
+
         colliding = self.sim.check_colisions("human_hand")
-        # for c in colliding:
-        hand = self.g.get_node ("human_hand")
+        
         if colliding:
             cube = self.g.get_node (colliding)
             g_rt = Edge (cube.id, hand.id, "graspping", self.agent_id)

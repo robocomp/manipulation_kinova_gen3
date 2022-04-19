@@ -162,10 +162,10 @@ class SpecificWorker(GenericWorker):
                 self.last_pos = new_pos
                 self.pos = self.insert_or_update_hand (new_pos)
                 # self.check_grasp()
-            
+        else:
+            self.g.delete_node ("human_hand")
         cv2.imshow("Image", img)
         cv2.waitKey(1)
-
 
         return True
 
