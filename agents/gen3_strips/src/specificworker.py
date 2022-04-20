@@ -20,10 +20,12 @@
 #
 
 from concurrent.futures import thread
+from multiprocessing.dummy import current_process
 # from turtle import pos
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
 from attr import Attribute
+from cv2 import imshow
 from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
@@ -34,11 +36,13 @@ import numpy as np
 import cv2
 from pynput import keyboard
 from scipy.spatial.transform import Rotation as R
+import random
 
 from image_processor import *
 from planifier import *
 from constants import *
 import time
+from scipy import stats
 
 sys.path.append('/opt/robocomp/lib')
 console = Console(highlight=False)
@@ -82,11 +86,9 @@ class SpecificWorker(GenericWorker):
         self.plan = []
         self.step = 0
         self.tags = []
-        # self.depthImg = []
 
-
-
-
+        self.GRIPPER_ID = self.g.get_node('gripper').id
+        self.robot_moving = False
 
         try:
             signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
@@ -100,9 +102,9 @@ class SpecificWorker(GenericWorker):
             print(e)
 
 
-        time.sleep(3)
+        time.sleep(0.5)
         color, self.depthImg = self.img_proc.extract_color_and_depth(self.hand_color_raw, self.hand_depth_raw)
-        self.tags, simple_tags = self.img_proc.compute_april_tags(color, self.depthImg, (self.hand_focal_x, self.hand_focal_y))
+        self.tags, _ = self.img_proc.compute_april_tags(color, self.depthImg, (self.hand_focal_x, self.hand_focal_y))
         self.init_state, self.cubes = self.planner.create_initial_state(self.tags)
 
         for _ in range(3):
@@ -126,35 +128,33 @@ class SpecificWorker(GenericWorker):
     @QtCore.Slot()
     def compute(self):     
         if self.hand_color_raw is not None and self.hand_depth_raw is not None:
-            color, self.depthImg = self.img_proc.extract_color_and_depth(self.hand_color_raw, self.hand_depth_raw)
-            self.tags, simple_tags = self.img_proc.compute_april_tags(color, self.depthImg, (self.hand_focal_x, self.hand_focal_y))
-            current_cubes = self.cubes_to_dsr(simple_tags)
-            
-            # self.init_state, cubes = self.planner.create_initial_state(tags)
-            # print("STATE", self.init_state)
-            # print("CUBES", cubes)
+            self.color, self.depthImg = self.img_proc.extract_color_and_depth(self.hand_color_raw, self.hand_depth_raw)
+            if not self.robot_moving:
+                try:
+                    self.tags, simple_tags = self.img_proc.compute_april_tags(self.color, self.depthImg, (self.hand_focal_x, self.hand_focal_y))
+                    current_cubes = self.cubes_to_dsr(simple_tags)
+                except:
+                    pass
 
         if not self.end:
             if self.begin_plan:
                 self.begin_plan = False
                 self.planner.save_to_file(self.init_state, self.end_state, self.cubes)
                 self.planner.exec_planner()
-                time.sleep(1)
+                time.sleep(0.5)
                 
                 self.plan = self.planner.load_plan()
                 self.move_arm(WORKING_POSE)
-                print("TO_HOME")
                 self.do_action = True
 
             else:
-                print(self.step)
                 if self.plan != []:
                     
                     current_step = self.plan[self.step]
                     params = current_step[1] if len(current_step) > 1 else None                                                                                                           
 
                     if self.do_action:
-                        if self.is_in_working_pose():
+                        if not self.robot_moving:
                             if current_step[0] == "pick-up":   
                                 print("pick")        
                                 self.pick_up(params)
@@ -170,9 +170,9 @@ class SpecificWorker(GenericWorker):
                             self.step += 1
                             if self.step >= len(self.plan):
                                 self.end = True
+                                self.end_state[0] = '  (handempty)'
                                 self.init_state = self.end_state
-                                self.plan = []
-                            time.sleep(0.5)                    
+                                self.plan = []                  
         return True
 
     def startup_check(self):
@@ -195,36 +195,29 @@ class SpecificWorker(GenericWorker):
         self.g.update_node (gripper)
 
     def is_in_working_pose(self):
-        dest_pose = self.g.get_edge ("arm", "gripper", "RT")
-        pos_diff = np.linalg.norm (WORKING_POSE[:3]-dest_pose.attrs["rt_translation"].value[:3])
+        current_pose = self.g.get_edge ("arm", "gripper", "RT")
+        pos_diff = np.linalg.norm (WORKING_POSE[:3]-current_pose.attrs["rt_translation"].value[:3])
         return pos_diff < 0.15
 
-        # EVENT FUNCTION TRIGGERS
+    # EVENT FUNCTION TRIGGERS TODO: REMOVE ###################################################
     def on_press(self, key):
         pass
 
     def on_release(self, key):
         print('Key released: {0}'.format(key))
         try:
-            if key.char == 'c':
-                self.close_gripper()
-                return True
             if key.char == 'o':
                 self.open_gripper()
-                return True
-            if int(key.char) == 0:
-                self.put_down(int(key.char))
                 return True
             if key.char == 'w':
                 self.move_arm(WORKING_POSE)
                 return True
-            self.pick_up(int(key.char))
         except:
             print("c: close\n o: open\n w:working pose\n 0:put_down\n N:pick_up(N)")
 
         if key == keyboard.Key.esc:
-            # Stop listener
             return False
+    ##########################################################################################
     
     def final_state(self):
         self.end_state = self.planner.create_final_state(self.ui)
@@ -240,10 +233,16 @@ class SpecificWorker(GenericWorker):
 
         dest_pose = self.g.get_edge ("world", "cube_" + str(cube_id), "RT")
         dest_pose = np.concatenate((dest_pose.attrs["rt_translation"].value, dest_pose.attrs["rt_rotation_euler_xyz"].value))
+        
+        # dest_pose [2] += 21 #TODO sacar si no se usa lo de Guille
+        
         print ("Grabbin in ", dest_pose)
 
         dest_pose[3] = 0.0
         dest_pose[4] = np.pi
+
+        print ("--- rot ---")
+        print(np.degrees(dest_pose[5]))
 
         # -45 para minizar giro, + 90 para cuadrar con el gripper
         dest_pose[5] = np.degrees(dest_pose[5]) % 90
@@ -254,66 +253,135 @@ class SpecificWorker(GenericWorker):
         dest_pose[5] = (90 - dest_pose[5]) % 90 + 45
         dest_pose[5] = np.radians(dest_pose[5])
 
+        print(np.degrees(dest_pose[5]))
+        print ("--- end rot ---")
+
         self.open_gripper()
         self.move_arm(dest_pose)
         time.sleep(0.5)
         self.close_gripper()
         self.move_arm(WORKING_POSE)
-        print("TO_HOME")
         self.working = False
 
     def put_down(self, cube_id, message=None, cube_to_stack_in=-1):
         print(f"-->PutDown {cube_id}" if message is None else message)
         self.working = True
 
-        dest_pose = self.findPose(cube_to_stack_in)
+        dest_pose = self.__findPose(cube_to_stack_in)
         self.move_arm(dest_pose)
         self.open_gripper()
         self.move_arm(WORKING_POSE)
-        print("TO_HOME")
         self.working = False
         pass
 
-    def unstack(self, cube_id, cube_aux):
+    def unstack(self, params):
+        cube_id, cube_aux = [params[0]], params[1]
         self.pick_up(cube_id, f"-->Unstack {cube_id} from {cube_aux}")
     
     def stack(self, params):
         cube_id, cube_aux = params[0], params[1]
         self.put_down(cube_id, f"-->Stack {cube_id} on {cube_aux}", cube_aux)
 
-    def findPose(self, cube_id):
-        # mean = np.mean(self.depthImg)
-        # dImg = self.depthImg[self.depthImg > mean]
-
-        # BUSCAR ZONA LIBRE //O FIJAR ZONA LIBRE
-
-
+    def __findPose(self, cube_id):
         pos = []
         rot = []
 
         if cube_id == -1:
-            print("KDJISFBHSUIÑD")
+            pos, rot = self.__find_free_spot()
+            cv2.imshow("CACACACA", self.color)
+            cv2.waitKey(5)
         else:
             dest_pose = self.g.get_edge ("world", "cube_" + str(cube_id), "RT")
-
-
-
             pos = dest_pose.attrs["rt_translation"].value.tolist()
-            pos[2] += 41
             rot = dest_pose.attrs["rt_rotation_euler_xyz"].value.tolist()
             
-            # -45 para minizar giro, + 90 para cuadrar con el gripper
-            rot[2] = np.degrees(rot[2]) % 90
-            if rot[2] < 45:
-                rot[2] += 90
+        # pos [2] += 21 #TODO sacar si no se usa lo de Guille
+        pos[2] += 50
 
-            rot[2] -= 45
-            rot[2] = (90 - rot[2]) % 90 + 45
-            rot[2] = np.radians(rot[2])
+        rot[0] = 0.0
+        rot[1] = np.pi
 
+        print ("--- rot ---")
+        print (np.degrees(rot))
+        # -45 para minizar giro, + 90 para cuadrar con el gripper
+        rot[2] = np.degrees(rot[2]) % 90
+        if rot[2] < 45:
+            rot[2] += 90
 
+        rot[2] -= 45
+        rot[2] = (90 - rot[2]) % 90 + 45
+        rot[2] = np.radians(rot[2])
 
+        print(np.degrees(rot))
+        print ("--- end rot ---")
+
+        print("AL BRAZO", pos+rot)
         return pos + rot
+
+    def __find_free_spot(self):
+        # compute side of box in pixels from current location
+        current_pose = self.g.get_edge ("arm", "gripper", "RT")
+        current_pose = current_pose.attrs["rt_translation"].value.tolist() + current_pose.attrs["rt_rotation_euler_xyz"].value.tolist()
+        current_pose[2] += 150
+        side = int(self.hand_focal_x * 90 / current_pose[2]) * 2
+
+        # choose a random rectangle on the table (check with distance from the camera)
+        result = False
+        counter = 0
+        hits = 0
+        target = [sys.float_info.max, 0, 0, -90 * np.pi / 180, 0 * np.pi / 180, -90 * np.pi / 180]
+
+        while not result and counter < 30000:
+            # image is treated as np array, with rows first
+
+            height = self.color.shape[0]
+            width  = self.color.shape[1]
+
+            k = 1
+            row = random.randint(side * k, height - side * k) // 2
+            col = random.randint(side * k,  width - side * k) // 2
+            roi_depth = self.depthImg[row - side // 2 : row + side // 2, col - side // 2 : col + side // 2]
+            
+            table_distance_from_tip = stats.mode(roi_depth, axis=None)[0]
+
+            # check that all points belong to the table
+            hits = np.count_nonzero(abs(roi_depth - table_distance_from_tip) < 15)
+            counter += 1
+            result = hits >= (roi_depth.size * 0.95)
+            # print("ROI SHAPE", roi_depth.shape, "ROW", row, "COL", col, "MODA", table_distance_from_tip)
+            # print("HITS", hits, "RESULT", result, "COUNTER", counter)
+
+            # compute target coordinates. x, y, z in camera CS: x+ right, y+ up, z+ outwards
+            target[0] = - int(( col - width  // 4) * current_pose[2] / self.hand_focal_x)
+            target[1] = - int(( row - height // 4) * current_pose[2] / self.hand_focal_y)
+
+            # # transform to tip coordinate system: x+ right, y+ backwards, z+ up
+            # target[1] = - target[1] - (-107)
+            # target[2] = - current_pose[2]
+
+            # # transform to base coordinate system
+            # target[0] += current_pose[0]
+            # target[1] += current_pose[1]
+            # target[2] += current_pose[2]
+
+
+
+        tf = inner_api(self.g)
+        print("ANTES", target)
+        target = tf.transform_axis ("world", target, "hand_camera").tolist()
+        target[2] = 0
+        print("DESPUES", target)
+
+        if counter == 30000:
+            print("MAX ITER REACHED")
+        
+        print ("Suposed free spot")
+        print(target)
+        print("ROW", row, "COL", col, "Color shape", self.color.shape, "depth shape", self.depthImg.shape, "roi shape", roi_depth.shape)
+        self.color = cv2.rectangle(self.color, (col*2 - side // 2, row*2 - side // 2),
+                                  (col*2 + side // 2, row*2 + side // 2), (255, 0, 0), 6)
+        return target[:3], target[3:]
+        # return WORKING_POSE[:3], WORKING_POSE[3:]
 
     # INTERFACE CUBES-DSR
     def cubes_to_dsr(self, tags):
@@ -371,11 +439,12 @@ class SpecificWorker(GenericWorker):
 
     # DSR SLOTS
     def update_node_att(self, id: int, attribute_names: [str]):
-        pass
-        # console.print(f"UPDATE NODE ATT: {id} {attribute_names}", style='green')
+        if id == self.GRIPPER_ID and 'robot_occupied' in attribute_names:
+            updated_node = self.g.get_node(id)
+            occupied  = updated_node.attrs['robot_occupied'].value
+            self.robot_moving = occupied
 
     def update_node(self, id: int, type: str):
-        # console.print(f"UPDATE NODE: {id} {type}", style='green')
         if type=='rgbd' and id == CAMERA_ID:
             updated_node = self.g.get_node(id)
             self.hand_depth_raw = updated_node.attrs['cam_depth'].value
@@ -386,16 +455,12 @@ class SpecificWorker(GenericWorker):
 
     def delete_node(self, id: int):
         pass
-        # console.print(f"DELETE NODE:: {id} ", style='green')
 
     def update_edge(self, fr: int, to: int, type: str):
         pass
-        # console.print(f"UPDATE EDGE: {fr} to {type}", type, style='green')
 
     def update_edge_att(self, fr: int, to: int, type: str, attribute_names: [str]):
         pass
-        # console.print(f"UPDATE EDGE ATT: {fr} to {type} {attribute_names}", style='green')
 
     def delete_edge(self, fr: int, to: int, type: str):
         pass
-        # console.print(f"DELETE EDGE: {fr} to {type} {type}", style='green')

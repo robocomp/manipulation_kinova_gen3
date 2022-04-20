@@ -1,3 +1,4 @@
+from xml.dom.pulldom import END_DOCUMENT
 import numpy as np
 from numpy import linalg as LA
 import os
@@ -10,8 +11,15 @@ class Planifier():
         initState = ["  (handempty)"]
         cubes = []
         for tag in tags:
+            # if tag.tag_id == 1:
+            #     initState.append(f"  (clear {1})")
+            #     initState.append(f"     (on {1} {2})")
+            # elif tag.tag_id == 2:
+            #     initState.append(f"     (ontable {2})")
+            # else:
             initState.append(f"  (clear {tag.tag_id})")
             initState.append(f"     (ontable {tag.tag_id})")
+                
             cubes.append(tag.tag_id)
         return initState, cubes
 
@@ -54,10 +62,10 @@ class Planifier():
         for tag in tag_list:
             blocks += str(tag) + " "
 
-        for r in init_state:
-            print(r)
-        for r in end_state:
-            print(r)
+        # for r in init_state:
+        #     print(r)
+        # for r in end_state:
+        #     print(r)
         lines = [
             "(define (problem BLOCKS-{}-1)".format(len(tag_list)),
             "(:domain blocks)",

@@ -96,6 +96,7 @@ class SpecificWorker(GenericWorker):
         self.gripper = self.g.get_node('gripper')
         self.gripper.attrs['gripper_finger_distance'] = Attribute (float(0.0), self.agent_id)
         self.gripper.attrs['gripper_target_finger_distance'] = Attribute (float(0.0), self.agent_id)
+        self.gripper.attrs['robot_occupied'] = Attribute (False, self.agent_id)
         self.g.update_node(self.gripper)
 
         self.GRIPPER_ID = self.gripper.id
@@ -141,7 +142,6 @@ class SpecificWorker(GenericWorker):
         
 
     def update_arm_pose(self):
-
         new_pos = None
         arm_pose = self.arm.get_pose()
 
@@ -157,8 +157,17 @@ class SpecificWorker(GenericWorker):
             self.rt.insert_or_assign_edge_RT(world, *new_pos)
             self.g.update_node(world)
 
+    def set_occupied (self, occupied):
+
+        self.gripper = self.g.get_node('gripper')
+        self.gripper.attrs['robot_occupied'].value = occupied
+        self.g.update_node(self.gripper)
+
+
     def move_arm_to (self, target_position):
-        
+
+        self.set_occupied (True)
+
         target_xyz = np.multiply(target_position[:3], 0.001)
         target_rpy = np.degrees (target_position[3:])
 
@@ -169,9 +178,13 @@ class SpecificWorker(GenericWorker):
 
         self.arm.cartesian_move_to (*target_xyz, *target_rpy)
 
+        self.set_occupied (False)
+
     def move_gripper_to (self, dest_distance):
+        self.set_occupied (True)
         inv_dest = 1 - dest_distance
         self.arm.move_gripper_speed_dest(inv_dest)
+        self.set_occupied (False)
 
 
     @QtCore.Slot()

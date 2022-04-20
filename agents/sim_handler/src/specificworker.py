@@ -56,6 +56,12 @@ class SpecificWorker(GenericWorker):
 
         self.sim.insert_hand ("human_hand", [0,0,0], "base")
 
+        self.GRIPPER_ID = self.g.get_node('gripper').id
+
+        self.update_simulated_arm ()
+        self.current_arm_pos = None
+        self.dest_arm_pos    = None
+
         # self.sim.set_object_pose("goal", [400, 0, 400, np.pi, 0, np.pi/2], "gen3")
 
         # time.sleep (7)
@@ -63,7 +69,7 @@ class SpecificWorker(GenericWorker):
         # self.sim.set_object_pose("goal", [400, 0, 400, np.pi/2, 0, np.pi/2], "gen3")
 
         try:
-            # signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
+            signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
             # signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
             # signals.connect(self.g, signals.DELETE_NODE, self.delete_node)
             signals.connect(self.g, signals.UPDATE_EDGE, self.update_edge)
@@ -99,8 +105,11 @@ class SpecificWorker(GenericWorker):
         # return True
 
 
+        if not np.array_equal(self.current_arm_pos, self.dest_arm_pos):
+            self.set_arm_position(self.dest_arm_pos)
+            self.current_arm_pos = self.dest_arm_pos
 
-        self.update_simulated_arm ()
+        # self.update_simulated_arm ()
 
 
         if self.updated_cubes:
@@ -120,10 +129,15 @@ class SpecificWorker(GenericWorker):
                     ext_rot = R.from_euler('XYZ', int_rot).as_euler('xyz')
                     pos[3:] = ext_rot
                     if id not in self.already_added:
-                        if cube.name == "cube_1":
-                            self.sim.insert_box (cube.name, pos[:3], "base")
-                        else:
-                            self.sim.insert_cube (cube.name, pos[:3], "base")
+                        
+                        
+                        #TODO rollback to work with box
+                        # if cube.name == "cube_1":
+                        #     self.sim.insert_box (cube.name, pos[:3], "base")
+                        # else:
+                        self.sim.insert_cube (cube.name, pos[:3], "base")
+
+
                         self.already_added.append(id)
                         print ("Created new cube", id, self.boxes_ids, self.already_added)
                     else:
@@ -156,13 +170,19 @@ class SpecificWorker(GenericWorker):
     def update_simulated_arm (self):
         tf = inner_api(self.g)
         new_pos = tf.transform_axis ("world", "gripper")
+        self.set_arm_position (new_pos)
 
-        int_rot = new_pos[3:]
+    def set_arm_position (self, pos):
+        print ("before transformation", pos)
+
+        int_rot = pos[3:]
         ext_rot = R.from_euler('XYZ', int_rot).as_euler('xyz')
-        new_pos[3:] = ext_rot
+        pos[3:] = ext_rot
 
-        self.sim.set_object_pose("goal", new_pos, "base")
+        print ("set pose", pos)
+        self.sim.set_object_pose("goal", pos, "base")
         # self.sim.set_arm_position (new_pos)
+
 
     def update_cubes_beliefs (self):
 
@@ -219,7 +239,12 @@ class SpecificWorker(GenericWorker):
     # ===========================================
 
     def update_node_att(self, id: int, attribute_names: [str]):
-        console.print(f"UPDATE NODE ATT: {id} {attribute_names}", style='green')
+        if id == self.GRIPPER_ID and 'target' in attribute_names:
+            updated_node = self.g.get_node(id)
+            target_position  = updated_node.attrs['target'].value
+            print ("Received target position", target_position)
+            self.dest_arm_pos = target_position
+            # self.move_arm_to (target_position)
 
     def update_node(self, id: int, type: str):
         console.print(f"UPDATE NODE: {id} {type}", style='green')

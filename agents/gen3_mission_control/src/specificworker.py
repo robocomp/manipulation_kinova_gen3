@@ -76,6 +76,9 @@ class SpecificWorker(GenericWorker):
         self.align_to = rs.stream.color
         self.align = rs.align(self.align_to)
 
+        self.GRIPPER_ID = self.g.get_node('gripper').id
+        self.robot_moving = False
+
         try:
             signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
             signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
@@ -219,6 +222,9 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
+        
+        if self.robot_moving:
+            return True
 
         if self.hand_color_raw is not None and self.hand_depth_raw is not None:
             # print (type(self.depth), self.depth.shape)
@@ -314,8 +320,10 @@ class SpecificWorker(GenericWorker):
     # =============================================
 
     def update_node_att(self, id: int, attribute_names: [str]):
-        # console.print(f"UPDATE NODE ATT: {id} {attribute_names}", style='green')
-        pass
+        if id == self.GRIPPER_ID and 'robot_occupied' in attribute_names:
+            updated_node = self.g.get_node(id)
+            occupied  = updated_node.attrs['robot_occupied'].value
+            self.robot_moving = occupied
 
     def update_node(self, id: int, type: str):
         # console.print(f"UPDATE NODE: {id} {type}", style='green')
