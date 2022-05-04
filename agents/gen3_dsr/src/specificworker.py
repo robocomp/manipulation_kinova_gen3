@@ -19,6 +19,7 @@
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+from ntpath import join
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
 from rich.console import Console
@@ -31,6 +32,8 @@ import kinovaControl
 import pyrealsense2 as rs
 import numpy as np
 import cv2
+import threading
+import time
 
 sys.path.append('/opt/robocomp/lib')
 console = Console(highlight=False)
@@ -99,9 +102,22 @@ class SpecificWorker(GenericWorker):
         self.gripper.attrs['robot_occupied'] = Attribute (False, self.agent_id)
         self.g.update_node(self.gripper)
 
+        self.arm_node = self.g.get_node ('arm')
+        self.arm_node.attrs['robot_local_angular_velocity'] = Attribute ([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], self.agent_id)
+        self.g.update_node (self.arm_node)
+
         self.GRIPPER_ID = self.gripper.id
 
         self.moving = False
+        self.target_position = None
+        self.last_target_position = None
+        self.occupied = False
+
+        self.gripper_target_position = None
+        self.gripper_last_target_position = None
+
+        th = threading.Thread(target=self.arm_mover_thread)
+        th.start()
 
 
         try:
@@ -144,8 +160,9 @@ class SpecificWorker(GenericWorker):
     def update_arm_pose(self):
         new_pos = None
         arm_pose = self.arm.get_pose()
+        joints = self.arm.get_joints()
 
-        world   = self.g.get_node('arm')
+        world = self.g.get_node('arm')
 
         if self.gripper is not None and world is not None:
             # print ("arm reported: ", arm_pose[3:])
@@ -155,10 +172,14 @@ class SpecificWorker(GenericWorker):
 
             new_pos = [self.gripper.id, np.multiply(arm_pose[:3], 1000), arm_rot]
             self.rt.insert_or_assign_edge_RT(world, *new_pos)
+
+            world.attrs['robot_local_angular_velocity'].value = joints
+            # print (joints)
+
             self.g.update_node(world)
 
     def set_occupied (self, occupied):
-
+        self.occupied = occupied
         self.gripper = self.g.get_node('gripper')
         self.gripper.attrs['robot_occupied'].value = occupied
         self.g.update_node(self.gripper)
@@ -186,6 +207,27 @@ class SpecificWorker(GenericWorker):
         self.arm.move_gripper_speed_dest(inv_dest)
         self.set_occupied (False)
 
+    def stop_moving(self):
+        self.arm.stop_movement ()
+        # self.set_occupied (False)
+
+    def update_arm_info (self):
+        while(True):
+            time.sleep(0.05)
+            self.update_arm_pose()
+            self.update_gripper_state()
+
+    def arm_mover_thread (self):
+        while (True):
+            if not np.array_equal(self.target_position, self.last_target_position):
+                print ("Sending moving command to", self.target_position)
+                self.move_arm_to (self.target_position)
+                self.last_target_position = np.copy(self.target_position)
+
+            if self.gripper_target_position != self.gripper_last_target_position:
+                print ("Sending Gripper command", self.gripper_target_position)
+                self.move_gripper_to (self.gripper_target_position)
+                self.gripper_last_target_position = self.gripper_target_position
 
     @QtCore.Slot()
     def compute(self):
@@ -246,8 +288,17 @@ class SpecificWorker(GenericWorker):
                 self.camera_node.attrs['cam_depth_focaly'].value = float(depth_intrin.fy)
 
                 self.g.update_node(self.camera_node)
-        
+        '''
+        if not np.array_equal(self.target_position, self.last_target_position):
+            print ("Sending moving command to", self.target_position)
+            self.move_arm_to (self.target_position)
+            self.last_target_position = np.copy(self.target_position)
 
+        if self.gripper_target_position != self.gripper_last_target_position:
+            print ("Sending Gripper command", self.gripper_target_position)
+            self.move_gripper_to (self.gripper_target_position)
+            self.gripper_last_target_position = self.gripper_target_position
+        '''
         return True
 
     def startup_check(self):
@@ -263,15 +314,23 @@ class SpecificWorker(GenericWorker):
         if id == self.GRIPPER_ID and 'target' in attribute_names:
             self.moving = True
             updated_node = self.g.get_node(id)
-            target_position  = updated_node.attrs['target'].value
-            print ("Received target position", target_position)
-            self.move_arm_to (target_position)
+            self.target_position  = updated_node.attrs['target'].value
+            print ("Received target position", self.target_position)
+            # if self.occupied:
+            #     self.stop_moving ()
+            # self.move_arm_to (target_position)
 
         if id == self.GRIPPER_ID and 'gripper_target_finger_distance' in attribute_names:
             updated_node = self.g.get_node(id)
             target_distance  = updated_node.attrs['gripper_target_finger_distance'].value
+            self.gripper_target_position = target_distance
             print ("Received target finger distance", target_distance)
-            self.move_gripper_to (target_distance)
+
+        if id == self.GRIPPER_ID and 'robot_occupied' in attribute_names: 
+            updated_node = self.g.get_node(id)
+            occupied  = updated_node.attrs['robot_occupied'].value
+            if not occupied:
+                self.stop_moving ()
 
     def update_node(self, id: int, type: str):
         # console.print(f"UPDATE NODE: {id} {type}", style='green')

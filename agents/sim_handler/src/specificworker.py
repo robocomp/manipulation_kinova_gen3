@@ -26,6 +26,8 @@ from genericworker import *
 import interfaces as ifaces
 from Simulation import *
 from scipy.spatial.transform import Rotation as R
+import cv2
+from scipy import stats
 
 
 sys.path.append('/opt/robocomp/lib')
@@ -36,7 +38,7 @@ from pydsr import *
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 100
+        self.Period = 1000
 
         # YOU MUST SET AN UNIQUE ID FOR THIS AGENT IN YOUR DEPLOYMENT. "_CHANGE_THIS_ID_" for a valid unique integer
         self.agent_id = 194
@@ -51,16 +53,38 @@ class SpecificWorker(GenericWorker):
         self.grasp_released = False
 
         self.sim = Simulation()
-        self.sim.load_scene ("/home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/gen3_cubes.ttt")
+        # self.sim.load_scene ("/home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/gen3_cubes.ttt")
+        self.sim.load_scene ("/home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/gen3_cubes_2.ttt")
         self.sim.start_simulation()
 
         self.sim.insert_hand ("human_hand", [0,0,0], "base")
 
         self.GRIPPER_ID = self.g.get_node('gripper').id
 
-        self.update_simulated_arm ()
         self.current_arm_pos = None
         self.dest_arm_pos    = None
+        self.update_simulated_arm ()
+
+        self.gripper_target = 1
+        self.gripper_state  = 1
+
+        self.object_of_interest = None
+        self.last_object_of_interest = None
+
+        self.first_time = True
+
+        self.was_occupied = False
+        self.occupied = False
+
+        self.cube_positions = {}
+       
+
+        # self.sim.insert_cube ("cube_6", [416, 47,   50], "base")
+        # self.sim.insert_cube ("cube_2", [416, 200,   50], "base")
+
+        # self.sim.change_color("Test_cube", (255, 0, 0))
+
+        # self.sim.setJointTargetVelocity(j1,0)
 
         # self.sim.set_object_pose("goal", [400, 0, 400, np.pi, 0, np.pi/2], "gen3")
 
@@ -70,7 +94,7 @@ class SpecificWorker(GenericWorker):
 
         try:
             signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
-            # signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
+            signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
             # signals.connect(self.g, signals.DELETE_NODE, self.delete_node)
             signals.connect(self.g, signals.UPDATE_EDGE, self.update_edge)
             # signals.connect(self.g, signals.UPDATE_EDGE_ATTR, self.update_edge_att)
@@ -95,6 +119,7 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
+
         # print('SpecificWorker.compute...')
 
 
@@ -104,47 +129,100 @@ class SpecificWorker(GenericWorker):
 
         # return True
 
+        if self.was_occupied != self.occupied:
+            if self.was_occupied:
+                print ("------- Stop simulated robot -------")
+                self.stop_moving ()
+            self.was_occupied  = self.occupied
 
         if not np.array_equal(self.current_arm_pos, self.dest_arm_pos):
-            self.set_arm_position(self.dest_arm_pos)
-            self.current_arm_pos = self.dest_arm_pos
-
+            self.move_to_goal(self.dest_arm_pos)
+            self.current_arm_pos = np.copy(self.dest_arm_pos)
+        
+        #### update from arm feedback ####
         # self.update_simulated_arm ()
 
+        if not self.gripper_state == self.gripper_target:
+            if self.gripper_target < 0.5:
+                self.sim.close_gripper ()
+                print ("Close command")
 
+                gr_speed_1 = 1
+                gr_speed_2 = 110
+                smoothness = 0.75
+                while gr_speed_1 > 0.001 and gr_speed_2 > 0.001:
+                    r_1, r_2 = self.sim.get_gripper_vel()
+                    gr_speed_1 = abs(r_1) * smoothness + gr_speed_1 * (1-smoothness)
+                    gr_speed_2 = abs(r_2) * smoothness + gr_speed_2 * (1-smoothness)
+                    # print ("grip vel", gr_speed_1, gr_speed_2)
+                
+                self.sim.stop_gripper ()
+            else:
+                self.sim.open_gripper ()
+                print ("Open command")
+
+            self.gripper_state = self.gripper_target
+        
+        names = []
+        poses = []
         if self.updated_cubes:
-            for id in self.updated_cubes:
-                # print ("Updating cube", id)
-                cube = self.g.get_node (id)
-                tf = inner_api(self.g)
-                if cube:
-                    pos = tf.transform_axis ("world", cube.name)
-                    
-                    ### Trying to get all rts ######
-                    # rt = rt_api(self.g)
-                    # edge = self.g.get_edge ("world", cube.name, "RT")
-                    # print ("a verte", rt.get_edge_RT_as_rtmat (edge))
+            if self.current_arm_pos is not None and self.current_arm_pos[2] > 380:
+                for id in self.updated_cubes:
+                    # print ("Updating cube", id)
+                    cube = self.g.get_node (id)
+                    tf = inner_api(self.g)
+                    if cube:
+                        pos = tf.transform_axis ("world", cube.name)
 
-                    int_rot = pos[3:]
-                    ext_rot = R.from_euler('XYZ', int_rot).as_euler('xyz')
-                    pos[3:] = ext_rot
-                    if id not in self.already_added:
+                        if pos is None:
+                            continue
                         
+                        ### Trying to get all rts ######
+                        # rt = rt_api(self.g)
+                        # edge = self.g.get_edge ("world", cube.name, "RT")
+                        # print ("a verte", rt.get_edge_RT_as_rtmat (edge))
+
+                        #### when using Dani's inserter #####
+                        # pos[2] -= 20
+
+                        int_rot = pos[3:]
+                        ext_rot = R.from_euler('XYZ', int_rot).as_euler('xyz')
+                        pos[3:] = ext_rot
+                        if id not in self.already_added:
+                            
+                            
+                            #TODO rollback to work with box
+                            # if cube.name == "cube_1":
+                            #     self.sim.insert_box (cube.name, pos[:3], "base")
+                            # else:
+                            self.sim.insert_cube (cube.name, pos[:3], "base")
                         
-                        #TODO rollback to work with box
-                        # if cube.name == "cube_1":
-                        #     self.sim.insert_box (cube.name, pos[:3], "base")
-                        # else:
-                        self.sim.insert_cube (cube.name, pos[:3], "base")
+
+                            self.already_added.append(id)
+                            print ("Created new cube", id)
+
+                            self.cube_positions[id] = pos
+                    # else:
+                    #     # pass
+                        current_pos = self.cube_positions[id]
+                        new_pos = pos
+                        pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
+                        rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
+                        if pos_diff > 3 or rot_diff > 0.1:
+                            names.append (cube.name)
+                            poses.append (pos)
+                            self.cube_positions[id] = pos
+                            print ("-->Updating", id, pos_diff, rot_diff)
+                        # self.sim.set_object_pose(cube.name, pos, "base")
 
 
-                        self.already_added.append(id)
-                        print ("Created new cube", id, self.boxes_ids, self.already_added)
-                    else:
-                        # pass
-                        self.sim.set_object_pose(cube.name, pos, "base")
-            # print ("Updating simulation")
-            self.updated_cubes = []
+                # print ("Updating simulation")
+                if len(names) > 0:
+                    self.sim.set_multiple_objects_poses (names, poses, "base")
+
+                self.updated_cubes = []
+            else:
+                print ("Wont trust april tags, arm pos is", self.current_arm_pos)
         
         
         #### grasp detection w/distance ####
@@ -157,40 +235,143 @@ class SpecificWorker(GenericWorker):
         #####################################
 
         
+        # now = time.time()
         self.update_cubes_beliefs ()
 
+        # print ("Beliefs", time.time()-now)
         self.update_hand()
         
+        # self.depth = np.frombuffer(self.depth_raw, dtype=np.uint16)
+        # self.depth = self.depth.reshape((480, 640))
+        # self.depth_show = cv2.applyColorMap(cv2.convertScaleAbs(self.depth, alpha=0.03), cv2.COLORMAP_JET)
+        # cv2.imshow("depth", self.depth_show)
+        # cv2.waitKey(1)
+
+
+        self.check_cube_visibility ()
+
+        if self.object_of_interest != self.last_object_of_interest:
+            if self.last_object_of_interest is not None:
+                self.sim.change_color(self.last_object_of_interest, (255, 255, 255))
+                time.sleep(0.05)
+            self.sim.change_color(self.object_of_interest, (255, 0, 0))
+            self.last_object_of_interest = self.object_of_interest
+
+        # print (" - - - - ")
+
         return True
+
+
+    def check_cube_visibility (self):
+        
+        res, pos, pred_depth = self.sim.check_cube_visibility ()
+        if res:
+            self.depth_show = cv2.drawMarker(self.depth_show, (pos[0], pos[1]), color=(255, 255, 255), markerType=cv2.MARKER_CROSS, thickness=2)
+            self.depth_show = cv2.rectangle(self.depth_show, (pos[0]-20, pos[1]-20),(pos[0]+20, pos[1]+20), color=(255, 255, 255), thickness=2)
+
+            # table_distance_from_tip = np.mean(self.depth) # stats.mode(self.depth, axis=None)
+            # roi_mode = np.mean(self.depth[pos[1]-20:pos[1]+20, pos[0]-20:pos[0]+20]) #stats.mode(self.depth[pos[0]-20:pos[0]+20, pos[1]-20:pos[1]+20], axis=None)
+
+            diff = self.depth[pos[1], pos[0]] - pred_depth*1000
+
+            if self.first_time and diff < 50:
+                self.first_time = False
+                print ("- - - - FOUND RT AT - - - -")
+                print ("diff =", diff)
+                # pos, rot = self.sim.get_object_pose("tip")
+
+                # rot = R.from_quat(rot).as_euler('xyz')
+                # rot = np.multiply(rot, -1)
+
+                # print (pos, rot)
+
+                print ("OOI", self.object_of_interest)
+
+                cube_pos, cube_rot = self.sim.get_object_pose(self.object_of_interest)
+                cube_rot = R.from_quat(cube_rot).as_euler('xyz')
+                cube_rot = np.multiply(cube_rot, -1)
+                # print (cube_pos, cube_rot, np.degrees(cube_rot))
+
+                rt = rt_api(self.g)
+                world = self.g.get_node ("world")
+                cube_node = self.g.get_node (self.object_of_interest)
+                rt.insert_or_assign_edge_RT(world, cube_node.id, cube_pos, cube_rot)
+                self.g.update_node(world)
+
+
+                # gripper = self.g.get_node ("gripper")
+                # gripper.attrs["target"].value = [400, 0, 399, 3.14159, 0, -1.57089]
+                # self.g.update_node(gripper)
+                # print (table_distance_from_tip, roi_mode)
 
     def startup_check(self):
         QTimer.singleShot(200, QApplication.instance().quit)
 
 
     def update_simulated_arm (self):
+        # print ("---> Updating arm")
+        # arm_node = self.g.get_node ("arm")
+        # joints = arm_node.attrs['robot_local_angular_velocity'].value
+        # diffs = [90, 0, 180, 65, 0, 310, 0]
+
+        # for i in range (7):
+        #     joints[i] = (joints[i]+diffs[i])%360
+        # self.sim.set_joints (joints.tolist())
+
+        
         tf = inner_api(self.g)
         new_pos = tf.transform_axis ("world", "gripper")
         self.set_arm_position (new_pos)
 
+        self.dest_arm_pos = new_pos
+        self.current_arm_pos = np.copy(self.dest_arm_pos)
+
     def set_arm_position (self, pos):
-        print ("before transformation", pos)
+        # print ("before transformation", pos)
 
         int_rot = pos[3:]
         ext_rot = R.from_euler('XYZ', int_rot).as_euler('xyz')
         pos[3:] = ext_rot
 
-        print ("set pose", pos)
+        # print ("set pose", pos)
         self.sim.set_object_pose("goal", pos, "base")
         # self.sim.set_arm_position (new_pos)
 
+    def move_to_goal (self, pos):
+        # print ("before transformation mtg", pos)
+
+        # int_rot = pos[3:]
+        # ext_rot = R.from_euler('XYZ', int_rot).as_euler('xyz')
+        # pos[3:] = ext_rot
+
+        print ("moving towards new goal")
+
+        pos[3], pos[4] = pos[4], pos[3]
+
+        self.sim.set_object_pose("goal", pos, "base")
+
+    def stop_moving(self):
+        self.sim.stop_moving()
+
 
     def update_cubes_beliefs (self):
+        # print ("--- beliefs ---")
+
+        # names = [self.g.get_node(id).name for id in self.boxes_ids]
+
+        # pos_rots = self.sim.get_multiple_object_poses (names)
+
+        # for pos, rot in pos_rots:
+            
 
         for id in self.boxes_ids:
             cube = self.g.get_node(id)
+
             pos, rot = self.sim.get_object_pose(cube.name)
 
             rot = R.from_quat(rot).as_euler('xyz')
+
+            rot = np.multiply(rot, -1)
 
             world = self.g.get_node("world")
 
@@ -246,8 +427,29 @@ class SpecificWorker(GenericWorker):
             self.dest_arm_pos = target_position
             # self.move_arm_to (target_position)
 
+        if id == self.GRIPPER_ID and 'gripper_target_finger_distance' in attribute_names:
+            updated_node = self.g.get_node(id)
+            target_distance  = updated_node.attrs['gripper_target_finger_distance'].value
+            self.gripper_target = target_distance
+            print ("Got new gripper", target_distance)
+
+        if id == self.GRIPPER_ID and 'robot_occupied' in attribute_names: 
+            updated_node = self.g.get_node(id)
+            self.occupied  = updated_node.attrs['robot_occupied'].value
+                
+
+        if 'active_agent' in attribute_names:
+            updated_node = self.g.get_node(id)
+            print ("interest received for", updated_node.name)
+            self.object_of_interest = updated_node.name
+            self.first_time = True
+
     def update_node(self, id: int, type: str):
-        console.print(f"UPDATE NODE: {id} {type}", style='green')
+        if type=='rgbd' and id == 62842907933016084:
+            self.has_image = True
+            
+            updated_node = self.g.get_node(id)
+            self.depth_raw = updated_node.attrs['cam_depth'].value
 
     def delete_node(self, id: int):
         console.print(f"DELETE NODE:: {id} ", style='green')
@@ -255,9 +457,11 @@ class SpecificWorker(GenericWorker):
     def update_edge(self, fr: int, to: int, type: str):
         dest = self.g.get_node(to)
         if dest.type == 'box' and type == "RT" and dest.name[-1] != '*':
-            self.updated_cubes.append (dest.name)
-            if (dest.name not in self.boxes_ids):
-                self.boxes_ids.append (dest.name)
+            # print ("Updated edge to", dest.name)
+            if (dest.name not in self.updated_cubes):
+                self.updated_cubes.append (dest.name)
+                if (dest.name not in self.boxes_ids):
+                    self.boxes_ids.append (dest.name)
 
         # if dest.type == 'box' and type == "graspping" and dest.name[-1] != '*':
         #     self.grasped_cube = dest.name

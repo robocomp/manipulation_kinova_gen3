@@ -79,6 +79,8 @@ class SpecificWorker(GenericWorker):
         self.GRIPPER_ID = self.g.get_node('gripper').id
         self.robot_moving = False
 
+        self.rts_added_by_me = set()
+
         try:
             signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
             signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
@@ -181,8 +183,9 @@ class SpecificWorker(GenericWorker):
 
         if (cube_node := self.g.get_node(cube_name)) is None:
             new_node = Node(cube_id + self.CUBE_PREFIX + offset, "box", cube_name)
-            new_node.attrs['pos_x'] = Attribute(float(-280 + 90 * cube_id), self.agent_id)
+            new_node.attrs['pos_x'] = Attribute(float(-360 + 120 * cube_id), self.agent_id)
             new_node.attrs['pos_y'] = Attribute(float(90), self.agent_id)
+            new_node.attrs['active_agent'] = Attribute(False, self.agent_id)
             self.g.insert_node (new_node)
 
             cube_node = new_node
@@ -195,35 +198,50 @@ class SpecificWorker(GenericWorker):
         #     print ("hand", new_pos[3:5])
 
         rt = rt_api(self.g)
-        try:
-            current_pos = tf.transform_axis ("world", cube_name)
 
-            # offset = 40 if cube_name == "cube_1" else 20
-            # new_pos[2] -= offset
+        #### Publish only when changing
+        # try:
+        #     current_pos = tf.transform_axis ("world", cube_name)
 
-            #### Publish only when changing
-            pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
-            rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
-            if pos_diff < 3 and rot_diff < 0.1:
-                # print ("Not updating pose", pos_diff, rot_diff)
-                return
-        except:
-            print ("Does not exist")
+        #     # offset = 40 if cube_name == "cube_1" else 20
+        #     # new_pos[2] -= offset
 
-        # print ("update")
+        #     
+        #     pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
+        #     rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
+        #     if pos_diff < 3 and rot_diff < 0.1:
+        #         # print ("Not updating pose", pos_diff, rot_diff)
+        #         return
+        # except:
+        #     print ("Does not exist")
+
+
         world = self.g.get_node ("world")
         rt.insert_or_assign_edge_RT(world, cube_node.id, new_pos[:3], new_pos[3:])
         self.g.update_node(world)
+        self.rts_added_by_me.add(cube_id)
 
     def delete_cube_rt (self, cube_id, is_top=""):
-        if (cube := self.g.get_node ("cube_" + str(cube_id) + is_top)):
-            world = self.g.get_node ("world")
-            self.g.delete_edge (world.id, cube.id, "RT")
+        if cube_id not in self.rts_added_by_me:
+            print ("cant remove rt, you are not the inserter")
+            return
+        dest_name = "cube_" + str(cube_id) + is_top
+        if (cube := self.g.get_node (dest_name)):
+            transformation = self.g.get_edge ("world", dest_name, "RT")
+            if transformation:
+                self.hand_tag_detection_count[cube_id] = 0
+                world = self.g.get_node ("world")
+                self.g.delete_edge (world.id, cube.id, "RT")
+                self.rts_added_by_me.discard(cube_id)
 
     @QtCore.Slot()
     def compute(self):
         
         if self.robot_moving:
+            for id in self.hand_tag_detection_count.keys():
+                if self.hand_tag_detection_count[id] > 0:
+                    self.hand_tag_detection_count[id] = 0
+                    self.delete_cube_rt (id)
             return True
 
         if self.hand_color_raw is not None and self.hand_depth_raw is not None:
@@ -258,7 +276,8 @@ class SpecificWorker(GenericWorker):
                 else:
                     self.hand_tag_detection_count[id] = np.maximum (0, self.hand_tag_detection_count[id]-1)
                 
-                if (self.hand_tag_detection_count[id] > 20):
+                if (self.hand_tag_detection_count[id] > 20 and id in simplified_inmediate_tags.keys()):
+                    # print ("I am seeing and updating cube", id)
                     self.hand_tags[id] = simplified_inmediate_tags[id]
                     self.insert_or_update_cube (self.hand_tags, id)
                 else:
@@ -391,12 +410,17 @@ class SpecificWorker(GenericWorker):
     def simplify_tags(self, tags, img, focals, depth):
         s_tags = {}
         for tag in tags:
+
+            if tag.tag_id > 6 or tag.tag_id < 1:
+                # print ("Ignoring detection of tag", tag.tag_id)
+                continue
+
             m = self.detector.detection_pose(tag,[focals[0], focals[1], 640, 480], 0.04)
 
             rot = m[0][:3,:3]
             r = R.from_matrix(rot)
 
-            offset = np.array ([0,0,20]) if tag.tag_id != 1 else np.array ([0,0,40])
+            offset = np.array ([0,0,20]) # if tag.tag_id != 1 else np.array ([0,0,40])
             
             
             index_x = int(tag.center[1]) // 2

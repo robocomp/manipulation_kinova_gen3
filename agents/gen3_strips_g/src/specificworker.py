@@ -25,7 +25,7 @@ from multiprocessing.dummy import current_process
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
 from attr import Attribute
-from cv2 import imshow
+from cv2 import imshow, transform
 from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
@@ -91,6 +91,8 @@ class SpecificWorker(GenericWorker):
         self.robot_moving = False
         self.cubes_update_cycles = 0
 
+        self.interest = None
+
         try:
             signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
             signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
@@ -104,9 +106,16 @@ class SpecificWorker(GenericWorker):
 
 
         time.sleep(0.5)
-        color, self.depthImg = self.img_proc.extract_color_and_depth(self.hand_color_raw, self.hand_depth_raw)
-        self.tags, _ = self.img_proc.compute_april_tags(color, self.depthImg, (self.hand_focal_x, self.hand_focal_y))
-        self.init_state, self.cubes = self.planner.create_initial_state(self.tags)
+        # color, self.depthImg = self.img_proc.extract_color_and_depth(self.hand_color_raw, self.hand_depth_raw)
+        # self.tags, _ = self.img_proc.compute_april_tags(color, self.depthImg, (self.hand_focal_x, self.hand_focal_y))
+        # self.init_state, self.cubes = self.planner.create_initial_state(self.tags)
+
+        cube_nodes = self.g.get_nodes_by_type("box")
+        cube_names = []
+        for c in cube_nodes:
+            cube_names.append(c.name[-1])
+        print (cube_names)
+        self.init_state, self.cubes = self.planner.create_initial_state_cubes(cube_names)
 
         for _ in range(3):
             self.move_arm(WORKING_POSE)
@@ -127,18 +136,7 @@ class SpecificWorker(GenericWorker):
 
 
     @QtCore.Slot()
-    def compute(self):     
-        if self.hand_color_raw is not None and self.hand_depth_raw is not None:
-            self.color, self.depthImg = self.img_proc.extract_color_and_depth(self.hand_color_raw, self.hand_depth_raw)
-            if not self.robot_moving:
-                try:
-                    self.tags, simple_tags = self.img_proc.compute_april_tags(self.color, self.depthImg, (self.hand_focal_x, self.hand_focal_y))
-                    current_cubes = self.cubes_to_dsr(simple_tags)
-                except:
-                    pass
-                # TODO added by guille
-                print ("----> updated")
-                self.cubes_update_cycles += 1
+    def compute(self):
 
         if not self.end:
             if self.begin_plan:
@@ -152,14 +150,14 @@ class SpecificWorker(GenericWorker):
                 self.do_action = True
 
             else:
-                # TODO added by guille
-                if self.plan != [] and self.cubes_update_cycles > 5:
-
+                if self.plan != []:
                     current_step = self.plan[self.step]
                     params = current_step[1] if len(current_step) > 1 else None                                                                                                           
 
                     if self.do_action:
                         if not self.robot_moving:
+                            self.move_arm(WORKING_POSE)
+                            self.wait_for_rt (params)
                             if current_step[0] == "pick-up":   
                                 print("pick")        
                                 self.pick_up(params)
@@ -178,9 +176,8 @@ class SpecificWorker(GenericWorker):
                                 self.end_state[0] = '  (handempty)'
                                 self.init_state = self.end_state
                                 self.plan = []
-                    # TODO added by guille
-                    print ("----> Not updated")
-                    self.cubes_update_cycles = 0      
+                    print (" - - - waiting for visual info - - - Robot moving:", self.robot_moving, "plan", self.plan)
+                    time.sleep(1)   
         return True
 
     def startup_check(self):
@@ -212,7 +209,7 @@ class SpecificWorker(GenericWorker):
         pass
 
     def on_release(self, key):
-        print('Key released: {0}'.format(key))
+        # print('Key released: {0}'.format(key))
         try:
             if key.char == 'o':
                 self.open_gripper()
@@ -220,8 +217,13 @@ class SpecificWorker(GenericWorker):
             if key.char == 'w':
                 self.move_arm(WORKING_POSE)
                 return True
+            else:
+                # print (key, type(key))
+                # print (str(key), "cube_"+str(key.char))
+                self.set_interest("cube_"+str(key.char), True)
         except:
-            print("c: close\n o: open\n w:working pose\n 0:put_down\n N:pick_up(N)")
+            pass
+            # print("c: close\n o: open\n w:working pose\n 0:put_down\n N:pick_up(N)")
 
         if key == keyboard.Key.esc:
             return False
@@ -242,7 +244,8 @@ class SpecificWorker(GenericWorker):
         dest_pose = self.g.get_edge ("world", "cube_" + str(cube_id), "RT")
         dest_pose = np.concatenate((dest_pose.attrs["rt_translation"].value, dest_pose.attrs["rt_rotation_euler_xyz"].value))
         
-        # dest_pose [2] += 21 #TODO sacar si no se usa lo de Guille
+        dest_pose [2] += 21 #TODO sacar si no se usa lo de Guille
+        
         
         print ("Grabbin in ", dest_pose)
 
@@ -273,15 +276,56 @@ class SpecificWorker(GenericWorker):
         self.close_gripper()
         self.wait_until_done ()
 
-        self.move_arm(WORKING_POSE)
-        self.wait_until_done ()
+        # self.move_arm(WORKING_POSE)
+        # # self.set_as_interest ("cube_5", True)
+        # self.wait_until_done ()
 
         self.working = False
 
+
+
+    def set_interest (self, name, interest):
+
+        print ("Setting interest in cube", name)
+
+        if self.interest and interest:
+            cube_1 = self.g.get_node (self.interest)
+            cube_1.attrs['active_agent'].value = False
+            self.g.update_node(cube_1)
+
+        cube = self.g.get_node (name)
+        cube.attrs['active_agent'].value = interest
+        self.g.update_node(cube)
+
+        self.interest = name
+
     def wait_until_done (self):
-        time.sleep(0.1)
+        # print ("--- waiting for it to start moving ---")
+        # while (not self.robot_moving):
+        #     pass
+        print ("--- waiting for it to stop moving ---")
+        time.sleep(0.5)
         while (self.robot_moving):
             pass
+        time.sleep(0.5)
+        print (" ---- done ----")
+
+    def wait_for_rt (self, to):
+        dest_name = "cube_" + str(to[-1])
+        print ("waiting for", dest_name)
+        self.set_interest (dest_name, True)
+        time.sleep(0.5)
+        transformation = None
+        while (transformation is None):
+            transformation = self.g.get_edge ("world", dest_name, "RT")
+        # print (transformation)
+        print ("got it")
+        gripper = self.g.get_node ("gripper")
+        gripper.attrs["robot_occupied"].value = False
+        self.g.update_node(gripper)
+        time.sleep(3)
+
+        # print (transformation)
 
     def put_down(self, cube_id, message=None, cube_to_stack_in=-1):
         print(f"-->PutDown {cube_id}" if message is None else message)
@@ -294,7 +338,9 @@ class SpecificWorker(GenericWorker):
         self.open_gripper()
         self.wait_until_done ()
 
-        self.move_arm(WORKING_POSE)
+        # self.move_arm(WORKING_POSE)
+        # self.wait_until_done ()
+
         self.working = False
         pass
 
@@ -319,8 +365,8 @@ class SpecificWorker(GenericWorker):
             pos = dest_pose.attrs["rt_translation"].value.tolist()
             rot = dest_pose.attrs["rt_rotation_euler_xyz"].value.tolist()
             
-        # pos [2] += 21 #TODO sacar si no se usa lo de Guille
-        pos[2] += 50
+        pos [2] += 21 #TODO sacar si no se usa lo de Guille
+        pos [2] += 50
 
         rot[0] = 0.0
         rot[1] = np.pi
@@ -439,6 +485,7 @@ class SpecificWorker(GenericWorker):
             new_node = Node(cube_id + self.CUBE_PREFIX + offset, "box", cube_name)
             new_node.attrs['pos_x'] = Attribute(float(REFERENCE_COORD + CUBE_OFFSET * cube_id), self.agent_id)
             new_node.attrs['pos_y'] = Attribute(float(CUBE_OFFSET), self.agent_id)
+            new_node.attrs['active_agent'] = Attribute(False, self.agent_id)
             
             self.g.insert_node (new_node)
             cube_node = new_node

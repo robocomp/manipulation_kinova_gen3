@@ -11,8 +11,6 @@ import os
 import time
 import threading
 
-from cv2 import accumulateSquare
-
 import utilities
 from kortex_api.autogen.client_stubs.BaseClientRpc import BaseClient
 from kortex_api.autogen.client_stubs.BaseCyclicClientRpc import BaseCyclicClient
@@ -57,15 +55,7 @@ class KinovaGen3():
 
     def get_state (self):
         feedback = self.base_cyclic.RefreshFeedback()
-        # for j in feedback.actuators:
-        #     print (j.command_id, j.position)
-        # print("------")
         return feedback.base
-
-    def get_joints (self):
-        feedback = self.base_cyclic.RefreshFeedback()
-        joints = [j.position for j in feedback.actuators]
-        return joints
 
     def get_gripper_state (self):
         gripper_request = Base_pb2.GripperRequest()
@@ -86,9 +76,6 @@ class KinovaGen3():
         #         "theta_y": state.tool_pose_theta_y,
         #         "theta_z": state.tool_pose_theta_z
         #         }
-
-    def stop_movement (self):
-        self.cartesian_move_relative(0,0,0,0,0,0)
 
     def cartesian_move_to(self, x, y, z, theta_x, theta_y, theta_z):
     
