@@ -28,6 +28,7 @@ from Simulation import *
 from scipy.spatial.transform import Rotation as R
 import cv2
 from scipy import stats
+from pynput import keyboard
 
 
 sys.path.append('/opt/robocomp/lib')
@@ -77,6 +78,13 @@ class SpecificWorker(GenericWorker):
         self.occupied = False
 
         self.cube_positions = {}
+
+        self.dummie_check = False
+
+        listener = keyboard.Listener(
+            on_press=None,
+            on_release=self.on_release)
+        listener.start()
        
 
         # self.sim.insert_cube ("cube_6", [416, 47,   50], "base")
@@ -117,6 +125,21 @@ class SpecificWorker(GenericWorker):
     def setParams(self, params):
         return True
 
+    def on_release(self, key):
+
+        try:
+            cube_id = int (key.char)
+            self.object_of_interest  = "cube_" + str(cube_id)
+            print ("got to check", self.object_of_interest)
+
+        except:
+            print ("not an int")
+        
+            
+        
+        return True
+
+
     @QtCore.Slot()
     def compute(self):
 
@@ -128,6 +151,7 @@ class SpecificWorker(GenericWorker):
         # print (np.degrees(rot))
 
         # return True
+
 
         if self.was_occupied != self.occupied:
             if self.was_occupied:
@@ -208,7 +232,7 @@ class SpecificWorker(GenericWorker):
                         new_pos = pos
                         pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
                         rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
-                        if pos_diff > 3 or rot_diff > 0.1:
+                        if pos_diff > 5 or rot_diff > 0.1:
                             names.append (cube.name)
                             poses.append (pos)
                             self.cube_positions[id] = pos
@@ -252,9 +276,26 @@ class SpecificWorker(GenericWorker):
 
         if self.object_of_interest != self.last_object_of_interest:
             if self.last_object_of_interest is not None:
+
                 self.sim.change_color(self.last_object_of_interest, (255, 255, 255))
                 time.sleep(0.05)
+                last_int_cube = self.g.get_node(self.last_object_of_interest)
+                near_edges = self.g.get_edges_by_type ("is_near")
+                for e in near_edges:
+                    self.g.delete_edge (last_int_cube.id, e.destination, "is_near")
+            
             self.sim.change_color(self.object_of_interest, (255, 0, 0))
+            
+            int_cube = self.g.get_node(self.object_of_interest)
+            touching = self.sim.get_colliding_objects (self.object_of_interest)
+            for c in touching:
+                touching_cube = self.g.get_node(c)
+                near_e = Edge (touching_cube.id, int_cube.id, "is_near", self.agent_id)
+                self.g.insert_or_assign_edge (near_e)
+
+
+            print ("removable: ", self.sim.check_if_removable (self.object_of_interest))
+
             self.last_object_of_interest = self.object_of_interest
 
         # print (" - - - - ")
