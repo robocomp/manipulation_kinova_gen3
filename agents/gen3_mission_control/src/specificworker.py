@@ -179,11 +179,13 @@ class SpecificWorker(GenericWorker):
         cube_name = "cube_" + str(cube_id) + is_top
         tf = inner_api(self.g)
         camera_id = "top_view_camera" if is_top else "hand_camera"
-        new_pos = tf.transform_axis ("world", cube["pos"] + cube["rot"], camera_id)
+
+        new_pos = cube["pos"] + cube["rot"]
+        # new_pos = tf.transform_axis ("world", cube["pos"] + cube["rot"], camera_id)
 
         if (cube_node := self.g.get_node(cube_name)) is None:
             new_node = Node(cube_id + self.CUBE_PREFIX + offset, "box", cube_name)
-            new_node.attrs['pos_x'] = Attribute(float(-360 + 120 * cube_id), self.agent_id)
+            new_node.attrs['pos_x'] = Attribute(float(-100 + 200 * cube_id), self.agent_id)
             new_node.attrs['pos_y'] = Attribute(float(90), self.agent_id)
             new_node.attrs['active_agent'] = Attribute(False, self.agent_id)
             self.g.insert_node (new_node)
@@ -215,10 +217,15 @@ class SpecificWorker(GenericWorker):
         # except:
         #     print ("Does not exist")
 
+        ###### inserting from world #######
+        # world = self.g.get_node ("world")
+        # rt.insert_or_assign_edge_RT(world, cube_node.id, new_pos[:3], new_pos[3:])
+        # self.g.update_node(world)
 
-        world = self.g.get_node ("world")
+        world = self.g.get_node ("hand_camera")
         rt.insert_or_assign_edge_RT(world, cube_node.id, new_pos[:3], new_pos[3:])
         self.g.update_node(world)
+
         self.rts_added_by_me.add(cube_id)
 
     def delete_cube_rt (self, cube_id, is_top=""):

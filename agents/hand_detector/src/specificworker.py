@@ -19,7 +19,8 @@
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from csv import excel_tab
+# from csv import excel_tab
+# from turtle import distance
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
 from rich.console import Console
@@ -154,8 +155,9 @@ class SpecificWorker(GenericWorker):
                         line.append ((cx, cy))
                         cv2.circle(img, (cx,cy), 3, (255,0,255), cv2.FILLED)
         if line:
-            pos = self.get_hand_position(img, depth, line, [self.focal_x, self.focal_y])
-            if not np.isnan(pos[0]):
+            pos, dist = self.get_hand_position(img, depth, line, [self.focal_x, self.focal_y])
+            print (dist)
+            if not np.isnan(pos[0]) and dist < 60:
                 factor = 0.60
                 new_pos = (np.multiply (self.last_pos[:3], factor) +  np.multiply (pos[:3], 1-factor)).tolist()
                 # print (self.last_pos, new_pos, pos)
@@ -203,8 +205,8 @@ class SpecificWorker(GenericWorker):
 
         if (hand_node := self.g.get_node("human_hand")) is None:
             hand_node = Node(44, "left_hand", "human_hand")
-            hand_node.attrs['pos_x'] = Attribute(float(67), self.agent_id)
-            hand_node.attrs['pos_y'] = Attribute(float(160), self.agent_id)
+            hand_node.attrs['pos_x'] = Attribute(float(600), self.agent_id)
+            hand_node.attrs['pos_y'] = Attribute(float(230), self.agent_id)
             self.g.insert_node (hand_node)
         
         # print ("Inserted cube " + str(cube_id))
@@ -238,8 +240,10 @@ class SpecificWorker(GenericWorker):
 
             points_3d.append ([pos_x, pos_y, pos_z])
             mean = np.mean (points_3d, axis=0).tolist()
-            
-        return mean # [pos_x, pos_y, pos_z]
+        
+        dist = np.linalg.norm (np.array(points_3d[0]) - np.array(points_3d[1]))
+
+        return mean, dist # [pos_x, pos_y, pos_z]
 
 
 

@@ -129,8 +129,10 @@ class SpecificWorker(GenericWorker):
 
         try:
             cube_id = int (key.char)
-            self.object_of_interest  = "cube_" + str(cube_id)
-            print ("got to check", self.object_of_interest)
+            # self.object_of_interest  = "cube_" + str(cube_id)
+            # print ("got to check", self.object_of_interest)
+
+            self.sim.change_static ("cube_" + str(cube_id), 0)
 
         except:
             print ("not an int")
@@ -224,6 +226,8 @@ class SpecificWorker(GenericWorker):
 
                             self.already_added.append(id)
                             print ("Created new cube", id)
+                            names.append (cube.name)
+                            poses.append (pos)
 
                             self.cube_positions[id] = pos
                     # else:
@@ -242,6 +246,7 @@ class SpecificWorker(GenericWorker):
 
                 # print ("Updating simulation")
                 if len(names) > 0:
+                    print ("---> updating positions of", names)
                     self.sim.set_multiple_objects_poses (names, poses, "base")
 
                 self.updated_cubes = []
@@ -265,11 +270,11 @@ class SpecificWorker(GenericWorker):
         # print ("Beliefs", time.time()-now)
         self.update_hand()
         
-        # self.depth = np.frombuffer(self.depth_raw, dtype=np.uint16)
-        # self.depth = self.depth.reshape((480, 640))
-        # self.depth_show = cv2.applyColorMap(cv2.convertScaleAbs(self.depth, alpha=0.03), cv2.COLORMAP_JET)
-        # cv2.imshow("depth", self.depth_show)
-        # cv2.waitKey(1)
+        self.depth = np.frombuffer(self.depth_raw, dtype=np.uint16)
+        self.depth = self.depth.reshape((480, 640))
+        self.depth_show = cv2.applyColorMap(cv2.convertScaleAbs(self.depth, alpha=0.03), cv2.COLORMAP_HSV)
+        cv2.imshow("depth", self.depth_show)
+        cv2.waitKey(1)
 
 
         self.check_cube_visibility ()
