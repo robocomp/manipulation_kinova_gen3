@@ -463,7 +463,7 @@ class SpecificWorker(GenericWorker):
                 old_pos = self.current_positions[tag.tag_id]["pos"]
                 old_ori = self.current_positions[tag.tag_id]["rot"]
                 
-                factor = 0.90
+                factor = 0.60
 
                 new_pos = np.multiply (old_pos, factor) +  np.multiply (pos, 1-factor)
                 new_ori = np.multiply (old_ori, factor) +  np.multiply (ori, 1-factor)

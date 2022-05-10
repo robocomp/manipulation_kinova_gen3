@@ -54,7 +54,8 @@ class SpecificWorker(GenericWorker):
         self.g = DSRGraph(0, "pythonAgent", self.agent_id)
 
         self.grasped_cube = None
-        self.last_pos = [0,0,0]
+        self.finger_points = [4, 8]
+        self.last_pos =  [[0,0,0] for _ in (self.finger_points)]
 
         self.color_raw = None
         self.hand_pos = [0,0,0]
@@ -151,20 +152,27 @@ class SpecificWorker(GenericWorker):
                 for id, lm in enumerate(handLms.landmark):
                     h, w, c = img.shape
                     cx, cy = int(lm.x *w), int(lm.y*h)
-                    if id in [4, 8]:
+                    if id in self.finger_points:
                         line.append ((cx, cy))
                         cv2.circle(img, (cx,cy), 3, (255,0,255), cv2.FILLED)
         if line:
-            pos, dist = self.get_hand_position(img, depth, line, [self.focal_x, self.focal_y])
-            print (dist)
-            if not np.isnan(pos[0]) and dist < 60:
+            pos, tips = self.get_hand_position(img, depth, line, [self.focal_x, self.focal_y])
+            if not np.isnan(pos[0]):
                 factor = 0.60
-                new_pos = (np.multiply (self.last_pos[:3], factor) +  np.multiply (pos[:3], 1-factor)).tolist()
-                # print (self.last_pos, new_pos, pos)
-                self.last_pos = new_pos
-                self.pos = self.insert_or_update_hand (new_pos)
+
+                for i in range(len(tips)):
+                    new_pos = (np.multiply (self.last_pos[i][:3], factor) +  np.multiply (tips[i][:3], 1-factor)).tolist()
+                    # print (self.last_pos, new_pos, pos)
+                    self.last_pos[i] = new_pos
+
+                self.pos = self.insert_or_update_hand (new_pos, self.last_pos)
                 # self.check_grasp()
         else:
+            for i in range(len(self.finger_points)):
+                self.g.delete_node("finger_" + str(i))
+            grasp_edge = self.g.get_edges_by_type ("graspping")
+            for e in grasp_edge:
+                self.g.delete_edge (self.g.get_node("human_hand").id, e.destination, "graspping")
             self.g.delete_node ("human_hand")
         cv2.imshow("Image", img)
         cv2.waitKey(1)
@@ -199,28 +207,35 @@ class SpecificWorker(GenericWorker):
     def startup_check(self):
         QTimer.singleShot(200, QApplication.instance().quit)
 
-    def insert_or_update_hand (self, pos):
-        tf = inner_api(self.g)
-        new_pos = tf.transform_axis ("world", pos + [0,0,0], "hand_camera")
+    def insert_or_update_hand (self, pos, tips):
 
+        rt = rt_api(self.g)
+        world = self.g.get_node ("world")
+        
         if (hand_node := self.g.get_node("human_hand")) is None:
             hand_node = Node(44, "left_hand", "human_hand")
             hand_node.attrs['pos_x'] = Attribute(float(600), self.agent_id)
             hand_node.attrs['pos_y'] = Attribute(float(230), self.agent_id)
             self.g.insert_node (hand_node)
+            rt.insert_or_assign_edge_RT(world, hand_node.id, [0,0,0], [0,0,0])
+
+            for i in range(len(tips)):
+                finger = Node(45 + i, "right_hand", "finger_" + str(i))
+                finger.attrs['pos_x'] = Attribute(float(550 + i*100), self.agent_id)
+                finger.attrs['pos_y'] = Attribute(float(270), self.agent_id)
+                self.g.insert_node (finger)
+
+
         
-        # print ("Inserted cube " + str(cube_id))
 
-        # if is_top:
-        #     print ("top ", new_pos[3:5])
-        # else:
-        #     print ("hand", new_pos[3:5])
+        tf = inner_api(self.g)
+        for i in range(len(tips)):
+            finger_node = self.g.get_node ("finger_" + str(i))
+            new_pos = tf.transform_axis ("world", tips[i] + [0,0,0], "hand_camera")
+            rt.insert_or_assign_edge_RT(hand_node, finger_node.id, new_pos[:3], new_pos[3:])
 
-        rt = rt_api(self.g)
 
         # print ("update")
-        world = self.g.get_node ("world")
-        rt.insert_or_assign_edge_RT(world, hand_node.id, new_pos[:3], new_pos[3:])
         self.g.update_node(world)
 
         return new_pos
@@ -241,9 +256,9 @@ class SpecificWorker(GenericWorker):
             points_3d.append ([pos_x, pos_y, pos_z])
             mean = np.mean (points_3d, axis=0).tolist()
         
-        dist = np.linalg.norm (np.array(points_3d[0]) - np.array(points_3d[1]))
+        # dist = np.linalg.norm (np.array(points_3d[0]) - np.array(points_3d[1]))
 
-        return mean, dist # [pos_x, pos_y, pos_z]
+        return mean, points_3d# [pos_x, pos_y, pos_z]
 
 
 

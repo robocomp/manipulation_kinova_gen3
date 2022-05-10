@@ -39,7 +39,7 @@ from pydsr import *
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 1000
+        self.Period = 300
 
         # YOU MUST SET AN UNIQUE ID FOR THIS AGENT IN YOUR DEPLOYMENT. "_CHANGE_THIS_ID_" for a valid unique integer
         self.agent_id = 194
@@ -53,12 +53,17 @@ class SpecificWorker(GenericWorker):
         self.new_grasp = False
         self.grasp_released = False
 
+        self.GRASP_COUNTDOWN_TH = 5
+        self.grasp_countdown = 0
+
         self.sim = Simulation()
         # self.sim.load_scene ("/home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/gen3_cubes.ttt")
         self.sim.load_scene ("/home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/gen3_cubes_2.ttt")
         self.sim.start_simulation()
 
-        self.sim.insert_hand ("human_hand", [0,0,0], "base")
+        # self.sim.insert_hand ("human_hand", [0,0,0], "base")
+        self.NUMBER_OF_FINGERS = 2
+        self.sim.insert_tips (self.NUMBER_OF_FINGERS, "base")
 
         self.GRIPPER_ID = self.g.get_node('gripper').id
 
@@ -236,7 +241,7 @@ class SpecificWorker(GenericWorker):
                         new_pos = pos
                         pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
                         rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
-                        if pos_diff > 5 or rot_diff > 0.1:
+                        if pos_diff > 5 or rot_diff > 0.1 or cube.name == self.grasped_cube:
                             names.append (cube.name)
                             poses.append (pos)
                             self.cube_positions[id] = pos
@@ -272,9 +277,9 @@ class SpecificWorker(GenericWorker):
         
         self.depth = np.frombuffer(self.depth_raw, dtype=np.uint16)
         self.depth = self.depth.reshape((480, 640))
-        self.depth_show = cv2.applyColorMap(cv2.convertScaleAbs(self.depth, alpha=0.03), cv2.COLORMAP_HSV)
-        cv2.imshow("depth", self.depth_show)
-        cv2.waitKey(1)
+        # self.depth_show = cv2.applyColorMap(cv2.convertScaleAbs(self.depth, alpha=0.03), cv2.COLORMAP_HSV)
+        # cv2.imshow("depth", self.depth_show)
+        # cv2.waitKey(1)
 
 
         self.check_cube_visibility ()
@@ -429,28 +434,64 @@ class SpecificWorker(GenericWorker):
 
     def update_hand (self):
         tf = inner_api(self.g)
+
         hand = self.g.get_node ("human_hand")
 
         if hand is None:
-            self.sim.set_object_pose ("human_hand", [0,0,0,0,0,0], "base")
+            self.sim.update_fingertips ([[0,0,0] for _ in range(self.NUMBER_OF_FINGERS)], "base", False)
             self.grasped_cube = None
             return
 
-        pos = tf.transform_axis ("world", "human_hand")
-        self.sim.set_object_pose ("human_hand", pos, "base")
+        finger_nodes = self.g.get_nodes_by_type ("right_hand")
         
+        positions = []
+        for f in finger_nodes:
+            pos = tf.transform_axis ("world", f.name)
+            positions.append(pos)
+        
+        colliding = self.sim.update_fingertips(positions, "base")
+        
+        colliding = None if len(colliding) == 0 else colliding[0]
 
-        colliding = self.sim.check_colisions("human_hand")
-        
         if colliding:
             cube = self.g.get_node (colliding)
             g_rt = Edge (cube.id, hand.id, "graspping", self.agent_id)
             self.g.insert_or_assign_edge (g_rt)
+            self.grasp_countdown = self.GRASP_COUNTDOWN_TH
+            self.grasped_cube = colliding
         elif self.last_grasp:
-            cube = self.g.get_node (self.last_grasp)
-            self.g.delete_edge (hand.id, cube.id, "graspping")
+            if self.grasp_countdown > 0:
+                print ("Grasp cooldown", self.grasp_countdown)
+                self.grasp_countdown -= 1
+            else:
+                cube = self.g.get_node (self.last_grasp)
+                self.g.delete_edge (hand.id, cube.id, "graspping")
+        
 
-        self.grasped_cube = colliding
+                self.grasped_cube = colliding
+
+        
+        # hand = self.g.get_node ("human_hand")
+
+        # if hand is None:
+        #     self.sim.set_object_pose ("human_hand", [0,0,0,0,0,0], "base")
+        #     self.grasped_cube = None
+        #     return
+
+        # pos = tf.transform_axis ("world", "human_hand")
+        # self.sim.set_object_pose ("human_hand", pos, "base")
+        
+        # colliding = self.sim.check_colisions("human_hand")
+        
+        # if colliding:
+        #     cube = self.g.get_node (colliding)
+        #     g_rt = Edge (cube.id, hand.id, "graspping", self.agent_id)
+        #     self.g.insert_or_assign_edge (g_rt)
+        # elif self.last_grasp:
+        #     cube = self.g.get_node (self.last_grasp)
+        #     self.g.delete_edge (hand.id, cube.id, "graspping")
+
+        # self.grasped_cube = colliding
 
 
     def cube_grasped (self, name):

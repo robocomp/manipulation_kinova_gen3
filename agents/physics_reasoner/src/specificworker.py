@@ -24,6 +24,8 @@ from PySide2.QtWidgets import QApplication
 from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
+from scipy.spatial.transform import Rotation as R
+from scipy.optimize import minimize
 
 import numpy as np
 import cv2
@@ -78,32 +80,99 @@ class SpecificWorker(GenericWorker):
         return True
 
 
+    def transformation_error (self, rt_gr_cam):
+        rot_m = R.from_euler("XYZ", rt_gr_cam[3:])
+
+        res_mat = np.hstack([rot_m.as_matrix(), rt_gr_cam[:3].reshape(3,1)])
+        res_mat = np.vstack([res_mat, [0,0,0,1]])
+        tf = inner_api(self.g)
+        rmat_w_gr = tf.get_transformation_matrix("world", "gripper")
+        mat = rmat_w_gr @ res_mat
+
+        cubes = self.g.get_nodes_by_type ("box")
+        diff = 0
+        for cube in cubes:
+            cube1 = self.g.get_edge ("hand_camera", cube.name, "RT")
+            cube1_trans = cube1.attrs["rt_translation"].value
+
+            v_rt = self.g.get_edge ("world", cube.name, "virtual_RT")
+
+            cube1_trans = np.append(cube1_trans, 1)
+            test_2 = mat @ cube1_trans
+
+
+            diff += np.linalg.norm(test_2[:3] - v_rt.attrs["rt_translation"].value)
+        # print (diff)
+        return diff
+
     @QtCore.Slot()
     def compute(self):
+        
+        
+        rt = rt_api(self.g)
+        tf = inner_api(self.g)
+
+        # camera_rt = self.g.get_edge ("gripper", "hand_camera", "RT")     
+        # print (camera_rt)
+        # rot_m = R.from_euler("XYZ", camera_rt.attrs["rt_rotation_euler_xyz"].value)
+
+        # res_mat = np.hstack([rot_m.as_matrix(), camera_rt.attrs["rt_translation"].value.reshape(3,1)])
+        # res_mat = np.vstack([res_mat, [0,0,0,1]])
+
+        # cube1 = self.g.get_edge ("hand_camera", "cube_1", "RT")
+        # cube1_trans = cube1.attrs["rt_translation"].value
+
+        # rmat_1 = tf.get_transformation_matrix("gripper", "hand_camera")
+        # rmat_2 = tf.get_transformation_matrix("world", "gripper")
+
+
+        # cube1_trans = np.append(cube1_trans, 1)
+        # test_2 = rmat_2 @ res_mat @ cube1_trans
+
+        res = minimize(self.transformation_error, np.array([17, 107, -150, 0, 0, 0]), method='BFGS', tol=1e-6)
+        print (res.x, self.transformation_error(res.x))
+
+
+        griper = self.g.get_node ("gripper")
+        h_camera = self.g.get_node ("hand_camera")
+        rt.insert_or_assign_edge_RT(griper, h_camera.id, res.x[:3], res.x[3:])
+        self.g.update_node(griper)
+
+
+        # print (self.transformation_error(np.array( [ 15.8171056,  77.6368291, -150.756363,-0.0545380167,  0.0111418872,  0.0372585873])))
+
         plot = np.zeros((300, 800, 3), np.uint8)
         plot2 = np.zeros((300, 800, 3), np.uint8)
-        print('SpecificWorker.compute...')
+
+        positional_errors = []
         
         cubes = self.g.get_nodes_by_type ("box")
         for cube in cubes:
             plot = np.zeros((300, 800, 3), np.uint8)
-            rt   = self.g.get_edge ("world", cube.name, "RT")
+            # rt   = self.g.get_edge ("world", cube.name, "RT")
+            rt = tf.transform_axis ("world", cube.name)
             v_rt = self.g.get_edge ("world", cube.name, "virtual_RT")
 
             if rt is None or v_rt is None:
                 continue
 
-            trans_diffs = np.absolute(rt.attrs["rt_translation"].value - v_rt.attrs["rt_translation"].value)
-            rot_diffs   = np.absolute(rt.attrs["rt_rotation_euler_xyz"].value - v_rt.attrs["rt_rotation_euler_xyz"].value)
+
+            # trans_diffs = np.absolute(rt.attrs["rt_translation"].value - v_rt.attrs["rt_translation"].value)
+            # rot_diffs   = np.absolute(rt.attrs["rt_rotation_euler_xyz"].value - v_rt.attrs["rt_rotation_euler_xyz"].value)
+
+            trans_diffs = rt[:3] - v_rt.attrs["rt_translation"].value + 25# np.absolute(rt[:3]- v_rt.attrs["rt_translation"].value)
+            rot_diffs   = rt[3:] - v_rt.attrs["rt_rotation_euler_xyz"].value
+
+            positional_errors.append (trans_diffs)
 
             trans_diff = np.linalg.norm (trans_diffs)
             rot_diff   = np.linalg.norm (rot_diffs)
 
             print ("----", cube.name, "----")
-            print (rt.attrs["rt_translation"].value, v_rt.attrs["rt_translation"].value, "\n")
+            print (rt[:3], v_rt.attrs["rt_translation"].value, "\n")
             print (trans_diffs, rot_diffs)
 
-            self.plot_bars (plot, trans_diffs, 50, 10)
+            self.plot_bars (plot, trans_diffs, 50, 10, 2)
             cv2.imshow(cube.name + " trans diff", plot)
 
             # self.plot_bars (plot2, rot_diffs, 30, 5)
@@ -122,7 +191,7 @@ class SpecificWorker(GenericWorker):
 
 
 
-    def plot_bars (self, img, values, max, steps):
+    def plot_bars (self, img, values, max, steps, signed = 1):
         height = img.shape[0]
         width  = img.shape[1]
         cant = len(values)
@@ -139,7 +208,7 @@ class SpecificWorker(GenericWorker):
             y = height - ((int (values[i]) * height) // max)
 
             # cv2.putText(img, (x1, 100), names[i], cv2.FONT_HERSHEY_SIMPLEX, 1, (150, 0, 0), 1, 2)
-            cv2.rectangle(img, (x1, y),(x2, height), (255, 0, 255), -1)
+            cv2.rectangle(img, (x1, y),(x2, height//signed), (255, 0, 255), -1)
             offset += size
 
     # =============== DSR SLOTS  ================
