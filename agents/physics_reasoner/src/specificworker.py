@@ -27,6 +27,8 @@ import interfaces as ifaces
 from scipy.spatial.transform import Rotation as R
 from scipy.optimize import minimize
 
+
+import time
 import numpy as np
 import cv2
 
@@ -45,11 +47,23 @@ from pydsr import *
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 100
+        self.Period = 2000
 
         # YOU MUST SET AN UNIQUE ID FOR THIS AGENT IN YOUR DEPLOYMENT. "_CHANGE_THIS_ID_" for a valid unique integer
         self.agent_id = 136
         self.g = DSRGraph(0, "pythonAgent", self.agent_id)
+
+
+        self.b_rt = np.array([0, 0, 0, 0, 0, 0])
+
+        print ("Starting optimization")
+        print (self.b_rt, self.transformation_error_2(self.b_rt))
+
+        ini = time.time()
+
+        self.b_rt = self.compute_and_publish_best_rt(self.b_rt)
+        print ("Finished optimization in", time.time()-ini)
+        print (self.b_rt, self.transformation_error_2(self.b_rt))
 
         try:
             # signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
@@ -89,21 +103,90 @@ class SpecificWorker(GenericWorker):
         rmat_w_gr = tf.get_transformation_matrix("world", "gripper")
         mat = rmat_w_gr @ res_mat
 
+        mat2 = np.linalg.inv(mat[:3,:3])
+
+
+        print (mat,"\n\n", mat2, "\n\n", mat[:3,:3]@mat2, "\n\n", mat2@mat2)
+
         cubes = self.g.get_nodes_by_type ("box")
         diff = 0
         for cube in cubes:
             cube1 = self.g.get_edge ("hand_camera", cube.name, "RT")
             cube1_trans = cube1.attrs["rt_translation"].value
+            cube1_rot   = cube1.attrs["rt_rotation_euler_xyz"].value
 
             v_rt = self.g.get_edge ("world", cube.name, "virtual_RT")
 
+            print(cube.name, cube1_rot, cube1_rot @ mat2, v_rt.attrs["rt_rotation_euler_xyz"].value)
+
             cube1_trans = np.append(cube1_trans, 1)
-            test_2 = mat @ cube1_trans
+            cube1_res = mat @ cube1_trans
 
 
-            diff += np.linalg.norm(test_2[:3] - v_rt.attrs["rt_translation"].value)
+            diff += np.linalg.norm(cube1_res[:3] - v_rt.attrs["rt_translation"].value)
         # print (diff)
         return diff
+
+    def angle_diff (self, v1, v2):
+
+        v1_q = R.from_euler("xyz", v1).as_quat()
+        v2_q = R.from_euler("xyz", v2).as_quat()
+
+        return 1 - np.inner(v1_q, v2_q)**2 # np.linalg.norm(v1_q - v2_q)
+
+    def get_cube_error (self, name):
+        rt = rt_api(self.g)
+        tf = inner_api(self.g)
+
+        rt = tf.transform_axis ("world", name)
+        v_rt = self.g.get_edge ("world", name, "virtual_RT")
+
+        rot_diff   = self.angle_diff(rt[3:],  v_rt.attrs["rt_rotation_euler_xyz"].value) * 1000
+        trans_diff = np.linalg.norm (rt[:3] - v_rt.attrs["rt_translation"].value)
+
+        return rot_diff, trans_diff
+        # print (cube.name, trans_diff, rot_diff)
+
+    def transformation_error_2 (self, rt_gr_cam):
+
+        rt = rt_api(self.g)
+        tf = inner_api(self.g)
+
+        griper = self.g.get_node ("gripper")
+        h_camera = self.g.get_node ("hand_camera")
+        rt.insert_or_assign_edge_RT(griper, h_camera.id, rt_gr_cam[:3], rt_gr_cam[3:])
+        self.g.update_node(griper)
+
+        cubes = self.g.get_nodes_by_type ("box")
+        diff = 0
+        for cube in cubes:
+
+            rot_diff ,trans_diff = self.get_cube_error(cube.name)
+
+            # rt = tf.transform_axis ("world", cube.name)
+            # v_rt = self.g.get_edge ("world", cube.name, "virtual_RT")
+
+            # rot_diff   = self.angle_diff(rt[3:],  v_rt.attrs["rt_rotation_euler_xyz"].value) * 1000
+            # trans_diff = np.linalg.norm (rt[:3] - v_rt.attrs["rt_translation"].value)
+
+
+            # print (cube.name, trans_diff, rot_diff)
+
+            diff += rot_diff + trans_diff
+
+        return diff
+
+    def compute_and_publish_best_rt (self, initial_guess):
+        rt = rt_api(self.g)
+
+        res = minimize(self.transformation_error_2, initial_guess, method='Nelder-Mead')
+        
+        # griper = self.g.get_node ("gripper")
+        # h_camera = self.g.get_node ("hand_camera")
+        # rt.insert_or_assign_edge_RT(griper, h_camera.id, res.x[:3], res.x[3:])
+        # self.g.update_node(griper)
+        print ("optimization success:", res.success)
+        return res.x
 
     @QtCore.Slot()
     def compute(self):
@@ -129,17 +212,22 @@ class SpecificWorker(GenericWorker):
         # cube1_trans = np.append(cube1_trans, 1)
         # test_2 = rmat_2 @ res_mat @ cube1_trans
 
-        res = minimize(self.transformation_error, np.array([17, 107, -150, 0, 0, 0]), method='BFGS', tol=1e-6)
-        print (res.x, self.transformation_error(res.x))
+        # self.transformation_error_2(self.b_rt)
 
-
-        griper = self.g.get_node ("gripper")
-        h_camera = self.g.get_node ("hand_camera")
-        rt.insert_or_assign_edge_RT(griper, h_camera.id, res.x[:3], res.x[3:])
-        self.g.update_node(griper)
+        # self.b_rt = self.compute_and_publish_best_rt(self.b_rt)
+        # print (self.b_rt, self.transformation_error(self.b_rt))
+        
 
 
         # print (self.transformation_error(np.array( [ 15.8171056,  77.6368291, -150.756363,-0.0545380167,  0.0111418872,  0.0372585873])))
+
+        print ("Starting optimization")
+        print (self.b_rt, self.transformation_error_2(self.b_rt))
+
+        ini = time.time()
+
+        self.b_rt = self.compute_and_publish_best_rt(self.b_rt)
+        print ("Finished optimization in", time.time()-ini)
 
         plot = np.zeros((300, 800, 3), np.uint8)
         plot2 = np.zeros((300, 800, 3), np.uint8)
@@ -160,7 +248,7 @@ class SpecificWorker(GenericWorker):
             # trans_diffs = np.absolute(rt.attrs["rt_translation"].value - v_rt.attrs["rt_translation"].value)
             # rot_diffs   = np.absolute(rt.attrs["rt_rotation_euler_xyz"].value - v_rt.attrs["rt_rotation_euler_xyz"].value)
 
-            trans_diffs = rt[:3] - v_rt.attrs["rt_translation"].value + 25# np.absolute(rt[:3]- v_rt.attrs["rt_translation"].value)
+            trans_diffs = rt[:3] - v_rt.attrs["rt_translation"].value# np.absolute(rt[:3]- v_rt.attrs["rt_translation"].value)
             rot_diffs   = rt[3:] - v_rt.attrs["rt_rotation_euler_xyz"].value
 
             positional_errors.append (trans_diffs)
@@ -169,11 +257,11 @@ class SpecificWorker(GenericWorker):
             rot_diff   = np.linalg.norm (rot_diffs)
 
             print ("----", cube.name, "----")
-            print (rt[:3], v_rt.attrs["rt_translation"].value, "\n")
-            print (trans_diffs, rot_diffs)
+            # print (rt[:3], v_rt.attrs["rt_translation"].value, "\n")
+            print (self.get_cube_error(cube.name))
 
-            self.plot_bars (plot, trans_diffs, 50, 10, 2)
-            cv2.imshow(cube.name + " trans diff", plot)
+            # self.plot_bars (plot, trans_diffs, 50, 10, 2)
+            # cv2.imshow(cube.name + " trans diff", plot)
 
             # self.plot_bars (plot2, rot_diffs, 30, 5)
             # cv2.imshow(cube.name +  " rot diff", plot2)
