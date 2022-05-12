@@ -68,6 +68,11 @@ class SpecificWorker(GenericWorker):
 
         self.current_positions = {}
 
+        self.hadcoded_poses = [ [330, -20,  500,     0, np.pi,  np.pi/2], 
+                                [120, -20,  350, np.pi,    0.5, -np.pi/2], 
+                                [330, -280, 350,   0.5, np.pi,  np.pi/2],
+                                [300,  230, 380,   2.7,      0, -np.pi/2]]
+
         # listener = keyboard.Listener(
         #     on_press=self.on_press,
         #     on_release=self.on_release)
@@ -118,11 +123,15 @@ class SpecificWorker(GenericWorker):
             key))
         
         try:
-            if key.char == 'c':
-                self.close_gripper()
-                return True
             cube_id = int (key.char)
-            self.pick_cube (cube_id)
+
+            dest_pose = self.hadcoded_poses [cube_id]
+
+            print ("should move to ", dest_pose)
+            gripper = self.g.get_node ("gripper")
+            gripper.attrs["gripper_target_finger_distance"].value = 1.0
+            gripper.attrs["target"].value = dest_pose
+            self.g.update_node (gripper)
         except:
             print ("not an int")
 

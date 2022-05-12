@@ -190,10 +190,12 @@ class SpecificWorker(GenericWorker):
         self.set_occupied (True)
 
         target_xyz = np.multiply(target_position[:3], 0.001)
-        target_rpy = np.degrees (target_position[3:])
+        # target_rpy = np.degrees (target_position[3:])
 
         # TODO revisar luego de cambiar rotaciones
-        target_rpy[0],target_rpy[1] = target_rpy[1],target_rpy[0] 
+        # target_rpy[0],target_rpy[1] = target_rpy[1],target_rpy[0] 
+        target_rpy = R.from_euler('XYZ', target_position[3:]).as_euler('xyz')
+        target_rpy = np.degrees (target_rpy)
 
         print (target_xyz, target_rpy)
 
