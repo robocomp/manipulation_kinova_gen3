@@ -26,6 +26,7 @@ from genericworker import *
 import interfaces as ifaces
 from scipy.spatial.transform import Rotation as R
 from scipy.optimize import minimize
+from pynput import keyboard
 
 
 import time
@@ -52,30 +53,40 @@ class SpecificWorker(GenericWorker):
         # YOU MUST SET AN UNIQUE ID FOR THIS AGENT IN YOUR DEPLOYMENT. "_CHANGE_THIS_ID_" for a valid unique integer
         self.agent_id = 136
         self.g = DSRGraph(0, "pythonAgent", self.agent_id)
-        self.hadcoded_poses = [ [330, -20,  500,     0, np.pi,  np.pi/2], 
-                                [120, -20,  350, np.pi,    0.5, -np.pi/2],
-                                [320, 156, 460,   2.90, 0,  -np.pi/2] ]
-                                # [300,  230, 380,   2.7,      0, -np.pi/2]]
+        self.hadcoded_poses = [ [330,  -20,  500,     0,  np.pi,  np.pi/2], 
+                                [120,  -20,  350, np.pi,    0.5, -np.pi/2],
+                                [320,  156,  460,  2.90,      0, -np.pi/2],
+                                [320, -156,  460,  0.45, -np.pi,  np.pi/2]]
+
+        
+        listener = keyboard.Listener(
+            on_press=self.on_press,
+            on_release=self.on_release)
+        listener.start()
 
         
         self.cube_rts = {}
 
         # self.b_rt = np.array([0, 0, 0, 0, 0, 0])
-        self.original_rt = np.array([10, 100, -150, 0, 0, 0])
+        self.original_rt = np.array([ 9.10017025e+00,  9.79180030e+01, -1.55873277e+02,  1.58507161e-04,  1.17241161e-04,  1.44046055e-04])
         self.b_rt = np.copy(self.original_rt)
 
+        
+        ################################################################
+        # self.load_cube_rts()
 
-        self.load_cube_rts()
+        # print ("Starting initial optimization")
+        # print (self.b_rt, self.transformation_error_2(self.b_rt))
 
-        print ("Starting initial optimization")
-        print (self.b_rt, self.transformation_error_2(self.b_rt))
+        # ini = time.time()
 
-        ini = time.time()
+        # self.b_rt = self.compute_and_publish_best_rt(self.b_rt)
+        # print ("Finished initial optimization in", time.time()-ini)
+        # self.old_error = self.transformation_error_2(self.b_rt)
+        # print (self.b_rt, self.old_error)
+        ###############################################################
 
-        self.b_rt = self.compute_and_publish_best_rt(self.b_rt)
-        print ("Finished initial optimization in", time.time()-ini)
-        self.old_error = self.transformation_error_2(self.b_rt)
-        print (self.b_rt, self.old_error)
+        # self.update_camera_rt(np.array([10, 100, -150, 0, 0, 0]))
 
         try:
             # signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
@@ -104,6 +115,32 @@ class SpecificWorker(GenericWorker):
         #	traceback.print_exc()
         #	print("Error reading config params")
         return True
+
+    def on_press(self, key):
+        pass
+        # try:
+        #     print('Alphanumeric key pressed: {0} '.format(
+        #         key.char))
+        # except AttributeError:
+        #     print('special key pressed: {0}'.format(
+        #         key))
+
+    def on_release(self, key):
+        print('Key released: {0}'.format(
+            key))
+        
+        try:
+            cube_id = int (key.char)
+
+            dest_pose = self.hadcoded_poses [cube_id]
+
+            print ("should move to ", dest_pose)
+            gripper = self.g.get_node ("gripper")
+            gripper.attrs["gripper_target_finger_distance"].value = 1.0
+            gripper.attrs["target"].value = dest_pose
+            self.g.update_node (gripper)
+        except:
+            print ("not an int")
 
 
     def transformation_error (self, rt_gr_cam):
@@ -177,7 +214,7 @@ class SpecificWorker(GenericWorker):
             rt = self.g.get_edge ("hand_camera", cube.name, "RT")
             self.cube_rts[cube.name] = np.concatenate((rt.attrs["rt_translation"].value, rt.attrs["rt_rotation_euler_xyz"].value))
 
-        print (self.cube_rts)
+        # print (self.cube_rts)
 
     def transformation_error_2 (self, rt_gr_cam):
 
@@ -200,7 +237,7 @@ class SpecificWorker(GenericWorker):
 
             diff += rot_diff + trans_diff
 
-        return diff
+        return diff / len(cubes)
 
     def move_to_hardcoded_pose (self, index):
         dest_pose = self.hadcoded_poses [index]
@@ -225,38 +262,19 @@ class SpecificWorker(GenericWorker):
     @QtCore.Slot()
     def compute(self):
 
+        self.load_cube_rts()
+        self.current_error = self.transformation_error_2(self.b_rt)
+        print (self.b_rt, self.current_error)
+        return True
 
-        print ("Moving to home")
-        self.move_to_hardcoded_pose(0)
-        time.sleep(5)
-        print ("Moving to home - done")
+        # print ("Moving to home")
+        # self.move_to_hardcoded_pose(0)
+        # time.sleep(5)
+        # print ("Moving to home - done")
         
         
         rt = rt_api(self.g)
-        tf = inner_api(self.g)
-
-        # camera_rt = self.g.get_edge ("gripper", "hand_camera", "RT")     
-        # print (camera_rt)
-        # rot_m = R.from_euler("XYZ", camera_rt.attrs["rt_rotation_euler_xyz"].value)
-
-        # res_mat = np.hstack([rot_m.as_matrix(), camera_rt.attrs["rt_translation"].value.reshape(3,1)])
-        # res_mat = np.vstack([res_mat, [0,0,0,1]])
-
-        # cube1 = self.g.get_edge ("hand_camera", "cube_1", "RT")
-        # cube1_trans = cube1.attrs["rt_translation"].value
-
-        # rmat_1 = tf.get_transformation_matrix("gripper", "hand_camera")
-        # rmat_2 = tf.get_transformation_matrix("world", "gripper")
-
-
-        # cube1_trans = np.append(cube1_trans, 1)
-        # test_2 = rmat_2 @ res_mat @ cube1_trans
-
-        # self.transformation_error_2(self.b_rt)
-
-        # self.b_rt = self.compute_and_publish_best_rt(self.b_rt)
-        # print (self.b_rt, self.transformation_error(self.b_rt))
-        
+        tf = inner_api(self.g)        
 
 
         # print (self.transformation_error(np.array( [ 15.8171056,  77.6368291, -150.756363,-0.0545380167,  0.0111418872,  0.0372585873])))
@@ -264,7 +282,7 @@ class SpecificWorker(GenericWorker):
         self.current_error = self.transformation_error_2(self.b_rt)
         print (self.b_rt, self.current_error)
 
-        if self.current_error > 20:
+        if self.current_error > 1:
 
             last_rt = np.copy(self.b_rt) 
 
@@ -290,6 +308,8 @@ class SpecificWorker(GenericWorker):
 
         else:
             print ("Not optmizing")
+
+        return True
 
         # print (self.transformation_error_2(self.b_rt))
         # cubes = self.g.get_nodes_by_type ("box")

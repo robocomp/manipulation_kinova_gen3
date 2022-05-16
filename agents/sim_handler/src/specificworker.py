@@ -56,6 +56,9 @@ class SpecificWorker(GenericWorker):
         self.GRASP_COUNTDOWN_TH = 5
         self.grasp_countdown = 0
 
+        ### Used to reset RT and calibrate from it ###
+        # self.update_camera_rt(np.array([10, 100, -150, 0, 0, 0]))
+
         self.sim = Simulation()
         # self.sim.load_scene ("/home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/gen3_cubes.ttt")
         self.sim.load_scene ("/home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/gen3_cubes_2.ttt")
@@ -146,6 +149,13 @@ class SpecificWorker(GenericWorker):
         
         return True
 
+    def update_camera_rt (self, rt_gr_cam):
+        rt = rt_api(self.g)
+
+        griper = self.g.get_node ("gripper")
+        h_camera = self.g.get_node ("hand_camera")
+        rt.insert_or_assign_edge_RT(griper, h_camera.id, rt_gr_cam[:3], rt_gr_cam[3:])
+        self.g.update_node(griper)
 
     @QtCore.Slot()
     def compute(self):

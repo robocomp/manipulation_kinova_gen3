@@ -68,10 +68,7 @@ class SpecificWorker(GenericWorker):
 
         self.current_positions = {}
 
-        self.hadcoded_poses = [ [330, -20,  500,     0, np.pi,  np.pi/2], 
-                                [120, -20,  350, np.pi,    0.5, -np.pi/2], 
-                                [330, -280, 350,   0.5, np.pi,  np.pi/2],
-                                [300,  230, 380,   2.7,      0, -np.pi/2]]
+        
 
         # listener = keyboard.Listener(
         #     on_press=self.on_press,
