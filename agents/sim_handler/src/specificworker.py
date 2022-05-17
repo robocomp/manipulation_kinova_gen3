@@ -57,7 +57,7 @@ class SpecificWorker(GenericWorker):
         self.grasp_countdown = 0
 
         ### Used to reset RT and calibrate from it ###
-        # self.update_camera_rt(np.array([10, 100, -150, 0, 0, 0]))
+        self.update_camera_rt(np.array([17, 107, -150, 0, 0, 0]))
 
         self.sim = Simulation()
         # self.sim.load_scene ("/home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/gen3_cubes.ttt")

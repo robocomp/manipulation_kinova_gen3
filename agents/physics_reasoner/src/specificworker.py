@@ -31,6 +31,7 @@ from pynput import keyboard
 
 import time
 import numpy as np
+np.set_printoptions(linewidth=np.inf)
 import cv2
 
 sys.path.append('/opt/robocomp/lib')
@@ -48,7 +49,7 @@ from pydsr import *
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 2000
+        self.Period = 100
 
         # YOU MUST SET AN UNIQUE ID FOR THIS AGENT IN YOUR DEPLOYMENT. "_CHANGE_THIS_ID_" for a valid unique integer
         self.agent_id = 136
@@ -68,23 +69,31 @@ class SpecificWorker(GenericWorker):
         self.cube_rts = {}
 
         # self.b_rt = np.array([0, 0, 0, 0, 0, 0])
-        self.original_rt = np.array([ 9.10017025e+00,  9.79180030e+01, -1.55873277e+02,  1.58507161e-04,  1.17241161e-04,  1.44046055e-04])
+        self.original_rt = np.array([0, 0, 0, 0, 0, 0])
         self.b_rt = np.copy(self.original_rt)
+
+
+        self.multiple_trials = []
+        self.error_evolution = []
+        self.resulting_rts = []
 
         
         ################################################################
-        # self.load_cube_rts()
+        self.load_cube_rts()
 
-        # print ("Starting initial optimization")
-        # print (self.b_rt, self.transformation_error_2(self.b_rt))
+        print ("Starting initial optimization")
+        print (self.b_rt, self.transformation_error_2(self.b_rt))
 
-        # ini = time.time()
+        ini = time.time()
 
-        # self.b_rt = self.compute_and_publish_best_rt(self.b_rt)
-        # print ("Finished initial optimization in", time.time()-ini)
-        # self.old_error = self.transformation_error_2(self.b_rt)
-        # print (self.b_rt, self.old_error)
+        self.b_rt = self.compute_and_publish_best_rt(self.b_rt)
+        print ("Finished initial optimization in", time.time()-ini)
+        self.old_error = self.transformation_error_2(self.b_rt)
+        print (self.b_rt, self.old_error)
         ###############################################################
+
+        # print (self.error_evolution)
+
 
         # self.update_camera_rt(np.array([10, 100, -150, 0, 0, 0]))
 
@@ -192,9 +201,11 @@ class SpecificWorker(GenericWorker):
 
         rot_diff   = self.angle_diff(rt[3:],  v_rt.attrs["rt_rotation_euler_xyz"].value) * 1000
         trans_diff = np.linalg.norm (rt[:3] - v_rt.attrs["rt_translation"].value)
+        # print ("---", name)
+        # print("reported", rt)
+        # print ("virtual", np.concatenate((v_rt.attrs["rt_translation"].value, v_rt.attrs["rt_rotation_euler_xyz"].value)))
 
         return rot_diff, trans_diff
-        # print (cube.name, trans_diff, rot_diff)
 
 
     def update_camera_rt (self, rt_gr_cam):
@@ -236,8 +247,9 @@ class SpecificWorker(GenericWorker):
             # print (cube.name, trans_diff, rot_diff)
 
             diff += rot_diff + trans_diff
-
-        return diff / len(cubes)
+        avg = diff / len(cubes)
+        self.error_evolution.append(avg)
+        return avg
 
     def move_to_hardcoded_pose (self, index):
         dest_pose = self.hadcoded_poses [index]
@@ -250,21 +262,53 @@ class SpecificWorker(GenericWorker):
     def compute_and_publish_best_rt (self, initial_guess):
         rt = rt_api(self.g)
 
-        res = minimize(self.transformation_error_2, initial_guess, method='Nelder-Mead')
+        res = minimize(self.transformation_error_2, initial_guess, method='Powell', tol=0.001, options={"maxfev":1000})
         
         # griper = self.g.get_node ("gripper")
         # h_camera = self.g.get_node ("hand_camera")
         # rt.insert_or_assign_edge_RT(griper, h_camera.id, res.x[:3], res.x[3:])
         # self.g.update_node(griper)
-        print ("optimization success:", res.success)
+        print ("optimization success:", res)
+        self.resulting_rts.append(res.x)
         return res.x
 
     @QtCore.Slot()
     def compute(self):
 
+        self.error_evolution = []
+
         self.load_cube_rts()
-        self.current_error = self.transformation_error_2(self.b_rt)
-        print (self.b_rt, self.current_error)
+        accurate_rt = [17, 107, -150, 0, 0, 0]
+        trans_noise = np.random.normal (0, 20  , 3)
+        rot_noise   = np.random.normal (0, 0.5, 3)
+        print ("Starting optimization", trans_noise, rot_noise)
+
+        accurate_rt[:3] += trans_noise
+        accurate_rt[3:] += rot_noise
+
+        # random_rt = np.concatenate((np.random.normal (10, 20, 1), np.random.normal (107, 20, 1), np.random.normal (-150, 20, 1), np.random.normal (0, 0.5, 3)))
+        self.b_rt = self.compute_and_publish_best_rt(accurate_rt)
+        print (self.b_rt, self.transformation_error_2(self.b_rt))
+
+        self.multiple_trials.append(self.error_evolution)
+
+        print ("-------------", len(self.multiple_trials), "----------------------")
+
+        if len (self.multiple_trials) > 50:
+            print ("-------- Finished ---------")
+            file = open("/home/robolab-kinova/guille_img/Pruebas_self_cal/results.txt", "w+")
+            # Saving the array in a text file
+            content = str(self.multiple_trials)
+            file.write(content)
+            file.close()
+
+            file = open("/home/robolab-kinova/guille_img/Pruebas_self_cal/rts.txt", "w+")
+            # Saving the array in a text file
+            content = str(self.resulting_rts)
+            file.write(content)
+            file.close()
+
+
         return True
 
         # print ("Moving to home")
@@ -282,7 +326,7 @@ class SpecificWorker(GenericWorker):
         self.current_error = self.transformation_error_2(self.b_rt)
         print (self.b_rt, self.current_error)
 
-        if self.current_error > 1:
+        if self.current_error > 12:
 
             last_rt = np.copy(self.b_rt) 
 
@@ -293,7 +337,6 @@ class SpecificWorker(GenericWorker):
 
             # self.b_rt[:3] += trans_noise
             # self.b_rt[3:] += rot_noise
-
             ini = time.time()
             self.b_rt = self.compute_and_publish_best_rt(self.b_rt)
             print ("Finished optimization in", time.time()-ini)
@@ -308,6 +351,7 @@ class SpecificWorker(GenericWorker):
 
         else:
             print ("Not optmizing")
+            # print (self.error_evolution)
 
         return True
 
