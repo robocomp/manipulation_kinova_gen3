@@ -258,7 +258,11 @@ class Simulation():
             # TODO migrate to scipy rotation
             # orientation = self.get_quaternion_from_euler (pose[3], pose[4], -pose[5]) # (*pose[3:])
 
-            orientation = R.from_euler('xyz', pose[3:]).as_quat().tolist()
+            # print ("before", np.degrees(pose[3:]))
+
+            orientation  = R.from_euler('xyz', pose[3:]).as_quat().tolist()
+            # orientation2 = R.from_euler('XYZ', pose[3:]).as_quat().tolist()
+
 
             new_poses.append (position+orientation)
             object_handles.append (self.handles[names[i]])

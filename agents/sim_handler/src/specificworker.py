@@ -57,7 +57,7 @@ class SpecificWorker(GenericWorker):
         self.grasp_countdown = 0
 
         ### Used to reset RT and calibrate from it ###
-        self.update_camera_rt(np.array([17, 107, -150, 0, 0, 0]))
+        self.update_camera_rt(np.array([ 10, 100, -150, 0, 0, 0]))
 
         self.sim = Simulation()
         # self.sim.load_scene ("/home/robocomp/robocomp/components/manipulation_kinova_gen3/etc/gen3_cubes.ttt")
@@ -207,7 +207,7 @@ class SpecificWorker(GenericWorker):
         names = []
         poses = []
         if self.updated_cubes:
-            if self.current_arm_pos is not None and self.current_arm_pos[2] > 380:
+            if self.current_arm_pos is not None and self.current_arm_pos[2] > 345:
                 for id in self.updated_cubes:
                     # print ("Updating cube", id)
                     cube = self.g.get_node (id)
@@ -251,7 +251,7 @@ class SpecificWorker(GenericWorker):
                         new_pos = pos
                         pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
                         rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
-                        if pos_diff > 5 or rot_diff > 0.1 or cube.name == self.grasped_cube:
+                        if pos_diff > 2 or rot_diff > 0.1 or cube.name == self.grasped_cube:
                             names.append (cube.name)
                             poses.append (pos)
                             self.cube_positions[id] = pos
@@ -401,13 +401,13 @@ class SpecificWorker(GenericWorker):
     def move_to_goal (self, pos):
         # print ("before transformation mtg", pos)
 
-        # int_rot = pos[3:]
-        # ext_rot = R.from_euler('XYZ', int_rot).as_euler('xyz')
-        # pos[3:] = ext_rot
+        int_rot = pos[3:]
+        ext_rot = R.from_euler('XYZ', int_rot).as_euler('xyz')
+        pos[3:] = ext_rot
 
-        print ("moving towards new goal")
+        # print ("moving towards new goal")
 
-        pos[3], pos[4] = pos[4], pos[3]
+        # pos[3], pos[4] = pos[4], pos[3]
 
         self.sim.set_object_pose("goal", pos, "base")
 

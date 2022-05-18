@@ -49,7 +49,7 @@ from pydsr import *
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 100
+        self.Period = 2000
 
         # YOU MUST SET AN UNIQUE ID FOR THIS AGENT IN YOUR DEPLOYMENT. "_CHANGE_THIS_ID_" for a valid unique integer
         self.agent_id = 136
@@ -65,12 +65,16 @@ class SpecificWorker(GenericWorker):
             on_release=self.on_release)
         listener.start()
 
+        self.calibration_info ="{"
+        self.calibration_trial = 0
+        self.can_execute = False
         
         self.cube_rts = {}
 
-        # self.b_rt = np.array([0, 0, 0, 0, 0, 0])
-        self.original_rt = np.array([0, 0, 0, 0, 0, 0])
+        # self.b_rt = np.array([22.9, 72.57, -145.05, -0.053, -0.006, 0.00])
+        self.original_rt = np.array([ 10, 100, -150, 0, 0, 0])
         self.b_rt = np.copy(self.original_rt)
+
 
 
         self.multiple_trials = []
@@ -79,17 +83,17 @@ class SpecificWorker(GenericWorker):
 
         
         ################################################################
-        self.load_cube_rts()
+        # self.load_cube_rts()
 
-        print ("Starting initial optimization")
-        print (self.b_rt, self.transformation_error_2(self.b_rt))
+        # print ("Starting initial optimization")
+        # print (self.b_rt, self.transformation_error_2(self.b_rt))
 
-        ini = time.time()
+        # ini = time.time()
 
-        self.b_rt = self.compute_and_publish_best_rt(self.b_rt)
-        print ("Finished initial optimization in", time.time()-ini)
-        self.old_error = self.transformation_error_2(self.b_rt)
-        print (self.b_rt, self.old_error)
+        # self.b_rt = self.compute_and_publish_best_rt(self.b_rt)
+        # print ("Finished initial optimization in", time.time()-ini)
+        # self.old_error = self.transformation_error_2(self.b_rt)
+        # print (self.b_rt, self.old_error)
         ###############################################################
 
         # print (self.error_evolution)
@@ -140,16 +144,33 @@ class SpecificWorker(GenericWorker):
         
         try:
             cube_id = int (key.char)
+            if cube_id == 9:
+                self.calibration_info += "}"
+                file = open("/home/robolab-kinova/guille_img/Pruebas_self_cal/cal_rts.txt", "w+")
+                # Saving the array in a text file
+                content = str(self.calibration_info)
+                file.write(content)
+                file.close()
+            elif cube_id == 8:
+                print ("--- Saving state")
+                cubes = self.g.get_nodes_by_type ("box")
+                self.calibration_info += "\t\"" + str(len(cubes)) + str(self.calibration_trial%3) + "\" : " + str(self.b_rt.tolist()) + ", \n"
+                self.calibration_trial += 1
+            elif cube_id == 7:
+                print ("--- Saving state")
+                self.can_execute = True
+            # else:
+            #     dest_pose = self.hadcoded_poses [cube_id]
 
-            dest_pose = self.hadcoded_poses [cube_id]
-
-            print ("should move to ", dest_pose)
-            gripper = self.g.get_node ("gripper")
-            gripper.attrs["gripper_target_finger_distance"].value = 1.0
-            gripper.attrs["target"].value = dest_pose
-            self.g.update_node (gripper)
+            #     print ("should move to ", dest_pose)
+            #     gripper = self.g.get_node ("gripper")
+            #     gripper.attrs["gripper_target_finger_distance"].value = 1.0
+            #     gripper.attrs["target"].value = dest_pose
+            #     self.g.update_node (gripper)
         except:
             print ("not an int")
+            return
+
 
 
     def transformation_error (self, rt_gr_cam):
@@ -262,7 +283,7 @@ class SpecificWorker(GenericWorker):
     def compute_and_publish_best_rt (self, initial_guess):
         rt = rt_api(self.g)
 
-        res = minimize(self.transformation_error_2, initial_guess, method='Powell', tol=0.001, options={"maxfev":1000})
+        res = minimize(self.transformation_error_2, initial_guess, method='Powell', tol=1e-5, options={"maxfev":1000})
         
         # griper = self.g.get_node ("gripper")
         # h_camera = self.g.get_node ("hand_camera")
@@ -274,21 +295,28 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
+        
+        if (not self.can_execute):
+            print ("not yet")
+            return True
+
 
         self.error_evolution = []
 
         self.load_cube_rts()
-        accurate_rt = [17, 107, -150, 0, 0, 0]
-        trans_noise = np.random.normal (0, 20  , 3)
-        rot_noise   = np.random.normal (0, 0.5, 3)
-        print ("Starting optimization", trans_noise, rot_noise)
+        # accurate_rt = [17, 107, -150, 0, 0, 0]
+        # trans_noise = np.random.normal (0, 20  , 3)
+        # rot_noise   = np.random.normal (0, 0.5, 3)
+        # print ("Starting optimization", trans_noise, rot_noise)
 
-        accurate_rt[:3] += trans_noise
-        accurate_rt[3:] += rot_noise
+        # accurate_rt[:3] += trans_noise
+        # accurate_rt[3:] += rot_noise
 
         # random_rt = np.concatenate((np.random.normal (10, 20, 1), np.random.normal (107, 20, 1), np.random.normal (-150, 20, 1), np.random.normal (0, 0.5, 3)))
-        self.b_rt = self.compute_and_publish_best_rt(accurate_rt)
+        self.b_rt = self.compute_and_publish_best_rt(self.b_rt )
         print (self.b_rt, self.transformation_error_2(self.b_rt))
+        self.can_execute = False
+        return True
 
         self.multiple_trials.append(self.error_evolution)
 
@@ -309,7 +337,6 @@ class SpecificWorker(GenericWorker):
             file.close()
 
 
-        return True
 
         # print ("Moving to home")
         # self.move_to_hardcoded_pose(0)

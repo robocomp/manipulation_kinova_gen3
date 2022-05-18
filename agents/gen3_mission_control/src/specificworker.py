@@ -300,7 +300,7 @@ class SpecificWorker(GenericWorker):
             # dept_show = cv2.rectangle (dept_show, (450, 268), (118, 81), (255, 255, 255))  
             # dept_show = cv2.resize(dept_show, dsize=(1280, 720))          
 
-        # cv2.imshow('Color', self.hand_color) #depth.astype(np.uint8))
+        cv2.imshow('Color', self.hand_color) #depth.astype(np.uint8))
 
         return True
         
@@ -428,7 +428,7 @@ class SpecificWorker(GenericWorker):
                 # print ("Ignoring detection of tag", tag.tag_id)
                 continue
 
-            m = self.detector.detection_pose(tag,[focals[0], focals[1], 640, 480], 0.04)
+            m = self.detector.detection_pose(tag,[focals[0]*2, focals[1] *2, 640, 480], 0.030)
 
             rot = m[0][:3,:3]
             r = R.from_matrix(rot)
