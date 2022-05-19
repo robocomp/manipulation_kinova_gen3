@@ -33,6 +33,7 @@ import time
 import numpy as np
 np.set_printoptions(linewidth=np.inf)
 import cv2
+import json
 
 sys.path.append('/opt/robocomp/lib')
 console = Console(highlight=False)
@@ -68,12 +69,23 @@ class SpecificWorker(GenericWorker):
         self.calibration_info ="{"
         self.calibration_trial = 0
         self.can_execute = False
+
+        self.rts = []
+
+        f = open('/home/robolab-kinova/guille_img/Pruebas_self_cal/cal_rts.txt')
+        data = json.load(f)
+        
+        
+        for i in data:
+            self.rts.append(np.array(data[i]))
+        self.current_test = -1
         
         self.cube_rts = {}
 
         # self.b_rt = np.array([22.9, 72.57, -145.05, -0.053, -0.006, 0.00])
         self.original_rt = np.array([ 10, 100, -150, 0, 0, 0])
         self.b_rt = np.copy(self.original_rt)
+
 
 
 
@@ -139,8 +151,8 @@ class SpecificWorker(GenericWorker):
         #         key))
 
     def on_release(self, key):
-        print('Key released: {0}'.format(
-            key))
+        # print('Key released: {0}'.format(
+        #     key))
         
         try:
             cube_id = int (key.char)
@@ -152,21 +164,27 @@ class SpecificWorker(GenericWorker):
                 file.write(content)
                 file.close()
             elif cube_id == 8:
-                print ("--- Saving state")
-                cubes = self.g.get_nodes_by_type ("box")
-                self.calibration_info += "\t\"" + str(len(cubes)) + str(self.calibration_trial%3) + "\" : " + str(self.b_rt.tolist()) + ", \n"
-                self.calibration_trial += 1
+                # print ("--- Saving state")
+                # cubes = self.g.get_nodes_by_type ("box")
+                # self.calibration_info += "\t\"" + str(len(cubes)) + str(self.calibration_trial%3) + "\" : " + str(self.b_rt.tolist()) + ", \n"
+                # self.calibration_trial += 1
+                print ("-----> Next rt")
+                self.current_test += 1
+                self.b_rt = np.array([ 17, 107, -150, 0, 0, 0]) # self.rts[self.current_test]
+                self.update_camera_rt (self.b_rt)
             elif cube_id == 7:
-                print ("--- Saving state")
+                print ("--- New Pose----")
+                
+                print ("\"" + str(self.current_test) + "-" + str(self.current_pose_id) +"\": {\n \"rt\":", self.b_rt.tolist(), ", \n \"report\":{")
                 self.can_execute = True
-            # else:
-            #     dest_pose = self.hadcoded_poses [cube_id]
-
-            #     print ("should move to ", dest_pose)
-            #     gripper = self.g.get_node ("gripper")
-            #     gripper.attrs["gripper_target_finger_distance"].value = 1.0
-            #     gripper.attrs["target"].value = dest_pose
-            #     self.g.update_node (gripper)
+            else:
+                dest_pose = self.hadcoded_poses [cube_id]
+                self.current_pose_id = cube_id
+                print ("should move to ", dest_pose)
+                gripper = self.g.get_node ("gripper")
+                gripper.attrs["gripper_target_finger_distance"].value = 1.0
+                gripper.attrs["target"].value = dest_pose
+                self.g.update_node (gripper)
         except:
             print ("not an int")
             return
@@ -222,10 +240,10 @@ class SpecificWorker(GenericWorker):
 
         rot_diff   = self.angle_diff(rt[3:],  v_rt.attrs["rt_rotation_euler_xyz"].value) * 1000
         trans_diff = np.linalg.norm (rt[:3] - v_rt.attrs["rt_translation"].value)
-        # print ("---", name)
-        # print("reported", rt)
-        # print ("virtual", np.concatenate((v_rt.attrs["rt_translation"].value, v_rt.attrs["rt_rotation_euler_xyz"].value)))
-
+        print ("\t\"" + name + "\":{")
+        print("\t\t\"reported\":", rt.tolist(), ",")
+        print ("\t\t\"virtual\":", np.concatenate((v_rt.attrs["rt_translation"].value, v_rt.attrs["rt_rotation_euler_xyz"].value)).tolist())
+        print ("\t\t},")
         return rot_diff, trans_diff
 
 
@@ -238,7 +256,7 @@ class SpecificWorker(GenericWorker):
         self.g.update_node(griper)
 
     def load_cube_rts (self):
-        print  ("--> Updated rts to avoid noise")
+        # print  ("--> Updated rts to avoid noise")
         cubes = self.g.get_nodes_by_type ("box")
         tf = inner_api(self.g)
         
@@ -313,8 +331,8 @@ class SpecificWorker(GenericWorker):
         # accurate_rt[3:] += rot_noise
 
         # random_rt = np.concatenate((np.random.normal (10, 20, 1), np.random.normal (107, 20, 1), np.random.normal (-150, 20, 1), np.random.normal (0, 0.5, 3)))
-        self.b_rt = self.compute_and_publish_best_rt(self.b_rt )
-        print (self.b_rt, self.transformation_error_2(self.b_rt))
+        # self.b_rt = self.compute_and_publish_best_rt(self.b_rt )
+        print ("\t}, \n", "\"error\":", self.transformation_error_2(self.b_rt), "\n},")
         self.can_execute = False
         return True
 
