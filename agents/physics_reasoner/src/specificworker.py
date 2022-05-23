@@ -56,7 +56,7 @@ class SpecificWorker(GenericWorker):
         self.agent_id = 136
         self.g = DSRGraph(0, "pythonAgent", self.agent_id)
         self.hadcoded_poses = [ [330,  -20,  500,     0,  np.pi,  np.pi/2], 
-                                [120,  -20,  350, np.pi,    0.5, -np.pi/2],
+                                [190,  -20,  460,     0,    2.8,  np.pi/2],
                                 [320,  156,  460,  2.90,      0, -np.pi/2],
                                 [320, -156,  460,  0.45, -np.pi,  np.pi/2]]
 
@@ -168,7 +168,7 @@ class SpecificWorker(GenericWorker):
                 # self.calibration_trial += 1
                 print ("-----> Next rt")
                 self.current_test += 1
-                self.b_rt = np.array([ 10, 100, -150, 0, 0, 0]) # self.rts[self.current_test]
+                self.b_rt = np.array([16.22365590616817, 79.01813066734508, -148.3965863348069, -0.030618012185565147, -0.008389940112777204, 0.0013653547118672742]) # self.rts[self.current_test]
                 self.update_camera_rt (self.b_rt)
             elif cube_id == 7:
                 print ("--- New Pose----")

@@ -93,6 +93,7 @@ class SpecificWorker(GenericWorker):
             on_press=None,
             on_release=self.on_release)
         listener.start()
+        self.can_update_sim = True
        
 
         # self.sim.insert_cube ("cube_6", [416, 47,   50], "base")
@@ -137,10 +138,14 @@ class SpecificWorker(GenericWorker):
 
         try:
             cube_id = int (key.char)
+            cube_id = int (key.char)
+            if cube_id == 5:
+                print ("--> Received update signal")
+                self.can_update_sim = True
             # self.object_of_interest  = "cube_" + str(cube_id)
             # print ("got to check", self.object_of_interest)
 
-            self.sim.change_static ("cube_" + str(cube_id), 0)
+            # self.sim.change_static ("cube_" + str(cube_id), 0)
 
         except:
             print ("not an int")
@@ -169,6 +174,8 @@ class SpecificWorker(GenericWorker):
 
         # return True
 
+        if not self.can_update_sim:
+            return True
 
         if self.was_occupied != self.occupied:
             if self.was_occupied:
@@ -319,6 +326,8 @@ class SpecificWorker(GenericWorker):
             self.last_object_of_interest = self.object_of_interest
 
         # print (" - - - - ")
+
+        self.can_update_sim = False
 
         return True
 
