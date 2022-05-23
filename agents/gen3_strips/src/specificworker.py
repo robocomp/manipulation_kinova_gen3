@@ -153,7 +153,7 @@ class SpecificWorker(GenericWorker):
 
             else:
                 # TODO added by guille
-                if self.plan != [] and self.cubes_update_cycles > 5:
+                if self.plan != [] and self.cubes_update_cycles > 10:
 
                     current_step = self.plan[self.step]
                     params = current_step[1] if len(current_step) > 1 else None                                                                                                           
@@ -279,9 +279,10 @@ class SpecificWorker(GenericWorker):
         self.working = False
 
     def wait_until_done (self):
-        time.sleep(0.1)
+        time.sleep(0.5)
         while (self.robot_moving):
             pass
+        time.sleep(0.5)
 
     def put_down(self, cube_id, message=None, cube_to_stack_in=-1):
         print(f"-->PutDown {cube_id}" if message is None else message)
@@ -295,6 +296,7 @@ class SpecificWorker(GenericWorker):
         self.wait_until_done ()
 
         self.move_arm(WORKING_POSE)
+        self.wait_until_done ()
         self.working = False
         pass
 

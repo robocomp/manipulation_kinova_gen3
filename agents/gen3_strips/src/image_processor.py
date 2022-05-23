@@ -35,11 +35,15 @@ class ImageProcessor():
     def __simplify_tags(self, tags, color, depth, focals):
         s_tags = {}
         for tag in tags:
-            mat = self.detector.detection_pose(tag,[focals[0], focals[1], 640, 480], 0.04)
+            mat = self.detector.detection_pose(tag,[focals[0]*2, focals[1]*2, 640, 480], 0.04)
             rot = mat[0][:3,:3]
             r = R.from_matrix(rot)
-            rot = np.multiply(r.as_euler('yxz'), -1).tolist() # [r_x, r_y, r_z]
-            rot[-1] *= -1
+            # rot = np.multiply(r.as_euler('yxz'), -1).tolist() # [r_x, r_y, r_z]
+            # rot[-1] *= -1
+
+            rot = np.multiply(r.as_euler('XYZ'), -1).tolist()
+            # rot[-1] *= -1
+
 
             index_x = int(tag.center[1]) // 2
             index_y = int(tag.center[0]) // 2

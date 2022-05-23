@@ -448,7 +448,7 @@ class SpecificWorker(GenericWorker):
             # pos = [pos_x, pos_y, pos_z] # Acording to world reference frame
 
 
-
+            # This works without the second line (In pickup cubes)
             ori = np.multiply(r.as_euler('XYZ'), -1).tolist()
             ori[-1] *= -1
 
