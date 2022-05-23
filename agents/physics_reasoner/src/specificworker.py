@@ -72,7 +72,7 @@ class SpecificWorker(GenericWorker):
 
         self.rts = []
 
-        f = open('/home/robolab-kinova/guille_img/Pruebas_self_cal/cal_rts.txt')
+        f = open('/home/robolab-kinova/guille_img/Pruebas_self_cal/pruebas_pilar/cal_rts.json')
         data = json.load(f)
         
         
@@ -83,11 +83,9 @@ class SpecificWorker(GenericWorker):
         self.cube_rts = {}
 
         # self.b_rt = np.array([22.9, 72.57, -145.05, -0.053, -0.006, 0.00])
-        self.original_rt = np.array([ 10, 100, -150, 0, 0, 0])
+        # self.original_rt = np.array([ 17, 107, -150, 0, 0, 0])
+        self.original_rt = np.array([ 17, 107, -150, 0, 0, 0])
         self.b_rt = np.copy(self.original_rt)
-
-
-
 
         self.multiple_trials = []
         self.error_evolution = []
@@ -158,7 +156,7 @@ class SpecificWorker(GenericWorker):
             cube_id = int (key.char)
             if cube_id == 9:
                 self.calibration_info += "}"
-                file = open("/home/robolab-kinova/guille_img/Pruebas_self_cal/cal_rts.txt", "w+")
+                file = open("/home/robolab-kinova/guille_img/Pruebas_self_cal/pruebas_pilar/cal_rts.json", "w+")
                 # Saving the array in a text file
                 content = str(self.calibration_info)
                 file.write(content)
@@ -170,7 +168,7 @@ class SpecificWorker(GenericWorker):
                 # self.calibration_trial += 1
                 print ("-----> Next rt")
                 self.current_test += 1
-                self.b_rt = np.array([ 17, 107, -150, 0, 0, 0]) # self.rts[self.current_test]
+                self.b_rt = np.array([ 10, 100, -150, 0, 0, 0]) # self.rts[self.current_test]
                 self.update_camera_rt (self.b_rt)
             elif cube_id == 7:
                 print ("--- New Pose----")
