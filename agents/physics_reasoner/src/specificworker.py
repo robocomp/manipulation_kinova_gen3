@@ -58,7 +58,7 @@ class SpecificWorker(GenericWorker):
         self.hadcoded_poses = [ [330,  -20,  500,     0,  np.pi,  np.pi/2], 
                                 [190,  -20,  460,     0,    2.8,  np.pi/2],
                                 [320,  156,  460,  2.90,      0, -np.pi/2],
-                                [320, -156,  460,  0.45, -np.pi,  np.pi/2]]
+                                [320, -156,  460,  0.35, -np.pi,  np.pi/2]]
 
         
         listener = keyboard.Listener(
@@ -72,7 +72,7 @@ class SpecificWorker(GenericWorker):
 
         self.rts = []
 
-        f = open('/home/robolab-kinova/guille_img/Pruebas_self_cal/pruebas_pilar/cal_rts.json')
+        f = open('/home/robolab-kinova/guille_img/Pruebas_self_cal/cal_rts.txt')
         data = json.load(f)
         
         
@@ -168,7 +168,7 @@ class SpecificWorker(GenericWorker):
                 # self.calibration_trial += 1
                 print ("-----> Next rt")
                 self.current_test += 1
-                self.b_rt = np.array([16.22365590616817, 79.01813066734508, -148.3965863348069, -0.030618012185565147, -0.008389940112777204, 0.0013653547118672742]) # self.rts[self.current_test]
+                self.b_rt = np.array([22.9, 72.57, -145.05, -0.053, -0.006, 0.00]) # self.rts[self.current_test]
                 self.update_camera_rt (self.b_rt)
             elif cube_id == 7:
                 print ("--- New Pose----")

@@ -258,7 +258,7 @@ class SpecificWorker(GenericWorker):
                         new_pos = pos
                         pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
                         rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
-                        if pos_diff > 2 or rot_diff > 0.1 or cube.name == self.grasped_cube:
+                        if True or pos_diff > 2 or rot_diff > 0.1 or cube.name == self.grasped_cube:
                             names.append (cube.name)
                             poses.append (pos)
                             self.cube_positions[id] = pos
@@ -285,7 +285,8 @@ class SpecificWorker(GenericWorker):
             self.last_grasp = self.grasped_cube
         #####################################
 
-        
+        time.sleep(1)
+        print ("---> updating beliefs")
         # now = time.time()
         self.update_cubes_beliefs ()
 
