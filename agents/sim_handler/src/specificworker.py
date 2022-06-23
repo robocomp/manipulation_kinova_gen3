@@ -174,8 +174,8 @@ class SpecificWorker(GenericWorker):
 
         # return True
 
-        if not self.can_update_sim:
-            return True
+        # if not self.can_update_sim:
+        #     return True
 
         if self.was_occupied != self.occupied:
             if self.was_occupied:
@@ -240,10 +240,14 @@ class SpecificWorker(GenericWorker):
                             
                             
                             #TODO rollback to work with box
-                            # if cube.name == "cube_1":
-                            #     self.sim.insert_box (cube.name, pos[:3], "base")
-                            # else:
-                            self.sim.insert_cube (cube.name, pos[:3], "base")
+                            if cube.name == "cube_1":
+                                self.sim.insert_box (cube.name, pos[:3], "base", [0.170, 0.170, 0.150])
+                            elif cube.name == "cube_2":
+                                self.sim.insert_box (cube.name, pos[:3], "base", [0.145, 0.145, 0.140])
+                            elif cube.name == "cube_5":
+                                self.sim.insert_box (cube.name, pos[:3], "base", [0.075, 0.095, 0.045])
+                            else:
+                                self.sim.insert_cube (cube.name, pos[:3], "base")
                         
 
                             self.already_added.append(id)
@@ -258,7 +262,7 @@ class SpecificWorker(GenericWorker):
                         new_pos = pos
                         pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
                         rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
-                        if True or pos_diff > 2 or rot_diff > 0.1 or cube.name == self.grasped_cube:
+                        if pos_diff > 2 or rot_diff > 0.1 or cube.name == self.grasped_cube:
                             names.append (cube.name)
                             poses.append (pos)
                             self.cube_positions[id] = pos
@@ -285,7 +289,7 @@ class SpecificWorker(GenericWorker):
             self.last_grasp = self.grasped_cube
         #####################################
 
-        time.sleep(1)
+        # time.sleep(1)
         print ("---> updating beliefs")
         # now = time.time()
         self.update_cubes_beliefs ()
@@ -470,7 +474,7 @@ class SpecificWorker(GenericWorker):
             positions.append(pos)
         
         colliding = self.sim.update_fingertips(positions, "base")
-        
+        print ("Colliding", colliding)
         colliding = None if len(colliding) == 0 else colliding[0]
 
         if colliding:

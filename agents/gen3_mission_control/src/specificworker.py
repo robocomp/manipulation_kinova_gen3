@@ -40,6 +40,7 @@ sys.path.append('/opt/robocomp/lib')
 console = Console(highlight=False)
 
 from pydsr import *
+np.set_printoptions(linewidth=np.inf)
 
 
 # If RoboComp was compiled with Python bindings you can use InnerModel in Python
@@ -59,6 +60,7 @@ class SpecificWorker(GenericWorker):
         self.depth = None
 
         self.CUBE_PREFIX = 1000
+        self.dept_show = None
 
         self.hand_tag_detection_count = {}
         self.hand_tags = {}
@@ -68,7 +70,7 @@ class SpecificWorker(GenericWorker):
 
         self.current_positions = {}
 
-        
+        self.offsets = [75, 70, 20, 20, 22.5, 20]
 
         # listener = keyboard.Listener(
         #     on_press=self.on_press,
@@ -236,7 +238,7 @@ class SpecificWorker(GenericWorker):
 
     def delete_cube_rt (self, cube_id, is_top=""):
         if cube_id not in self.rts_added_by_me:
-            print ("cant remove rt, you are not the inserter")
+            # print ("cant remove rt, you are not the inserter")
             return
         dest_name = "cube_" + str(cube_id) + is_top
         if (cube := self.g.get_node (dest_name)):
@@ -296,11 +298,11 @@ class SpecificWorker(GenericWorker):
                 else:
                     self.delete_cube_rt (id)
 
-            dept_show = cv2.applyColorMap(cv2.convertScaleAbs(self.hand_depth, alpha=0.03), cv2.COLORMAP_JET)
+            self.dept_show = cv2.applyColorMap(cv2.convertScaleAbs(self.hand_depth, alpha=0.03), cv2.COLORMAP_JET)
             # dept_show = cv2.rectangle (dept_show, (450, 268), (118, 81), (255, 255, 255))  
-            # dept_show = cv2.resize(dept_show, dsize=(1280, 720))          
+            # self.dept_show = cv2.resize(self.dept_show, dsize=(1280, 720))          
 
-        cv2.imshow('Color', self.hand_color) #depth.astype(np.uint8))
+            cv2.imshow('Color', self.dept_show) #depth.astype(np.uint8))
 
         return True
         
@@ -428,18 +430,22 @@ class SpecificWorker(GenericWorker):
                 # print ("Ignoring detection of tag", tag.tag_id)
                 continue
 
-            m = self.detector.detection_pose(tag,[focals[0]*2, focals[1] *2, 640, 480], 0.030)
+
+            m = self.detector.detection_pose(tag,[focals[0]*2, focals[1] *2, 640, 480], 0.075) # TODO only for new apriltags
 
             rot = m[0][:3,:3]
             r = R.from_matrix(rot)
 
-            offset = np.array ([0,0,20]) # if tag.tag_id != 1 else np.array ([0,0,40])
+            offset = np.array ([0,0, 0]) # self.offsets[tag.tag_id-1]]) # if tag.tag_id != 1 else np.array ([0,0,40])
             
             
             index_x = int(tag.center[1]) // 2
             index_y = int(tag.center[0]) // 2
-            pos_z = np.mean(depth[index_x-10:index_x+10,index_y-10:index_y+10])
-
+            pfm = 5 # pixels for mean
+            pos_z = np.mean(depth[index_x-pfm:index_x+pfm,index_y-pfm:index_y+pfm])
+            # print (index_x, index_y)
+            # print (depth[index_x-pfm:index_x+pfm,index_y-pfm:index_y+pfm])
+            # print (tag.tag_id, pos_z)
 
             pos_x = - ((tag.center[1]//2 - img.shape[0] // 4) * pos_z) / focals[0]  
             pos_y = - ((tag.center[0]//2 - img.shape[1] // 4) * pos_z) / focals[1]
@@ -452,8 +458,13 @@ class SpecificWorker(GenericWorker):
             ori = np.multiply(r.as_euler('XYZ'), -1).tolist()
             ori[-1] *= -1
 
-            r = R.from_euler("XYZ", ori)
-            rot_offset = r.apply(offset)
+            ori = np.array([0, 0, 0])
+            # print (ori)
+            # r = R.from_euler("XYZ", ori)
+            # rot_offset = r.apply(offset)
+
+            # TODO HARDCODED FOR TOP DOWN VIEW
+            rot_offset = np.array([0, 0, self.offsets[tag.tag_id - 1]])
             
             ##### offset debug ######
             # tf = inner_api(self.g)
@@ -469,7 +480,7 @@ class SpecificWorker(GenericWorker):
                 old_pos = self.current_positions[tag.tag_id]["pos"]
                 old_ori = self.current_positions[tag.tag_id]["rot"]
                 
-                factor = 0.60
+                factor = 0.75
 
                 new_pos = np.multiply (old_pos, factor) +  np.multiply (pos, 1-factor)
                 new_ori = np.multiply (old_ori, factor) +  np.multiply (ori, 1-factor)

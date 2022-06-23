@@ -225,13 +225,11 @@ class SpecificWorker(GenericWorker):
                 finger.attrs['pos_y'] = Attribute(float(270), self.agent_id)
                 self.g.insert_node (finger)
 
-
-        
-
         tf = inner_api(self.g)
         for i in range(len(tips)):
             finger_node = self.g.get_node ("finger_" + str(i))
             new_pos = tf.transform_axis ("world", tips[i] + [0,0,0], "hand_camera")
+            # print (hand_node, finger_node.id, new_pos[:3], new_pos[3:])
             rt.insert_or_assign_edge_RT(hand_node, finger_node.id, new_pos[:3], new_pos[3:])
 
 

@@ -162,9 +162,9 @@ class Simulation():
         self.sim.setObjectInt32Param(block, self.sim.shapeintparam_static, is_static)
         
 
-    def insert_box (self, name, pose, parent):
+    def insert_box (self, name, pose, parent, dims=[0.18, 0.08, 0.12]):
 
-        dims = [0.18, 0.08, 0.12]
+        # dims = [0.18, 0.08, 0.12]
         wall_th = 0.001
         
         # DSR (mm) to Coppelia (m)
@@ -196,6 +196,8 @@ class Simulation():
         box = self.sim.groupShapes ([base, back, front, left, right])
         self.sim.setObjectInt32Param(box,self.sim.shapeintparam_static, 0)
         self.sim.setObjectInt32Param(box,self.sim.shapeintparam_respondable, 1)
+        self.sim.setObjectSpecialProperty(box, self.sim.objectspecialproperty_collidable)
+
 
         or_ref = self.sim.getObjectHandle("box_orientation")
 

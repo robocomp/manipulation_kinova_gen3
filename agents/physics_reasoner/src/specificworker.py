@@ -72,12 +72,12 @@ class SpecificWorker(GenericWorker):
 
         self.rts = []
 
-        f = open('/home/robolab-kinova/guille_img/Pruebas_self_cal/cal_rts.txt')
-        data = json.load(f)
+        # f = open('/home/robolab-kinova/guille_img/Pruebas_self_cal/cal_rts.txt')
+        # data = json.load(f)
         
         
-        for i in data:
-            self.rts.append(np.array(data[i]))
+        # for i in data:
+        #     self.rts.append(np.array(data[i]))
         self.current_test = -1
         
         self.cube_rts = {}
@@ -173,7 +173,7 @@ class SpecificWorker(GenericWorker):
             elif cube_id == 7:
                 print ("--- New Pose----")
                 
-                print ("\"" + str(self.current_test) + "-" + str(self.current_pose_id) +"\": {\n \"rt\":", self.b_rt.tolist(), ", \n \"report\":{")
+                # print ("\"" + str(self.current_test) + "-" + str(self.current_pose_id) +"\": {\n \"rt\":", self.b_rt.tolist(), ", \n \"report\":{")
                 self.can_execute = True
             else:
                 dest_pose = self.hadcoded_poses [cube_id]
@@ -229,7 +229,7 @@ class SpecificWorker(GenericWorker):
 
         return 1 - np.inner(v1_q, v2_q)**2 # np.linalg.norm(v1_q - v2_q)
 
-    def get_cube_error (self, name):
+    def get_cube_error (self, name, verbose=False):
         rt = rt_api(self.g)
         tf = inner_api(self.g)
 
@@ -238,10 +238,11 @@ class SpecificWorker(GenericWorker):
 
         rot_diff   = self.angle_diff(rt[3:],  v_rt.attrs["rt_rotation_euler_xyz"].value) * 1000
         trans_diff = np.linalg.norm (rt[:3] - v_rt.attrs["rt_translation"].value)
-        print ("\t\"" + name + "\":{")
-        print("\t\t\"reported\":", rt.tolist(), ",")
-        print ("\t\t\"virtual\":", np.concatenate((v_rt.attrs["rt_translation"].value, v_rt.attrs["rt_rotation_euler_xyz"].value)).tolist())
-        print ("\t\t},")
+        if verbose:
+            print ("\t\"" + name + "\":{")
+            print("\t\t\"reported\":", rt.tolist(), ",")
+            print ("\t\t\"virtual\":", np.concatenate((v_rt.attrs["rt_translation"].value, v_rt.attrs["rt_rotation_euler_xyz"].value)).tolist())
+            print ("\t\t},")
         return rot_diff, trans_diff
 
 
@@ -316,7 +317,7 @@ class SpecificWorker(GenericWorker):
             print ("not yet")
             return True
 
-
+        print ("now")
         self.error_evolution = []
 
         self.load_cube_rts()
@@ -330,7 +331,9 @@ class SpecificWorker(GenericWorker):
 
         # random_rt = np.concatenate((np.random.normal (10, 20, 1), np.random.normal (107, 20, 1), np.random.normal (-150, 20, 1), np.random.normal (0, 0.5, 3)))
         # self.b_rt = self.compute_and_publish_best_rt(self.b_rt )
+        self.b_rt = self.compute_and_publish_best_rt(self.b_rt)
         print ("\t}, \n", "\"error\":", self.transformation_error_2(self.b_rt), "\n},")
+        print (self.get_cube_error('cube_4', True))
         self.can_execute = False
         return True
 

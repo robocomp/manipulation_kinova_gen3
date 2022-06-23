@@ -27,7 +27,7 @@ from genericworker import *
 import interfaces as ifaces
 from scipy.spatial.transform import Rotation as R
 
-import kinovaControl
+# import kinovaControl
 
 import pyrealsense2 as rs
 import numpy as np
@@ -50,15 +50,15 @@ from pydsr import *
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 100
+        self.Period = 1
 
         self.agent_id = 30
         self.g = DSRGraph(0, "gen3 DSR", self.agent_id)
         self.rt = rt_api(self.g)
 
-        self.arm = kinovaControl.KinovaGen3()
+        # self.arm = kinovaControl.KinovaGen3()
 
-        self.HAND_CAMERA_SN = '839112060624'
+        self.HAND_CAMERA_SN = '037322251488'
 
         # Hand camera configuration
         self.pipeline_hand = rs.pipeline()
@@ -76,16 +76,16 @@ class SpecificWorker(GenericWorker):
             self.camera_node.attrs['cam_rgb_width'   ] = Attribute (640,        self.agent_id)
             self.camera_node.attrs['cam_rgb_height'  ] = Attribute (480,        self.agent_id)
             self.camera_node.attrs['cam_rgb_depth'   ] = Attribute (3,          self.agent_id)
-            self.camera_node.attrs['cam_rgb_focalx'  ] = Attribute (653.68229,  self.agent_id)
-            self.camera_node.attrs['cam_rgb_focaly'  ] = Attribute (651.855994, self.agent_id)
+            self.camera_node.attrs['cam_rgb_focalx'  ] = Attribute (380.841857910156,  self.agent_id)
+            self.camera_node.attrs['cam_rgb_focaly'  ] = Attribute (379.866882324219    , self.agent_id)
             self.camera_node.attrs['cam_rgb_cameraID'] = Attribute (0,          self.agent_id)
 
             self.camera_node.attrs['cam_depth'         ] = Attribute (np.zeros((480,640,2), np.uint8), self.agent_id)
             self.camera_node.attrs['cam_depth_width'   ] = Attribute (480,           self.agent_id)
             self.camera_node.attrs['cam_depth_height'  ] = Attribute (640,           self.agent_id)
             self.camera_node.attrs['cam_depth_depth'   ] = Attribute (2,             self.agent_id)
-            self.camera_node.attrs['cam_depth_focalx'  ] = Attribute (360.01333,     self.agent_id)
-            self.camera_node.attrs['cam_depth_focaly'  ] = Attribute (360.013366699, self.agent_id)
+            self.camera_node.attrs['cam_depth_focalx'  ] = Attribute (392.261108398438,     self.agent_id)
+            self.camera_node.attrs['cam_depth_focaly'  ] = Attribute (392.261108398438, self.agent_id)
             self.camera_node.attrs['cam_depthFactor'   ] = Attribute (0.01,          self.agent_id)
             self.camera_node.attrs['cam_depth_cameraID'] = Attribute (1,             self.agent_id)
             
@@ -116,13 +116,13 @@ class SpecificWorker(GenericWorker):
         self.gripper_target_position = None
         self.gripper_last_target_position = None
 
-        th = threading.Thread(target=self.arm_mover_thread)
-        th.start()
+        # th = threading.Thread(target=self.arm_mover_thread)
+        # th.start()
 
 
         try:
-            signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
-            signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
+            # signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
+            # signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
             # signals.connect(self.g, signals.DELETE_NODE, self.delete_node)
             # signals.connect(self.g, signals.UPDATE_EDGE, self.update_edge)
             # signals.connect(self.g, signals.UPDATE_EDGE_ATTR, self.update_edge_att)
@@ -234,8 +234,8 @@ class SpecificWorker(GenericWorker):
     @QtCore.Slot()
     def compute(self):
 
-        self.update_arm_pose()
-        self.update_gripper_state()
+        # self.update_arm_pose()
+        # self.update_gripper_state()
 
         frames = self.pipeline_hand.wait_for_frames()
         aligned_frames = self.align.process(frames)
@@ -245,22 +245,21 @@ class SpecificWorker(GenericWorker):
         if not depth_frame or not color_frame:
             print ('No hand frame')
             return True
-        
 
+        
          # Convert images to numpy arrays
         depth_image = np.asanyarray(depth_frame.get_data())
         color_image = np.asanyarray(color_frame.get_data())
 
         depth_intrin = depth_frame.profile.as_video_stream_profile().intrinsics
         color_intrin = color_frame.profile.as_video_stream_profile().intrinsics
-
         # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
-        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
+        # depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
 
         # images = np.hstack((color_image, depth_colormap))
         # images = np.hstack((color_image_h, depth_colormap_h))
 
-        # Show images
+        # # Show images
         # cv2.namedWindow('RealSense hand', cv2.WINDOW_AUTOSIZE)
         # cv2.imshow('RealSense hand', images)
         # cv2.waitKey(1)
@@ -268,6 +267,7 @@ class SpecificWorker(GenericWorker):
         # Suboptimal, should treat them independently
         if color_image is not None and depth_image is not None: 
             
+            before = time.time()
             depth = depth_image.tobytes()
             depth = np.frombuffer(depth, dtype=np.uint8)
             depth = depth.reshape((480, 640, 2)) 
@@ -289,6 +289,7 @@ class SpecificWorker(GenericWorker):
                 self.camera_node.attrs['cam_depth_focalx'].value = float(depth_intrin.fx)
                 self.camera_node.attrs['cam_depth_focaly'].value = float(depth_intrin.fy)
 
+                
                 self.g.update_node(self.camera_node)
         '''
         if not np.array_equal(self.target_position, self.last_target_position):
