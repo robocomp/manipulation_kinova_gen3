@@ -267,6 +267,8 @@ class SpecificWorker(GenericWorker):
                             poses.append (pos)
                             self.cube_positions[id] = pos
                             print ("-->Updating", id, pos_diff, rot_diff)
+                            print ("poses", new_pos, current_pos)
+
                         # self.sim.set_object_pose(cube.name, pos, "base")
 
 
@@ -304,31 +306,38 @@ class SpecificWorker(GenericWorker):
         # cv2.waitKey(1)
 
 
-        self.check_cube_visibility ()
+        # self.check_cube_visibility ()
 
         if self.object_of_interest != self.last_object_of_interest:
             if self.last_object_of_interest is not None:
-
                 self.sim.change_color(self.last_object_of_interest, (255, 255, 255))
-                time.sleep(0.05)
-                last_int_cube = self.g.get_node(self.last_object_of_interest)
-                near_edges = self.g.get_edges_by_type ("is_near")
-                for e in near_edges:
-                    self.g.delete_edge (last_int_cube.id, e.destination, "is_near")
-            
             self.sim.change_color(self.object_of_interest, (255, 0, 0))
+            self.last_object_of_interest = self.object_of_interest  
+
+        ############# Test if OOI is removable ########################################
+        # if self.object_of_interest != self.last_object_of_interest:
+        #     if self.last_object_of_interest is not None:
+
+        #         self.sim.change_color(self.last_object_of_interest, (255, 255, 255))
+        #         time.sleep(0.05)
+        #         last_int_cube = self.g.get_node(self.last_object_of_interest)
+        #         near_edges = self.g.get_edges_by_type ("is_near")
+        #         for e in near_edges:
+        #             self.g.delete_edge (last_int_cube.id, e.destination, "is_near")
             
-            int_cube = self.g.get_node(self.object_of_interest)
-            touching = self.sim.get_colliding_objects (self.object_of_interest)
-            for c in touching:
-                touching_cube = self.g.get_node(c)
-                near_e = Edge (touching_cube.id, int_cube.id, "is_near", self.agent_id)
-                self.g.insert_or_assign_edge (near_e)
+        #     self.sim.change_color(self.object_of_interest, (255, 0, 0))
+            
+        #     int_cube = self.g.get_node(self.object_of_interest)
+        #     touching = self.sim.get_colliding_objects (self.object_of_interest)
+        #     for c in touching:
+        #         touching_cube = self.g.get_node(c)
+        #         near_e = Edge (touching_cube.id, int_cube.id, "is_near", self.agent_id)
+        #         self.g.insert_or_assign_edge (near_e)
+        ##################################################################################
 
+        #     print ("removable: ", self.sim.check_if_removable (self.object_of_interest))
 
-            print ("removable: ", self.sim.check_if_removable (self.object_of_interest))
-
-            self.last_object_of_interest = self.object_of_interest
+        #     self.last_object_of_interest = self.object_of_interest
 
         # print (" - - - - ")
 
@@ -585,7 +594,12 @@ class SpecificWorker(GenericWorker):
         console.print(f"UPDATE EDGE ATT: {fr} to {type} {attribute_names}", style='green')
 
     def delete_edge(self, fr: int, to: int, type: str):
-        pass
+        # console.print(f"DELETED EDGE FROM {fr} to {to} type {type}", style='green')
+
+        dest = self.g.get_node(to)
+        if type == "RT" and dest.name in self.already_added:
+            print ("I think this is wrong")
+            self.object_of_interest = dest.name
         # dest = self.g.get_node(to)
         # if dest.type == 'box' and type == "graspping" and dest.name[-1] != '*':
         #     self.grasped_cube = None

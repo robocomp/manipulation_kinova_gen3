@@ -193,7 +193,7 @@ class SpecificWorker(GenericWorker):
 
         if (cube_node := self.g.get_node(cube_name)) is None:
             new_node = Node(cube_id + self.CUBE_PREFIX + offset, "box", cube_name)
-            new_node.attrs['pos_x'] = Attribute(float(-100 + 200 * cube_id), self.agent_id)
+            new_node.attrs['pos_x'] = Attribute(float(-130 + 150 * cube_id), self.agent_id)
             new_node.attrs['pos_y'] = Attribute(float(90), self.agent_id)
             new_node.attrs['active_agent'] = Attribute(False, self.agent_id)
             self.g.insert_node (new_node)
@@ -242,10 +242,10 @@ class SpecificWorker(GenericWorker):
             return
         dest_name = "cube_" + str(cube_id) + is_top
         if (cube := self.g.get_node (dest_name)):
-            transformation = self.g.get_edge ("world", dest_name, "RT")
+            transformation = self.g.get_edge ("hand_camera", dest_name, "RT")
             if transformation:
                 self.hand_tag_detection_count[cube_id] = 0
-                world = self.g.get_node ("world")
+                world = self.g.get_node ("hand_camera")
                 self.g.delete_edge (world.id, cube.id, "RT")
                 self.rts_added_by_me.discard(cube_id)
 
@@ -286,23 +286,25 @@ class SpecificWorker(GenericWorker):
                     self.hand_tag_detection_count[id] = 0
 
             for id in self.hand_tag_detection_count.keys():
+                # print ("detected id", id)
                 if id in simplified_inmediate_tags.keys():
                     self.hand_tag_detection_count[id] = np.minimum (30, self.hand_tag_detection_count[id]+1)
                 else:
                     self.hand_tag_detection_count[id] = np.maximum (0, self.hand_tag_detection_count[id]-1)
                 
                 if (self.hand_tag_detection_count[id] > 20 and id in simplified_inmediate_tags.keys()):
-                    # print ("I am seeing and updating cube", id)
+                    # print ("I am seeing and updating cube", id, simplified_inmediate_tags[id])
                     self.hand_tags[id] = simplified_inmediate_tags[id]
                     self.insert_or_update_cube (self.hand_tags, id)
                 else:
+                    # print ("Trying to delete", id)
                     self.delete_cube_rt (id)
 
             self.dept_show = cv2.applyColorMap(cv2.convertScaleAbs(self.hand_depth, alpha=0.03), cv2.COLORMAP_JET)
             # dept_show = cv2.rectangle (dept_show, (450, 268), (118, 81), (255, 255, 255))  
             # self.dept_show = cv2.resize(self.dept_show, dsize=(1280, 720))          
 
-            cv2.imshow('Color', self.dept_show) #depth.astype(np.uint8))
+            cv2.imshow('Cube detection', cv2.cvtColor(cv2.resize(self.hand_color, dsize=(640, 480)), cv2.COLOR_BGR2RGB) ) #depth.astype(np.uint8))
 
         return True
         
@@ -458,7 +460,7 @@ class SpecificWorker(GenericWorker):
             ori = np.multiply(r.as_euler('XYZ'), -1).tolist()
             ori[-1] *= -1
 
-            ori = np.array([0, 0, 0])
+            # ori = np.array([0, 0, 0])
             # print (ori)
             # r = R.from_euler("XYZ", ori)
             # rot_offset = r.apply(offset)

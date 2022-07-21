@@ -180,7 +180,6 @@ class Simulation():
         base_position = [position[0], position[1], position[2]+(dims[2]/2)]
         self.sim.setObjectPosition(base, relative_to, base_position)
 
-
         back_position = [position[0]-(dims[1]/2), position[1], position[2]]
         self.sim.setObjectPosition(back, relative_to, back_position)
 
@@ -196,12 +195,17 @@ class Simulation():
         box = self.sim.groupShapes ([base, back, front, left, right])
         self.sim.setObjectInt32Param(box,self.sim.shapeintparam_static, 0)
         self.sim.setObjectInt32Param(box,self.sim.shapeintparam_respondable, 1)
-        self.sim.setObjectSpecialProperty(box, self.sim.objectspecialproperty_collidable)
+        self.sim.setObjectSpecialProperty(box, self.sim.objectspecialproperty_collidable | self.sim.objectspecialproperty_detectable | self.sim.objectspecialproperty_measurable)
+        self.sim.setShapeColor (box, None, self.sim.colorcomponent_ambient_diffuse, (255, 0, 0))
+
+        self.sim.setObjectInt32Param(box, self.sim.objintparam_visibility_layer, 257) 
 
 
         or_ref = self.sim.getObjectHandle("box_orientation")
 
         self.sim.reorientShapeBoundingBox(box, or_ref)
+
+        self.sim.resetDynamicObject(box)
 
         self.handles[name] = box
 
@@ -335,6 +339,11 @@ class Simulation():
     def change_color (self, name, color):
         print ("Painting", name, "color", color)
         object = self.handles[name]
+        
+        # Set it as visible for the camera
+        # self.sim.setObjectInt32Param(object, self.sim.objintparam_visibility_layer, 257) 
+        # self.sim.setObjectSpecialProperty(object, self.sim.objectspecialproperty_detectable)
+        
         self.sim.setShapeColor (object, None, self.sim.colorcomponent_ambient_diffuse, color)
 
     

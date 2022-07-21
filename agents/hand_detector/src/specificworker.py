@@ -174,7 +174,8 @@ class SpecificWorker(GenericWorker):
             for e in grasp_edge:
                 self.g.delete_edge (self.g.get_node("human_hand").id, e.destination, "graspping")
             self.g.delete_node ("human_hand")
-        cv2.imshow("Image", img)
+
+        cv2.imshow('Hand detection', cv2.cvtColor(img[:350,:], cv2.COLOR_BGR2RGB) ) #depth.astype(np.uint8))
         cv2.waitKey(1)
 
         return True
@@ -214,15 +215,15 @@ class SpecificWorker(GenericWorker):
         
         if (hand_node := self.g.get_node("human_hand")) is None:
             hand_node = Node(44, "left_hand", "human_hand")
-            hand_node.attrs['pos_x'] = Attribute(float(600), self.agent_id)
-            hand_node.attrs['pos_y'] = Attribute(float(230), self.agent_id)
+            hand_node.attrs['pos_x'] = Attribute(float(190), self.agent_id)
+            hand_node.attrs['pos_y'] = Attribute(float(210), self.agent_id)
             self.g.insert_node (hand_node)
             rt.insert_or_assign_edge_RT(world, hand_node.id, [0,0,0], [0,0,0])
 
             for i in range(len(tips)):
                 finger = Node(45 + i, "right_hand", "finger_" + str(i))
-                finger.attrs['pos_x'] = Attribute(float(550 + i*100), self.agent_id)
-                finger.attrs['pos_y'] = Attribute(float(270), self.agent_id)
+                finger.attrs['pos_x'] = Attribute(float(165 + i*50), self.agent_id)
+                finger.attrs['pos_y'] = Attribute(float(250), self.agent_id)
                 self.g.insert_node (finger)
 
         tf = inner_api(self.g)
