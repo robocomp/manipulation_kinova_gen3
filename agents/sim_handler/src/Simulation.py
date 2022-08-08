@@ -196,7 +196,7 @@ class Simulation():
         self.sim.setObjectInt32Param(box,self.sim.shapeintparam_static, 0)
         self.sim.setObjectInt32Param(box,self.sim.shapeintparam_respondable, 1)
         self.sim.setObjectSpecialProperty(box, self.sim.objectspecialproperty_collidable | self.sim.objectspecialproperty_detectable | self.sim.objectspecialproperty_measurable)
-        self.sim.setShapeColor (box, None, self.sim.colorcomponent_ambient_diffuse, (255, 0, 0))
+        # self.sim.setShapeColor (box, None, self.sim.colorcomponent_ambient_diffuse, (255, 0, 0))
 
         self.sim.setObjectInt32Param(box, self.sim.objintparam_visibility_layer, 257) 
 

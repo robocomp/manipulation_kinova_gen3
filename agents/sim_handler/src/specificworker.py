@@ -213,7 +213,7 @@ class SpecificWorker(GenericWorker):
         
         names = []
         poses = []
-        if self.updated_cubes:
+        if self.updated_cubes and self.can_update_sim:
             if self.current_arm_pos is not None and self.current_arm_pos[2] > 345:
                 for id in self.updated_cubes:
                     # print ("Updating cube", id)
@@ -266,8 +266,8 @@ class SpecificWorker(GenericWorker):
                             names.append (cube.name)
                             poses.append (pos)
                             self.cube_positions[id] = pos
-                            print ("-->Updating", id, pos_diff, rot_diff)
-                            print ("poses", new_pos, current_pos)
+                            # print ("-->Updating", id, pos_diff, rot_diff)
+                            # print ("poses", new_pos, current_pos)
 
                         # self.sim.set_object_pose(cube.name, pos, "base")
 
@@ -276,6 +276,8 @@ class SpecificWorker(GenericWorker):
                 if len(names) > 0:
                     print ("---> updating positions of", names)
                     self.sim.set_multiple_objects_poses (names, poses, "base")
+                    self.can_update_sim = False
+
 
                 self.updated_cubes = []
             else:
@@ -341,7 +343,6 @@ class SpecificWorker(GenericWorker):
 
         # print (" - - - - ")
 
-        self.can_update_sim = False
 
         return True
 

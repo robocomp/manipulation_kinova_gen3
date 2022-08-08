@@ -50,7 +50,7 @@ from pydsr import *
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 10
+        self.Period = 2000
 
         # YOU MUST SET AN UNIQUE ID FOR THIS AGENT IN YOUR DEPLOYMENT. "_CHANGE_THIS_ID_" for a valid unique integer
         self.agent_id = 136
@@ -90,12 +90,6 @@ class SpecificWorker(GenericWorker):
         self.multiple_trials = []
         self.error_evolution = []
         self.resulting_rts = []
-
-
-        self.canvas = np.zeros((300, 800))
-        self.current_value = 150
-        self.avg_index = 0
-        self.last_N_avg = [0 for _ in range(20)]
 
         
         ################################################################
@@ -178,7 +172,6 @@ class SpecificWorker(GenericWorker):
                 self.update_camera_rt (self.b_rt)
             elif cube_id == 7:
                 print ("--- New Pose----")
-                self.current_value = 200
                 
                 # print ("\"" + str(self.current_test) + "-" + str(self.current_pose_id) +"\": {\n \"rt\":", self.b_rt.tolist(), ", \n \"report\":{")
                 self.can_execute = True
@@ -245,7 +238,11 @@ class SpecificWorker(GenericWorker):
 
         rot_diff   = self.angle_diff(rt[3:],  v_rt.attrs["rt_rotation_euler_xyz"].value) * 1000
         trans_diff = np.linalg.norm (rt[:3] - v_rt.attrs["rt_translation"].value)
-
+        if verbose:
+            print ("\t\"" + name + "\":{")
+            print("\t\t\"reported\":", rt.tolist(), ",")
+            print ("\t\t\"virtual\":", np.concatenate((v_rt.attrs["rt_translation"].value, v_rt.attrs["rt_rotation_euler_xyz"].value)).tolist())
+            print ("\t\t},")
         return rot_diff, trans_diff
 
 
@@ -268,16 +265,16 @@ class SpecificWorker(GenericWorker):
 
         # print (self.cube_rts)
 
-    def transformation_error_2 (self):
+    def transformation_error_2 (self, rt_gr_cam):
+
+        self.update_camera_rt(rt_gr_cam)
 
         cubes = self.g.get_nodes_by_type ("box")
         diff = 0
         for cube in cubes:
 
-            rt = self.g.get_edge ("hand_camera", cube.name, "RT")
-            self.cube_rts[cube.name] = np.concatenate((rt.attrs["rt_translation"].value, rt.attrs["rt_rotation_euler_xyz"].value))
-
             rot_diff ,trans_diff = self.get_cube_error(cube.name)
+
             # rt = tf.transform_axis ("world", cube.name)
             # v_rt = self.g.get_edge ("world", cube.name, "virtual_RT")
 
@@ -288,8 +285,8 @@ class SpecificWorker(GenericWorker):
             # print (cube.name, trans_diff, rot_diff)
 
             diff += rot_diff + trans_diff
-        avg = diff # / len(cubes)
-        # self.error_evolution.append(avg)
+        avg = diff / len(cubes)
+        self.error_evolution.append(avg)
         return avg
 
     def move_to_hardcoded_pose (self, index):
@@ -316,34 +313,168 @@ class SpecificWorker(GenericWorker):
     @QtCore.Slot()
     def compute(self):
 
-        self.current_value = int (self.transformation_error_2())
-        self.current_value = np.clip (self.current_value, 0, 299) 
+        if (not self.can_execute):
+            print ("not yet")
+            return True
 
-        column = np.zeros((300,1))
-        column[self.current_value] = 1
+        print ("now")
+        self.error_evolution = []
 
-        self.last_N_avg[self.avg_index] = self.current_value
-        self.avg_index = (self.avg_index + 1) % len(self.last_N_avg)
+        self.load_cube_rts()
+        # accurate_rt = [17, 107, -150, 0, 0, 0]
+        # trans_noise = np.random.normal (0, 20  , 3)
+        # rot_noise   = np.random.normal (0, 0.5, 3)
+        # print ("Starting optimization", trans_noise, rot_noise)
+
+        # accurate_rt[:3] += trans_noise
+        # accurate_rt[3:] += rot_noise
+
+        # random_rt = np.concatenate((np.random.normal (10, 20, 1), np.random.normal (107, 20, 1), np.random.normal (-150, 20, 1), np.random.normal (0, 0.5, 3)))
+        # self.b_rt = self.compute_and_publish_best_rt(self.b_rt )
+        self.b_rt = self.compute_and_publish_best_rt(self.b_rt)
+        print ("\t}, \n", "\"error\":", self.transformation_error_2(self.b_rt), "\n},")
+        print (self.get_cube_error('cube_4', True))
+        self.can_execute = False
+        return True
+
+        self.multiple_trials.append(self.error_evolution)
+
+        print ("-------------", len(self.multiple_trials), "----------------------")
+
+        if len (self.multiple_trials) > 50:
+            print ("-------- Finished ---------")
+            file = open("/home/robolab-kinova/guille_img/Pruebas_self_cal/results.txt", "w+")
+            # Saving the array in a text file
+            content = str(self.multiple_trials)
+            file.write(content)
+            file.close()
+
+            file = open("/home/robolab-kinova/guille_img/Pruebas_self_cal/rts.txt", "w+")
+            # Saving the array in a text file
+            content = str(self.resulting_rts)
+            file.write(content)
+            file.close()
 
 
-        # self.current_value += np.random.randint(-1, 2)
 
-        self.canvas = np.delete(self.canvas, 0, 1) 
-        self.canvas = np.append(self.canvas, column, axis=1)
+        # print ("Moving to home")
+        # self.move_to_hardcoded_pose(0)
+        # time.sleep(5)
+        # print ("Moving to home - done")
+        
+        
+        rt = rt_api(self.g)
+        tf = inner_api(self.g)        
 
-        img = cv2.flip(self.canvas, 0)
 
-        img = cv2.putText(img, str(np.mean(self.last_N_avg)), (50, 50), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, 1, 1, cv2.LINE_AA)
+        # print (self.transformation_error(np.array( [ 15.8171056,  77.6368291, -150.756363,-0.0545380167,  0.0111418872,  0.0372585873])))
+        self.load_cube_rts()
+        self.current_error = self.transformation_error_2(self.b_rt)
+        print (self.b_rt, self.current_error)
 
-        cv2.imshow("canvas", img)
+        if self.current_error > 12:
 
-        error = 0
+            last_rt = np.copy(self.b_rt) 
 
+            trans_noise = np.random.normal (0, 5  , 3)
+            rot_noise   = np.random.normal (0, 0.5, 3)
+
+            print ("Starting optimization", trans_noise, rot_noise)
+
+            # self.b_rt[:3] += trans_noise
+            # self.b_rt[3:] += rot_noise
+            ini = time.time()
+            self.b_rt = self.compute_and_publish_best_rt(self.b_rt)
+            print ("Finished optimization in", time.time()-ini)
+
+            new_error = self.transformation_error_2(self.b_rt)
+            
+
+            if (new_error > self.current_error):
+                print ("keeping the old one", self.current_error, new_error)
+                self.update_camera_rt(last_rt)
+                self.b_rt = last_rt
+
+        else:
+            print ("Not optmizing")
+            # print (self.error_evolution)
+
+        return True
+
+        # print (self.transformation_error_2(self.b_rt))
+        # cubes = self.g.get_nodes_by_type ("box")
+        # for cube in cubes:
+        #     print (cube.name, self.get_cube_error(cube.name))
+        # return True
+
+        for i in range(len(self.hadcoded_poses)):
+            self.move_to_hardcoded_pose(i)
+            time.sleep(7)
+            print ("---- Evaluation in pose", i, "------")
+            self.load_cube_rts()
+            print (self.transformation_error_2(self.b_rt))
+            cubes = self.g.get_nodes_by_type ("box")
+            for cube in cubes:
+                print (cube.name, self.get_cube_error(cube.name))
+            time.sleep(1)
+
+            print (self.transformation_error_2(self.original_rt))
+            cubes = self.g.get_nodes_by_type ("box")
+            for cube in cubes:
+                print (cube.name, self.get_cube_error(cube.name))
+            time.sleep(1)
+            print ("-------------------------------------")
+
+        return True
+
+        plot = np.zeros((300, 800, 3), np.uint8)
+        plot2 = np.zeros((300, 800, 3), np.uint8)
+
+        positional_errors = []
+        
+        cubes = self.g.get_nodes_by_type ("box")
+        for cube in cubes:
+            plot = np.zeros((300, 800, 3), np.uint8)
+            # rt   = self.g.get_edge ("world", cube.name, "RT")
+            rt = tf.transform_axis ("world", cube.name)
+            v_rt = self.g.get_edge ("world", cube.name, "virtual_RT")
+
+            if rt is None or v_rt is None:
+                continue
+
+
+            # trans_diffs = np.absolute(rt.attrs["rt_translation"].value - v_rt.attrs["rt_translation"].value)
+            # rot_diffs   = np.absolute(rt.attrs["rt_rotation_euler_xyz"].value - v_rt.attrs["rt_rotation_euler_xyz"].value)
+
+            trans_diffs = rt[:3] - v_rt.attrs["rt_translation"].value# np.absolute(rt[:3]- v_rt.attrs["rt_translation"].value)
+            rot_diffs   = rt[3:] - v_rt.attrs["rt_rotation_euler_xyz"].value
+
+            positional_errors.append (trans_diffs)
+
+            trans_diff = np.linalg.norm (trans_diffs)
+            rot_diff   = np.linalg.norm (rot_diffs)
+
+            print ("----", cube.name, "----")
+            # print (rt[:3], v_rt.attrs["rt_translation"].value, "\n")
+            print (self.get_cube_error(cube.name))
+
+            # self.plot_bars (plot, trans_diffs, 50, 10, 2)
+            # cv2.imshow(cube.name + " trans diff", plot)
+
+            # self.plot_bars (plot2, rot_diffs, 30, 5)
+            # cv2.imshow(cube.name +  " rot diff", plot2)
+
+    
+        print ("\n \n \n")
+        
+        
+        cv2.waitKey(1)
         return True
 
     def startup_check(self):
         QTimer.singleShot(200, QApplication.instance().quit)
+
+
 
 
     def plot_bars (self, img, values, max, steps, signed = 1):
