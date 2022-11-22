@@ -48,6 +48,8 @@ class SpecificWorker(GenericWorker):
         self.already_added = []
         self.updated_cubes = []
 
+        self.suspicious_cubes = []
+
         self.grasped_cube = None
         self.last_grasp   = None
         self.new_grasp = False
@@ -213,9 +215,15 @@ class SpecificWorker(GenericWorker):
         
         names = []
         poses = []
-        if self.updated_cubes and self.can_update_sim:
+        if self.updated_cubes: # and self.can_update_sim:
+        # if self.updated_cubes:
             if self.current_arm_pos is not None and self.current_arm_pos[2] > 345:
                 for id in self.updated_cubes:
+
+                    if id in self.suspicious_cubes:
+                        print ("Wont update", id, "something is wrong")
+                        continue
+
                     # print ("Updating cube", id)
                     cube = self.g.get_node (id)
                     tf = inner_api(self.g)
@@ -240,14 +248,14 @@ class SpecificWorker(GenericWorker):
                             
                             
                             #TODO rollback to work with box
-                            if cube.name == "cube_1":
-                                self.sim.insert_box (cube.name, pos[:3], "base", [0.170, 0.170, 0.150])
-                            elif cube.name == "cube_2":
-                                self.sim.insert_box (cube.name, pos[:3], "base", [0.145, 0.145, 0.140])
-                            elif cube.name == "cube_5":
-                                self.sim.insert_box (cube.name, pos[:3], "base", [0.075, 0.095, 0.045])
-                            else:
-                                self.sim.insert_cube (cube.name, pos[:3], "base")
+                            # if cube.name == "cube_1":
+                            #     self.sim.insert_box (cube.name, pos[:3], "base", [0.170, 0.170, 0.150])
+                            # elif cube.name == "cube_2":
+                            #     self.sim.insert_box (cube.name, pos[:3], "base", [0.145, 0.145, 0.140])
+                            # elif cube.name == "cube_5":
+                            #     self.sim.insert_box (cube.name, pos[:3], "base", [0.075, 0.095, 0.045])
+                            # else:
+                            self.sim.insert_cube (cube.name, pos[:3], "base")
                         
 
                             self.already_added.append(id)
@@ -313,6 +321,7 @@ class SpecificWorker(GenericWorker):
         if self.object_of_interest != self.last_object_of_interest:
             if self.last_object_of_interest is not None:
                 self.sim.change_color(self.last_object_of_interest, (255, 255, 255))
+            print ("Should change color of", self.object_of_interest)
             self.sim.change_color(self.object_of_interest, (255, 0, 0))
             self.last_object_of_interest = self.object_of_interest  
 
@@ -559,11 +568,22 @@ class SpecificWorker(GenericWorker):
             self.occupied  = updated_node.attrs['robot_occupied'].value
                 
 
+        # if 'active_agent' in attribute_names:
+        #     updated_node = self.g.get_node(id)
+        #     print ("interest received for", updated_node.name)
+        #     self.object_of_interest = updated_node.name
+        #     self.first_time = True
+
         if 'active_agent' in attribute_names:
-            updated_node = self.g.get_node(id)
-            print ("interest received for", updated_node.name)
-            self.object_of_interest = updated_node.name
+            dest = self.g.get_node(id)
+
+            # This causes it to be red
+            self.object_of_interest = dest.name
             self.first_time = True
+
+            self.can_update_sim = True
+            if (dest.name not in self.updated_cubes):
+                self.suspicious_cubes.append (dest.name)
 
     def update_node(self, id: int, type: str):
         if type=='rgbd' and id == 62842907933016084:
@@ -576,6 +596,8 @@ class SpecificWorker(GenericWorker):
         console.print(f"DELETE NODE:: {id} ", style='green')
 
     def update_edge(self, fr: int, to: int, type: str):
+        pass
+        # USED TO UPDATE CUBES -- RESTORE WHEN NOT USING SURPRISE
         dest = self.g.get_node(to)
         if dest.type == 'box' and type == "RT" and dest.name[-1] != '*':
             # print ("Updated edge to", dest.name)
@@ -599,8 +621,8 @@ class SpecificWorker(GenericWorker):
 
         dest = self.g.get_node(to)
         if type == "RT" and dest.name in self.already_added:
-            print ("I think this is wrong")
-            self.object_of_interest = dest.name
+            print ("I think this is wrong but wont change color")
+            # self.object_of_interest = dest.name
         # dest = self.g.get_node(to)
         # if dest.type == 'box' and type == "graspping" and dest.name[-1] != '*':
         #     self.grasped_cube = None

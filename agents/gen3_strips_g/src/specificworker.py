@@ -31,7 +31,6 @@ from genericworker import *
 import interfaces as ifaces
 
 import pyrealsense2 as rs
-import kinovaControl
 import numpy as np
 import cv2
 from pynput import keyboard

@@ -70,7 +70,7 @@ class SpecificWorker(GenericWorker):
 
         self.current_positions = {}
 
-        self.offsets = [75, 70, 20, 20, 22.5, 20]
+        self.offsets = [20, 20, 20, 20, 20, 20]
 
         # listener = keyboard.Listener(
         #     on_press=self.on_press,
@@ -428,12 +428,20 @@ class SpecificWorker(GenericWorker):
         s_tags = {}
         for tag in tags:
 
+
             if tag.tag_id > 6 or tag.tag_id < 1:
                 # print ("Ignoring detection of tag", tag.tag_id)
                 continue
-
-
-            m = self.detector.detection_pose(tag,[focals[0]*2, focals[1] *2, 640, 480], 0.075) # TODO only for new apriltags
+            faulty_tag = False
+            c0 = tag.corners[0]
+            for c in tag.corners[1:]:
+                d = np.linalg.norm(c0-c)
+                if d < 20 or d > 40:
+                    print("error on", tag.tag_id, d)
+                    faulty_tag = True
+            if faulty_tag:
+                continue
+            m = self.detector.detection_pose(tag,[focals[0]*2, focals[1] *2, 640, 480], 0.04) # TODO only for new apriltags
 
             rot = m[0][:3,:3]
             r = R.from_matrix(rot)

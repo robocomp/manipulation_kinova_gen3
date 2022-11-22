@@ -272,9 +272,12 @@ class SpecificWorker(GenericWorker):
 
         cubes = self.g.get_nodes_by_type ("box")
         diff = 0
+        error_array = []
         for cube in cubes:
 
             rt = self.g.get_edge ("hand_camera", cube.name, "RT")
+            if rt is None:
+                continue
             self.cube_rts[cube.name] = np.concatenate((rt.attrs["rt_translation"].value, rt.attrs["rt_rotation_euler_xyz"].value))
 
             rot_diff ,trans_diff = self.get_cube_error(cube.name)
@@ -286,11 +289,18 @@ class SpecificWorker(GenericWorker):
 
 
             # print (cube.name, trans_diff, rot_diff)
+            e = rot_diff + trans_diff
+            error_array.append(e)
 
-            diff += rot_diff + trans_diff
-        avg = diff # / len(cubes)
+            if e > 100:
+                print (cube.name, "is in a surprising pose. E =", e)
+                cube.attrs['active_agent'].value = True
+                self.g.update_node (cube)
+            # elif e > 60:
+            #     print ("Yeah, it might be, update", cube.name)
+
         # self.error_evolution.append(avg)
-        return avg
+        return error_array
 
     def move_to_hardcoded_pose (self, index):
         dest_pose = self.hadcoded_poses [index]
@@ -315,8 +325,8 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
-
-        self.current_value = int (self.transformation_error_2())
+        errors = self.transformation_error_2()
+        self.current_value = int (np.mean(errors))
         self.current_value = np.clip (self.current_value, 0, 299) 
 
         column = np.zeros((300,1))
@@ -337,8 +347,6 @@ class SpecificWorker(GenericWorker):
                             cv2.FONT_HERSHEY_SIMPLEX, 1, 1, 1, cv2.LINE_AA)
 
         cv2.imshow("canvas", img)
-
-        error = 0
 
         return True
 
