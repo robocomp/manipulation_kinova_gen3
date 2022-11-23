@@ -49,6 +49,7 @@ class SpecificWorker(GenericWorker):
         self.updated_cubes = []
 
         self.suspicious_cubes = []
+        self.surprising_event = False
 
         self.grasped_cube = None
         self.last_grasp   = None
@@ -164,6 +165,19 @@ class SpecificWorker(GenericWorker):
         rt.insert_or_assign_edge_RT(griper, h_camera.id, rt_gr_cam[:3], rt_gr_cam[3:])
         self.g.update_node(griper)
 
+    def evaluate_surprising_position (self, cubes):
+        print ("suspicious", cubes)
+        c4 = self.g.get_node (cubes[0])
+        son = None
+        for e in c4.edges:
+            if e[1] == 'on':
+                son = e[0]
+        if son is not None:
+            lower_cube = self.g.get_node(son)
+            print ("It is over", lower_cube.name)
+        else:
+            print ("It is not over other cube")
+
     @QtCore.Slot()
     def compute(self):
 
@@ -178,6 +192,13 @@ class SpecificWorker(GenericWorker):
 
         # if not self.can_update_sim:
         #     return True
+
+        if self.surprising_event:
+            print ('I should resolve the situation with', self.suspicious_cubes)
+            self.evaluate_surprising_position (self.suspicious_cubes)
+            self.surprising_event = False
+
+
 
         if self.was_occupied != self.occupied:
             if self.was_occupied:
@@ -220,9 +241,9 @@ class SpecificWorker(GenericWorker):
             if self.current_arm_pos is not None and self.current_arm_pos[2] > 345:
                 for id in self.updated_cubes:
 
-                    if id in self.suspicious_cubes:
-                        print ("Wont update", id, "something is wrong")
-                        continue
+                    # if id in self.suspicious_cubes:
+                    #     print ("Wont update", id, "something is wrong")
+                    #     continue
 
                     # print ("Updating cube", id)
                     cube = self.g.get_node (id)
@@ -577,13 +598,18 @@ class SpecificWorker(GenericWorker):
         if 'active_agent' in attribute_names:
             dest = self.g.get_node(id)
 
-            # This causes it to be red
-            self.object_of_interest = dest.name
-            self.first_time = True
+            ## This causes it to be red
+            # self.object_of_interest = dest.name
+            # self.first_time = True
 
             self.can_update_sim = True
-            if (dest.name not in self.updated_cubes):
+            active =  dest.attrs['active_agent'].value
+            if (dest.name not in self.suspicious_cubes) and active:
                 self.suspicious_cubes.append (dest.name)
+                self.surprising_event = True
+
+            if not active and dest.name in self.suspicious_cubes:
+                self.suspicious_cubes.remove(dest.name)
 
     def update_node(self, id: int, type: str):
         if type=='rgbd' and id == 62842907933016084:

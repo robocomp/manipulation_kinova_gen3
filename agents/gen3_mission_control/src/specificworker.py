@@ -71,6 +71,7 @@ class SpecificWorker(GenericWorker):
         self.current_positions = {}
 
         self.offsets = [20, 20, 20, 20, 20, 20]
+        self.roi_cubes = ((300,100), (900,600))
 
         # listener = keyboard.Listener(
         #     on_press=self.on_press,
@@ -182,6 +183,13 @@ class SpecificWorker(GenericWorker):
         gripper.attrs["target"].value = dest_pose
         self.g.update_node (gripper)
 
+    def angle_diff (self, v1, v2):
+
+        v1_q = R.from_euler("xyz", v1).as_quat()
+        v2_q = R.from_euler("xyz", v2).as_quat()
+
+        return 1 - np.inner(v1_q, v2_q)**2
+
     def insert_or_update_cube (self, tags, cube_id, is_top = "", offset = 0):
         cube = tags[cube_id]
         cube_name = "cube_" + str(cube_id) + is_top
@@ -210,20 +218,21 @@ class SpecificWorker(GenericWorker):
         rt = rt_api(self.g)
 
         #### Publish only when changing
-        # try:
-        #     current_pos = tf.transform_axis ("world", cube_name)
+        try:
+            current_pos = tf.transform_axis ("hand_camera", cube_name)
 
-        #     # offset = 40 if cube_name == "cube_1" else 20
-        #     # new_pos[2] -= offset
+            # offset = 40 if cube_name == "cube_1" else 20
+            # new_pos[2] -= offset
 
-        #     
-        #     pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
-        #     rot_diff = np.linalg.norm (new_pos[3:]-current_pos[3:])
-        #     if pos_diff < 3 and rot_diff < 0.1:
-        #         # print ("Not updating pose", pos_diff, rot_diff)
-        #         return
-        # except:
-        #     print ("Does not exist")
+            
+            pos_diff = np.linalg.norm (new_pos[:3]-current_pos[:3])
+            rot_diff = self.angle_diff (new_pos[3:], current_pos[3:])
+            if pos_diff < 4 and rot_diff < 0.1:
+                # print ("Not updating pose", pos_diff, rot_diff)
+                return
+            print  (cube_name, pos_diff, rot_diff)
+        except:
+            print ("Does not exist")
 
         ###### inserting from world #######
         # world = self.g.get_node ("world")
@@ -302,7 +311,9 @@ class SpecificWorker(GenericWorker):
 
             self.dept_show = cv2.applyColorMap(cv2.convertScaleAbs(self.hand_depth, alpha=0.03), cv2.COLORMAP_JET)
             # dept_show = cv2.rectangle (dept_show, (450, 268), (118, 81), (255, 255, 255))  
-            # self.dept_show = cv2.resize(self.dept_show, dsize=(1280, 720))          
+            # self.dept_show = cv2.resize(self.dept_show, dsize=(1280, 720))
+
+            cv2.rectangle(self.hand_color, self.roi_cubes[0], self.roi_cubes[1], (255, 0, 0))
 
             cv2.imshow('Cube detection', cv2.cvtColor(cv2.resize(self.hand_color, dsize=(640, 480)), cv2.COLOR_BGR2RGB) ) #depth.astype(np.uint8))
 
@@ -435,13 +446,25 @@ class SpecificWorker(GenericWorker):
             faulty_tag = False
             c0 = tag.corners[0]
             for c in tag.corners[1:]:
-                d = np.linalg.norm(c0-c)
-                if d < 20 or d > 40:
-                    print("error on", tag.tag_id, d)
+
+                ## Filtering skewed detections
+                # d = np.linalg.norm(c0-c)
+                # if d < 20 or d > 40:
+                #     # print("error on", tag.tag_id, d)
+                #     faulty_tag = True
+                
+                limitX = (self.roi_cubes[0][0], self.roi_cubes[1][0])
+                limitY = (self.roi_cubes[0][1], self.roi_cubes[1][1])
+
+                if not (limitX[0] < c[0] < limitX[1] and limitY[0] < c[1] < limitY[1]):
                     faulty_tag = True
+                    # print ('Not inside ROI')
+            
             if faulty_tag:
                 continue
-            m = self.detector.detection_pose(tag,[focals[0]*2, focals[1] *2, 640, 480], 0.04) # TODO only for new apriltags
+
+            ## Deleted *2 in focals, might alter performance
+            m = self.detector.detection_pose(tag,[focals[0], focals[1], 640, 480], 0.04) # TODO only for new apriltags
 
             rot = m[0][:3,:3]
             r = R.from_matrix(rot)

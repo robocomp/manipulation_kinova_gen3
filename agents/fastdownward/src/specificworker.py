@@ -102,14 +102,20 @@ class SpecificWorker(GenericWorker):
         """Destructor"""
 
     def on_release(self, key):
+
+        
+        if key.char == 'l':
+            c4 = self.g.get_node ("cube_4")
+            for e in c4.edges:
+                if e[1] == 'on':
+                    son = e[0]
+            lower_cube = self.g.get_node(son)
         
         try:
 
             if key.char == 's':
                 print ("A step was made")
                 self.step_finished = True
-
-
 
         except:
             print ("Not a valid character")
@@ -134,13 +140,18 @@ class SpecificWorker(GenericWorker):
             on_e = Edge (lower.id, upper.id, "on", self.agent_id)
             self.g.insert_or_assign_edge (on_e)
 
+        if action == 'unstack':
+            upper = self.g.get_node ("cube_" + str(params[0]))
+            lower = self.g.get_node ("cube_" + str(params[1]))
+            self.g.delete_edge (hand.id, cube.id, "on")
+
 
     @QtCore.Slot()
     def compute(self):
         print('My plan is to ')
         print (self.plan)
 
-        print ("Now, execute", self.plan[0])
+        # print ("Now, execute", self.plan[0])
         try:
             while not self.step_finished:
                 pass
@@ -154,19 +165,6 @@ class SpecificWorker(GenericWorker):
 
         self.plan = self.plan[1:]
 
-        # computeCODE
-        # try:
-        #   self.differentialrobot_proxy.setSpeedBase(100, 0)
-        # except Ice.Exception as e:
-        #   traceback.print_exc()
-        #   print(e)
-
-        # The API of python-innermodel is not exactly the same as the C++ version
-        # self.innermodel.updateTransformValues('head_rot_tilt_pose', 0, 0, 0, 1.3, 0, 0)
-        # z = librobocomp_qmat.QVec(3,0)
-        # r = self.innermodel.transform('rgbd', z, 'laser')
-        # r.printvector('d')
-        # print(r[0], r[1], r[2])
 
         return True
 

@@ -50,7 +50,7 @@ from pydsr import *
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 10
+        self.Period = 50
 
         # YOU MUST SET AN UNIQUE ID FOR THIS AGENT IN YOUR DEPLOYMENT. "_CHANGE_THIS_ID_" for a valid unique integer
         self.agent_id = 136
@@ -243,8 +243,16 @@ class SpecificWorker(GenericWorker):
         rt = tf.transform_axis ("world", self.cube_rts[name], "hand_camera")
         v_rt = self.g.get_edge ("world", name, "virtual_RT")
 
+
         rot_diff   = self.angle_diff(rt[3:],  v_rt.attrs["rt_rotation_euler_xyz"].value) * 1000
         trans_diff = np.linalg.norm (rt[:3] - v_rt.attrs["rt_translation"].value)
+
+        if rot_diff > 200:
+            print ('For', name)
+            print ('Ang diff', rt[3:], v_rt.attrs["rt_rotation_euler_xyz"].value)
+            print ('is', rot_diff)
+            print ('\n\n')
+
 
         return rot_diff, trans_diff
 
@@ -292,9 +300,12 @@ class SpecificWorker(GenericWorker):
             e = rot_diff + trans_diff
             error_array.append(e)
 
-            if e > 100:
-                print (cube.name, "is in a surprising pose. E =", e)
+            if e > 150:
+                print (cube.name, "is in a surprising pose. E =", rot_diff, trans_diff)
                 cube.attrs['active_agent'].value = True
+                self.g.update_node (cube)
+            else:
+                cube.attrs['active_agent'].value = False
                 self.g.update_node (cube)
             # elif e > 60:
             #     print ("Yeah, it might be, update", cube.name)
