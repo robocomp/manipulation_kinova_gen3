@@ -97,6 +97,8 @@ class SpecificWorker(GenericWorker):
             on_release=self.on_release)
         listener.start()
         self.can_update_sim = True
+
+        self.past_attempts = []
        
 
         # self.sim.insert_cube ("cube_6", [416, 47,   50], "base")
@@ -145,6 +147,10 @@ class SpecificWorker(GenericWorker):
             if cube_id == 5:
                 print ("--> Received update signal")
                 self.can_update_sim = True
+
+            # if key.char == 's':
+            #     print ("A step was made")
+            #     self.step_finished = True
             # self.object_of_interest  = "cube_" + str(cube_id)
             # print ("got to check", self.object_of_interest)
 
@@ -167,6 +173,11 @@ class SpecificWorker(GenericWorker):
 
     def evaluate_surprising_position (self, cubes):
         print ("suspicious", cubes)
+
+        "Grasped cube can be anywhere"
+        if cubes[0] == self.grasped_cube:
+            return
+
         c4 = self.g.get_node (cubes[0])
         son = None
         for e in c4.edges:
@@ -193,14 +204,26 @@ class SpecificWorker(GenericWorker):
             print (low_pos)
 
             self.sim.set_multiple_objects_poses ([c4.name, lower_cube.name], [high_pos, low_pos], "base")
+            
 
         else:
             print ("It is not over other cube")
-            print ("Please, pick", c4.name, "and place it on the table")
-            for i in range (5):
-                print (5-i, "...")
-                time.sleep(1)
-            print ("Time is up")
+            on_edges = self.g.get_edges_by_type ("on")
+            for e in on_edges:
+                print (e.destination)
+                print (e.origin)
+
+                if e.destination == c4.id:
+                    print ("But it is should be under. It is not")
+                    self.g.delete_edge (self.g.get_node(e.origin).id, e.destination, "on")
+                
+            # print ("Please, pick", c4.name, "and place it on the table")
+            # for i in range (10):
+            #     print (10-i, "...")
+            #     time.sleep(1)
+            # print ("Time is up")
+
+            
 
     @QtCore.Slot()
     def compute(self):

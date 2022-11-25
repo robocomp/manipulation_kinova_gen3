@@ -247,11 +247,11 @@ class SpecificWorker(GenericWorker):
         rot_diff   = self.angle_diff(rt[3:],  v_rt.attrs["rt_rotation_euler_xyz"].value) * 1000
         trans_diff = np.linalg.norm (rt[:3] - v_rt.attrs["rt_translation"].value)
 
-        if rot_diff > 200:
-            print ('For', name)
-            print ('Ang diff', rt[3:], v_rt.attrs["rt_rotation_euler_xyz"].value)
-            print ('is', rot_diff)
-            print ('\n\n')
+        # if rot_diff > 200:
+        #     print ('For', name)
+        #     print ('Ang diff', rt[3:], v_rt.attrs["rt_rotation_euler_xyz"].value)
+        #     print ('is', rot_diff)
+        #     print ('\n\n')
 
 
         return rot_diff, trans_diff
@@ -285,6 +285,8 @@ class SpecificWorker(GenericWorker):
 
             rt = self.g.get_edge ("hand_camera", cube.name, "RT")
             if rt is None:
+                cube.attrs['active_agent'].value = False
+                self.g.update_node (cube)
                 continue
             self.cube_rts[cube.name] = np.concatenate((rt.attrs["rt_translation"].value, rt.attrs["rt_rotation_euler_xyz"].value))
 

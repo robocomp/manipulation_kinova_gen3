@@ -231,8 +231,10 @@ class SpecificWorker(GenericWorker):
             finger_node = self.g.get_node ("finger_" + str(i))
             new_pos = tf.transform_axis ("world", tips[i] + [0,0,0], "hand_camera")
             # print (hand_node, finger_node.id, new_pos[:3], new_pos[3:])
-            rt.insert_or_assign_edge_RT(hand_node, finger_node.id, new_pos[:3], new_pos[3:])
-
+            try:
+                rt.insert_or_assign_edge_RT(hand_node, finger_node.id, new_pos[:3], new_pos[3:])
+            except:
+                print ("Not enough fingers")
 
         # print ("update")
         self.g.update_node(world)

@@ -104,12 +104,12 @@ class SpecificWorker(GenericWorker):
     def on_release(self, key):
 
         
-        if key.char == 'l':
-            c4 = self.g.get_node ("cube_4")
-            for e in c4.edges:
-                if e[1] == 'on':
-                    son = e[0]
-            lower_cube = self.g.get_node(son)
+        # if key.char == 'l':
+        #     c4 = self.g.get_node ("cube_4")
+        #     for e in c4.edges:
+        #         if e[1] == 'on':
+        #             son = e[0]
+        #     lower_cube = self.g.get_node(son)
         
         try:
 
