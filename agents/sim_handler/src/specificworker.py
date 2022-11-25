@@ -175,8 +175,32 @@ class SpecificWorker(GenericWorker):
         if son is not None:
             lower_cube = self.g.get_node(son)
             print ("It is over", lower_cube.name)
+            print ("Testing", c4.name, "on top of", lower_cube.name)
+
+
+            tf = inner_api(self.g)
+            high_pos = tf.transform_axis ("world", c4.name)
+
+            int_rot = high_pos[3:]
+            ext_rot = R.from_euler('XYZ', int_rot).as_euler('xyz')
+            high_pos[3:] = ext_rot
+
+            low_pos = np.copy(high_pos)
+            low_pos [2] -= 20
+
+            print ("New poses are:")
+            print (high_pos)
+            print (low_pos)
+
+            self.sim.set_multiple_objects_poses ([c4.name, lower_cube.name], [high_pos, low_pos], "base")
+
         else:
             print ("It is not over other cube")
+            print ("Please, pick", c4.name, "and place it on the table")
+            for i in range (5):
+                print (5-i, "...")
+                time.sleep(1)
+            print ("Time is up")
 
     @QtCore.Slot()
     def compute(self):

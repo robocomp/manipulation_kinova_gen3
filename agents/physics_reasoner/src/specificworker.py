@@ -300,7 +300,8 @@ class SpecificWorker(GenericWorker):
             e = rot_diff + trans_diff
             error_array.append(e)
 
-            if e > 150:
+            # if e > 150:
+            if trans_diff > 10:
                 print (cube.name, "is in a surprising pose. E =", rot_diff, trans_diff)
                 cube.attrs['active_agent'].value = True
                 self.g.update_node (cube)
