@@ -27,17 +27,33 @@ class Planifier():
         initState = ["  (handempty)"]
         cubes = []
         for name in cube_ids:
-            # if tag.tag_id == 1:
-            #     initState.append(f"  (clear {1})")
-            #     initState.append(f"     (on {1} {2})")
-            # elif tag.tag_id == 2:
-            #     initState.append(f"     (ontable {2})")
-            # else:
             initState.append(f"  (clear {name})")
             initState.append(f"     (ontable {name})")
                 
             cubes.append(name)
         return initState, cubes
+
+
+    def create_current_state(self, states):
+        initState = ["  (handempty)"]
+        cubes = set([])
+
+        for s in states:
+            cond = s[0]
+
+            if cond == "clear":
+                initState.append(f"  (clear {s[1]})")
+                cubes.add(s[1])
+
+            elif cond == "table":
+                initState.append(f"     (ontable {s[1]})")
+                cubes.add(s[1])
+
+            elif cond == "on":
+                initState.append((f"     (on {s[1]} {s[2]})")) 
+                cubes.add(s[2])
+        
+        return initState, list(cubes)
 
     def is_horizontal(self, tag):
         up_line = LA.norm(np.array(tag.corners[3]) - np.array(tag.corners[2]))
@@ -47,9 +63,13 @@ class Planifier():
     def create_final_state(self, goal):
         end_state = ["  (and(handempty)"]
 
+        end_state.append(f"     (ontable {4})")
+        # end_state.append(f"     (ontable {5})")
+        # end_state.append(f"     (ontable {3})")
         end_state.append(f"     (ontable {6})")
-        end_state.append(f"     (ontable {5})")
-        end_state.append((f"     (on {4} {5})"))       
+        end_state.append((f"     (on {5} {3})"))  
+        end_state.append((f"     (on {3} {4})"))       
+     
         return end_state
 
     def save_to_file(self, init_state, end_state, tag_list):

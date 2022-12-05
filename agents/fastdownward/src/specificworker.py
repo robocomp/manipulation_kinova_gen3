@@ -44,7 +44,7 @@ from pydsr import *
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 2000
+        self.Period = 500
 
         self.agent_id = 183
         self.g = DSRGraph(0, "pythonAgent", self.agent_id)
@@ -55,6 +55,8 @@ class SpecificWorker(GenericWorker):
         self.end_state = []
         
         self.step_finished = False
+        self.cancel_plan = True
+        self.delete_as_planned = False
 
         listener = keyboard.Listener(
             on_press=None,
@@ -67,7 +69,7 @@ class SpecificWorker(GenericWorker):
             # signals.connect(self.g, signals.DELETE_NODE, self.delete_node)
             # signals.connect(self.g, signals.UPDATE_EDGE, self.update_edge)
             # signals.connect(self.g, signals.UPDATE_EDGE_ATTR, self.update_edge_att)
-            # signals.connect(self.g, signals.DELETE_EDGE, self.delete_edge)
+            signals.connect(self.g, signals.DELETE_EDGE, self.delete_edge)
             console.print("signals connected")
         except RuntimeError as e:
             print(e)
@@ -79,24 +81,27 @@ class SpecificWorker(GenericWorker):
             self.timer.start(self.Period)
 
 
-        time.sleep(0.5)
+        # time.sleep(0.5)
 
-        cube_nodes = self.g.get_nodes_by_type("box")
-        cube_names = []
-        for c in cube_nodes:
-            cube_names.append(c.name[-1])
-        print (cube_names)
-        self.init_state, self.cubes = self.planner.create_initial_state_cubes(cube_names)
-        self.end_state = self.planner.create_final_state([])
-        time.sleep(0.5)
+        # ########################## Example plan generation ##################################
+        # cube_nodes = self.g.get_nodes_by_type("box")
+        # cube_names = []
+        # for c in cube_nodes:
+        #     cube_names.append(c.name[-1])
+        # print (cube_names)
+        # self.init_state, self.cubes = self.planner.create_initial_state_cubes(cube_names)
+        # self.end_state = self.planner.create_final_state([])
+        # time.sleep(0.5)
 
-        self.planner.save_to_file(self.init_state, self.end_state, self.cubes)
-        self.planner.exec_planner()
-        time.sleep(0.5)
+        # self.planner.save_to_file(self.init_state, self.end_state, self.cubes)
+        # self.planner.exec_planner()
+        # time.sleep(0.5)
         
-        self.plan = self.planner.load_plan()
+        # self.plan = self.planner.load_plan()
+        # print (self.plan)
+        # ####################################################################################
 
-        print (self.plan)
+        
 
     def __del__(self):
         """Destructor"""
@@ -113,6 +118,15 @@ class SpecificWorker(GenericWorker):
         
         try:
 
+            if key.char == 'j':
+                upper = self.g.get_node ("cube_4")
+                lower = self.g.get_node ("cube_3")
+                on_e = Edge (lower.id, upper.id, "on", self.agent_id)
+                self.g.insert_or_assign_edge (on_e)
+
+            if key.char == 'c':
+                self.cancel_plan = True
+            
             if key.char == 's':
                 print ("A step was made")
                 self.step_finished = True
@@ -141,29 +155,75 @@ class SpecificWorker(GenericWorker):
             self.g.insert_or_assign_edge (on_e)
 
         if action == 'unstack':
+            self.delete_as_planned = True
             upper = self.g.get_node ("cube_" + str(params[0]))
             lower = self.g.get_node ("cube_" + str(params[1]))
-            self.g.delete_edge (hand.id, cube.id, "on")
+            self.g.delete_edge (upper.id, lower.id, "on")
 
+
+    def get_current_state (self):
+
+        cube_nodes = self.g.get_nodes_by_type("box")
+        cubes = []
+        clear = []        
+
+        for c in cube_nodes:
+            son = None
+            for e in c.edges:
+                if e[1] == 'on':
+                    son = e[0]
+            if son is not None:
+                cubes.append(["on", c.name[-1], self.g.get_node(son).name[-1]])
+            clear.append(c.name[-1])
+
+        belowers = np.array(cubes)[:,2] if cubes else []
+        uppers   = np.array(cubes)[:,1] if cubes else []
+
+        for c in clear:
+            if c not in belowers:
+                cubes.append(["clear", c])
+            if c not in uppers:
+                cubes.append(["table", c])
+
+
+        return cubes
 
     @QtCore.Slot()
     def compute(self):
-        print('My plan is to ')
-        print (self.plan)
 
-        # print ("Now, execute", self.plan[0])
-        try:
-            while not self.step_finished:
-                pass
-        except KeyboardInterrupt:
-            quit()
-        
-        print ("Well done")
-        self.step_finished = False
+        if self.cancel_plan:
+            self.cancel_plan = False
+            print ("Gonna make a plan...")
 
-        self.impact_effects(self.plan[0])
+            st = self.get_current_state()
+            print(st)
+            print ('-----------------')
 
-        self.plan = self.plan[1:]
+            self.init_state, self.cubes = self.planner.create_current_state(st)
+            self.end_state = self.planner.create_final_state([])
+            print(self.cubes)
+            time.sleep(0.1)
+
+            self.planner.save_to_file(self.init_state, self.end_state, self.cubes)
+            self.planner.exec_planner()
+            time.sleep(0.1)
+            
+            self.plan = self.planner.load_plan()
+
+            print("Ok, there we go \n", self.plan)
+            print('My plan is to ')
+            print (self.plan)
+
+        if self.step_finished:
+
+            print ("Well done")
+            self.step_finished = False
+            self.impact_effects(self.plan[0])
+            self.plan = self.plan[1:]
+            if self.plan:
+                print ("now, execute", self.plan[0])
+            else:
+                print ("Done with the plan!")
 
 
         return True
@@ -196,4 +256,10 @@ class SpecificWorker(GenericWorker):
         console.print(f"UPDATE EDGE ATT: {fr} to {type} {attribute_names}", style='green')
 
     def delete_edge(self, fr: int, to: int, type: str):
-        console.print(f"DELETE EDGE: {fr} to {type} {type}", style='green')
+        dest = self.g.get_node(to)
+        if type == "on":
+            print ("Deleted edge, cancel plan")
+            if self.delete_as_planned:
+                self.delete_as_planned = False
+            else:
+                self.cancel_plan = True

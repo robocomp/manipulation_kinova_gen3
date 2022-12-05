@@ -174,7 +174,7 @@ class SpecificWorker(GenericWorker):
     def evaluate_surprising_position (self, cubes):
         print ("suspicious", cubes)
 
-        "Grasped cube can be anywhere"
+        # "Grasped cube can be anywhere"
         if cubes[0] == self.grasped_cube:
             return
 
@@ -207,6 +207,7 @@ class SpecificWorker(GenericWorker):
             
 
         else:
+            
             print ("It is not over other cube")
             on_edges = self.g.get_edges_by_type ("on")
             for e in on_edges:
@@ -244,7 +245,6 @@ class SpecificWorker(GenericWorker):
             print ('I should resolve the situation with', self.suspicious_cubes)
             self.evaluate_surprising_position (self.suspicious_cubes)
             self.surprising_event = False
-
 
 
         if self.was_occupied != self.occupied:
