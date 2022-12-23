@@ -253,9 +253,9 @@ class SpecificWorker(GenericWorker):
                 self.stop_moving ()
             self.was_occupied  = self.occupied
 
-        if not np.array_equal(self.current_arm_pos, self.dest_arm_pos):
-            self.move_to_goal(self.dest_arm_pos)
-            self.current_arm_pos = np.copy(self.dest_arm_pos)
+        # if not np.array_equal(self.current_arm_pos, self.dest_arm_pos):
+        #     self.move_to_goal(self.dest_arm_pos)
+        #     self.current_arm_pos = np.copy(self.dest_arm_pos)
         
         #### update from arm feedback ####
         # self.update_simulated_arm ()
@@ -285,7 +285,7 @@ class SpecificWorker(GenericWorker):
         poses = []
         if self.updated_cubes: # and self.can_update_sim:
         # if self.updated_cubes:
-            if self.current_arm_pos is not None and self.current_arm_pos[2] > 345:
+            if self.current_arm_pos is not None : #and self.current_arm_pos[2] > 345:
                 for id in self.updated_cubes:
 
                     # if id in self.suspicious_cubes:
@@ -375,8 +375,14 @@ class SpecificWorker(GenericWorker):
         self.update_cubes_beliefs ()
 
         # print ("Beliefs", time.time()-now)
-        self.update_hand()
+
+        ################################
+        ####### Update human hand ######
+
+        # self.update_hand()
         
+        ################################
+
         self.depth = np.frombuffer(self.depth_raw, dtype=np.uint16)
         self.depth = self.depth.reshape((480, 640))
         # self.depth_show = cv2.applyColorMap(cv2.convertScaleAbs(self.depth, alpha=0.03), cv2.COLORMAP_HSV)
@@ -679,11 +685,12 @@ class SpecificWorker(GenericWorker):
                 if (dest.name not in self.boxes_ids):
                     self.boxes_ids.append (dest.name)
 
-        # if dest.type == 'box' and type == "graspping" and dest.name[-1] != '*':
-        #     self.grasped_cube = dest.name
-            # if dest.name != self.grasped_cube:
-            #     self.new_grasp = True
-            #     self.grasped_cube = dest.name
+        if dest.type == 'box' and type == "graspping" and dest.name[-1] != '*':
+            self.grasped_cube = dest.name
+            if dest.name != self.grasped_cube:
+                self.new_grasp = True
+                self.grasped_cube = dest.name
+
         # console.print(f"UPDATE EDGE: {fr} to {to}", type, style='green')
 
     def update_edge_att(self, fr: int, to: int, type: str, attribute_names: [str]):
@@ -697,6 +704,6 @@ class SpecificWorker(GenericWorker):
             print ("I think this is wrong but wont change color")
             # self.object_of_interest = dest.name
         # dest = self.g.get_node(to)
-        # if dest.type == 'box' and type == "graspping" and dest.name[-1] != '*':
-        #     self.grasped_cube = None
+        if dest.type == 'box' and type == "graspping" and dest.name[-1] != '*':
+            self.grasped_cube = None
             # self.grasp_released = True

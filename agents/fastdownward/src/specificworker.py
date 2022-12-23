@@ -35,6 +35,9 @@ console = Console(highlight=False)
 from pydsr import *
 
 
+POSE_FILE = '/home/guille/catkin_ws/src/arm_controller_g/dest_pose.arm'
+GRIPPER_FILE = '/home/guille/catkin_ws/src/arm_controller_g/gripper_pose.arm'
+
 # If RoboComp was compiled with Python bindings you can use InnerModel in Python
 # import librobocomp_qmat
 # import librobocomp_osgviewer
@@ -148,10 +151,19 @@ class SpecificWorker(GenericWorker):
         action = step[0]
         params = step[1]
 
+        if action == 'pick-up':
+            self.pick_cube ("cube_" + str(params[0]))
+            
+
         if action == 'stack':
+            self.stack_on ("cube_" + str(params[1]))
             upper = self.g.get_node ("cube_" + str(params[0]))
             lower = self.g.get_node ("cube_" + str(params[1]))
+
             on_e = Edge (lower.id, upper.id, "on", self.agent_id)
+            
+            hand = self.g.get_node ("gripper")
+            self.g.delete_edge (hand.id, upper.id, "graspping")
             self.g.insert_or_assign_edge (on_e)
 
         if action == 'unstack':
@@ -160,6 +172,105 @@ class SpecificWorker(GenericWorker):
             lower = self.g.get_node ("cube_" + str(params[1]))
             self.g.delete_edge (upper.id, lower.id, "on")
 
+    def pick_cube (self, name):
+        print ("Will pick up", name)
+
+        self.go_to_cube(name)
+        time.sleep(5)
+        self.move_gripper(0.9)
+        time.sleep(5)
+        cube = self.g.get_node (name)
+        hand = self.g.get_node ("gripper")
+        g_rt = Edge (cube.id, hand.id, "graspping", self.agent_id)
+        self.g.insert_or_assign_edge (g_rt)
+        self.go_above_cube(name, 100)
+        time.sleep(5)
+        self.go_to_home()
+        time.sleep(5)
+
+    def stack_on (self, name):
+        print ("Will stack on", name)
+        self.go_above_cube(name, 50)
+        time.sleep(5)
+        self.move_gripper(0.0)
+        time.sleep(5)
+        self.go_above_cube(name, 100)
+        time.sleep(5)
+        self.go_to_home()
+        time.sleep(5)
+
+
+    def go_to_cube (self, name):
+
+        v_rt = self.g.get_edge ("world", name, "virtual_RT")
+
+        # rot_diff   = self.angle_diff(rt[3:],  v_rt.attrs["rt_rotation_euler_xyz"].value) * 1000
+        # trans_diff = np.linalg.norm (rt[:3] - v_rt.attrs["rt_translation"].value)
+
+        # print (v_rt.attrs["rt_translation"].value, v_rt.attrs["rt_rotation_euler_xyz"].value)
+        dest_v_rt = list(v_rt.attrs["rt_translation"].value) + list(v_rt.attrs["rt_rotation_euler_xyz"].value)
+
+        tf = inner_api(self.g)
+        cube_pos = tf.transform_axis ("arm", dest_v_rt, "world")
+
+        # cube_pos[2] = 20
+        trans_p = np.array(cube_pos[:3]) / 1000
+        
+        print (cube_pos)
+
+        f = open(POSE_FILE, "w")
+        formated_pose = ''
+        for i in trans_p:
+            formated_pose += str(i) + ', '
+        
+        formated_pose += '0, 20, 0'
+
+        f.write(formated_pose)
+        f.close()
+
+    def go_above_cube (self, name, amount):
+
+        v_rt = self.g.get_edge ("world", name, "virtual_RT")
+
+        # rot_diff   = self.angle_diff(rt[3:],  v_rt.attrs["rt_rotation_euler_xyz"].value) * 1000
+        # trans_diff = np.linalg.norm (rt[:3] - v_rt.attrs["rt_translation"].value)
+
+        # print (v_rt.attrs["rt_translation"].value, v_rt.attrs["rt_rotation_euler_xyz"].value)
+        dest_v_rt = list(v_rt.attrs["rt_translation"].value) + list(v_rt.attrs["rt_rotation_euler_xyz"].value)
+
+        tf = inner_api(self.g)
+        cube_pos = tf.transform_axis ("arm", dest_v_rt, "world")
+
+        cube_pos[2] += amount
+        trans_p = np.array(cube_pos[:3]) / 1000
+        
+        print (cube_pos)
+
+        f = open(POSE_FILE, "w")
+        formated_pose = ''
+        for i in trans_p:
+            formated_pose += str(i) + ', '
+        
+        formated_pose += '0, 20, 0'
+
+        f.write(formated_pose)
+        f.close()
+
+    def move_gripper (self, pos):
+        f = open(GRIPPER_FILE, "w")
+        f.write(str(pos))
+        f.close()
+
+    def go_to_home (self):
+
+        print ("going home")
+
+        f = open(POSE_FILE, "w")
+        
+        formated_pose = '0.4, 0, 0.1, 0, 20, 0'
+
+        f.write(formated_pose)
+        f.close()
 
     def get_current_state (self):
 

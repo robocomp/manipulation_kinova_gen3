@@ -33,7 +33,7 @@ import cv2
 from scipy.spatial.transform import Rotation as R
 
 from pynput import keyboard
-
+import time
 import apriltag
 
 sys.path.append('/opt/robocomp/lib')
@@ -48,6 +48,8 @@ np.set_printoptions(linewidth=np.inf)
 # import librobocomp_osgviewer
 # import librobocomp_innermodel
 
+POSE_FILE = '/home/guille/catkin_ws/src/arm_controller_g/dest_pose.arm'
+GRIPPER_FILE = '/home/guille/catkin_ws/src/arm_controller_g/gripper_pose.arm'
 
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
@@ -73,10 +75,10 @@ class SpecificWorker(GenericWorker):
         self.offsets = [20, 20, 20, 20, 20, 20]
         self.roi_cubes = ((300,100), (900,600))
 
-        # listener = keyboard.Listener(
-        #     on_press=self.on_press,
-        #     on_release=self.on_release)
-        # listener.start()
+        listener = keyboard.Listener(
+            on_press=self.on_press,
+            on_release=self.on_release)
+        listener.start()
 
         self.align_to = rs.stream.color
         self.align = rs.align(self.align_to)
@@ -119,25 +121,108 @@ class SpecificWorker(GenericWorker):
         #         key))
 
     def on_release(self, key):
-        print('Key released: {0}'.format(
-            key))
-        
+        print('Key released: {0}'.format(key))
+
         try:
+            if key.char == 'h':
+                self.go_to_home()
+                time.sleep(3)
+                self.move_gripper (0.0)
+            # elif key.char == 'c':
+            #     self.go_to_cube("cube_5")
+            #     time.sleep(3)
+            #     self.move_gripper (0.9)
+            #     time.sleep(10)
+            #     self.go_above_cube ("cube_5")
+
             cube_id = int (key.char)
+                
 
-            dest_pose = self.hadcoded_poses [cube_id]
 
-            print ("should move to ", dest_pose)
-            gripper = self.g.get_node ("gripper")
-            gripper.attrs["gripper_target_finger_distance"].value = 1.0
-            gripper.attrs["target"].value = dest_pose
-            self.g.update_node (gripper)
+
+            # print ("should move to ", dest_pose)
+            # gripper = self.g.get_node ("gripper")
+            # gripper.attrs["gripper_target_finger_distance"].value = 1.0
+            # gripper.attrs["target"].value = dest_pose
+            # self.g.update_node (gripper)
         except:
             print ("not an int")
 
         if key == keyboard.Key.esc:
             # Stop listener
             return False
+
+    def go_to_cube (self, name):
+
+        v_rt = self.g.get_edge ("world", name, "virtual_RT")
+
+        # rot_diff   = self.angle_diff(rt[3:],  v_rt.attrs["rt_rotation_euler_xyz"].value) * 1000
+        # trans_diff = np.linalg.norm (rt[:3] - v_rt.attrs["rt_translation"].value)
+
+        # print (v_rt.attrs["rt_translation"].value, v_rt.attrs["rt_rotation_euler_xyz"].value)
+        dest_v_rt = list(v_rt.attrs["rt_translation"].value) + list(v_rt.attrs["rt_rotation_euler_xyz"].value)
+
+        tf = inner_api(self.g)
+        cube_pos = tf.transform_axis ("arm", dest_v_rt, "world")
+
+        # cube_pos[2] = 20
+        trans_p = np.array(cube_pos[:3]) / 1000
+        
+        print (cube_pos)
+
+        f = open(POSE_FILE, "w")
+        formated_pose = ''
+        for i in trans_p:
+            formated_pose += str(i) + ', '
+        
+        formated_pose += '0, 20, 0'
+
+        f.write(formated_pose)
+        f.close()
+
+    def go_above_cube (self, name):
+
+        v_rt = self.g.get_edge ("world", name, "virtual_RT")
+
+        # rot_diff   = self.angle_diff(rt[3:],  v_rt.attrs["rt_rotation_euler_xyz"].value) * 1000
+        # trans_diff = np.linalg.norm (rt[:3] - v_rt.attrs["rt_translation"].value)
+
+        # print (v_rt.attrs["rt_translation"].value, v_rt.attrs["rt_rotation_euler_xyz"].value)
+        dest_v_rt = list(v_rt.attrs["rt_translation"].value) + list(v_rt.attrs["rt_rotation_euler_xyz"].value)
+
+        tf = inner_api(self.g)
+        cube_pos = tf.transform_axis ("arm", dest_v_rt, "world")
+
+        cube_pos[2] += 100
+        trans_p = np.array(cube_pos[:3]) / 1000
+        
+        print (cube_pos)
+
+        f = open(POSE_FILE, "w")
+        formated_pose = ''
+        for i in trans_p:
+            formated_pose += str(i) + ', '
+        
+        formated_pose += '0, 20, 0'
+
+        f.write(formated_pose)
+        f.close()
+
+    def move_gripper (self, pos):
+        f = open(GRIPPER_FILE, "w")
+        f.write(str(pos))
+        f.close()
+
+    def go_to_home (self):
+
+        print ("going home")
+
+        f = open(POSE_FILE, "w")
+        
+        formated_pose = '0.4, 0, 0.1, 0, 20, 0'
+
+        f.write(formated_pose)
+        f.close()
 
     def setParams(self, params):
         # try:
