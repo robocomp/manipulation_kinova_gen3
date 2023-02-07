@@ -138,12 +138,12 @@ class SpecificWorker(GenericWorker):
         depth = cam["handle"].capture_depth(True)
         image = cv2.normalize(src=image_float, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
         cam["rgb"] = RoboCompCameraRGBDSimple.TImage(cameraID=cam["id"], width=cam["width"], height=cam["height"],
-                                                     depth=3, focalx=cam["focal"], focaly=cam["focal"],
-                                                     alivetime=time.time(), image=image.tobytes())
+                                                     depth=3, focalx=int(cam["focal"]), focaly=int(cam["focal"]),
+                                                     alivetime=int(time.time()), image=image.tobytes())
         cam["depth"] = RoboCompCameraRGBDSimple.TDepth(cameraID=cam["id"], width=cam["handle"].get_resolution()[0],
                                                        height=cam["handle"].get_resolution()[1],
-                                                       focalx=cam["focal"], focaly=cam["focal"],
-                                                       alivetime=time.time(), depthFactor=1.0, depth=depth.tobytes())
+                                                       focalx=int(cam["focal"]), focaly=int(cam["focal"]),
+                                                       alivetime=int(time.time()), depthFactor=1.0, depth=depth.tobytes())
 
     ###########################################
     ### JOYSITCK read and move the robot
@@ -178,9 +178,9 @@ class SpecificWorker(GenericWorker):
                 if x.name == "gripper":
                     if x.value <= -1:
                         self.pr.script_call("open@ROBOTIQ_85", 1)
-                        print("abriendo")
+                        print("abriendo", x.value)
                     if x.value >= 1:
-                        print("cerrando")
+                        print("cerrando", x.value)
                         self.pr.script_call("close@ROBOTIQ_85", 1)
                 dummy = Dummy("goal")
                 parent_frame_object = None
