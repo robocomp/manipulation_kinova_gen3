@@ -177,8 +177,9 @@ class SpecificWorker(GenericWorker):
                     sideR = x.value if np.abs(x.value) > 0.01 else 0
                 if x.name == "gripper":
                     if x.value <= -1:
-                        self.pr.script_call("open@ROBOTIQ_85", 1)
-                        print("abriendo", x.value)
+                        #self.pr.script_call("open@ROBOTIQ_85", 1)
+                        #print("abriendo", x.value)
+                        pass
                     if x.value >= 1:
                         print("cerrando", x.value)
                         self.pr.script_call("close@ROBOTIQ_85", 1)
