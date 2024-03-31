@@ -1,0 +1,13 @@
+import "KinovaArm.idsl";
+import "JoystickAdapter.idsl";
+
+Component pybullet_controller
+{
+    Communications
+    {
+        implements KinovaArm;
+        subscribesTo JoystickAdapter;
+    };
+    language python;
+};
+
