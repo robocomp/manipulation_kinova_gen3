@@ -292,6 +292,23 @@ class KinovaGen3():
                 reached = True
             #print("Error:", jointdiff, error_threshold)
     def get_angle_difference(self,control_joints_target,data_by_joint = False):
+        """
+        compares the current joint state with a target angle and computes the
+        difference for each joint, returning a list of differences or a single
+        value depending on input.
+
+        Args:
+            control_joints_target (int): target joint angles of the robot for which
+                the angle difference with the current joint states is calculated.
+            data_by_joint (bool): data returned by the function, either as an array
+                of length equal to the number of joints or as a scalar value
+                indicating the overall angle difference.
+
+        Returns:
+            list: an array of distances representing the angle difference between
+            each joint and its target value.
+
+        """
         difference_by_joint = []
         for i in range(len(self.robot_control_joints)):
             jointstate_aux = p.getJointState(self.robot_id, self.robot_control_joints_index[i])
@@ -309,6 +326,29 @@ class KinovaGen3():
             return jointdiff
 
     def get_pose_difference(self,actual_position,actual_orientation_e,desired_position,desired_orientation_e):
+        """
+        takes in two lists of positions and orientations of a robot as input,
+        compares them to the desired values, and outputs the differences between
+        the actual and desired values for both position and orientation.
+
+        Args:
+            actual_position (list): 3D position of the object being analyzed
+                relative to its previous position in the environment.
+            actual_orientation_e (float): 3x3 rotation matrix that encodes the
+                current orientation of the object being tracked, which is used to
+                compute the difference between the current and desired orientations.
+            desired_position (float): 2D position of the target pose that the code
+                is trying to achieve, which is used to calculate the difference
+                between the actual and desired positions.
+            desired_orientation_e (float): 3D rotation vector of the target position,
+                which is used to compute the difference between the actual and
+                desired orientations.
+
+        Returns:
+            list: a list of differences between the actual and desired positions
+            and orientations of a robot's end effector.
+
+        """
         difference = []
         for i,j in zip(actual_position, desired_position):
             difference.append(i-j)
@@ -317,6 +357,14 @@ class KinovaGen3():
         return difference
 
     def get_actual_control_joints_angle(self):
+        """
+        iterates over a list of robot control joints and appends the current
+        position of each joint to a list called `joint_state_pos`.
+
+        Returns:
+            float: a list of joint angles for the robot's control joints.
+
+        """
         for i in range(len(self.robot_control_joints)):
             joint_state_aux = p.getJointState(self.robot_id, self.robot_control_joints_index[i])
             if i == 0:
@@ -326,6 +374,16 @@ class KinovaGen3():
         return joint_state_pos
 
     def get_actual_control_joints_velocity(self):
+        """
+        retrieves the current velocities of the control joints of a robot from the
+        Robot Operating System (ROS) message broker. It does so by iterating through
+        the length of the `robot_control_joints` list and appending the velocity
+        values for each joint to a list called `joint_state_velocity`.
+
+        Returns:
+            list: a list of actual joint velocities.
+
+        """
         joint_state_velocity = []
         for i in range(len(self.robot_control_joints)):
             joint_state_aux = p.getJointState(self.robot_id, self.robot_control_joints_index[i])
@@ -333,6 +391,15 @@ class KinovaGen3():
         return joint_state_velocity
 
     def get_actual_control_joints_torque(self):
+        """
+        iterates over a list of robot control joints and retrieves their current
+        torque values from the robot's joint state. It returns a list of torque
+        values for each joint.
+
+        Returns:
+            list: a list of torque values for each joint in the robot's control system.
+
+        """
         for i in range(len(self.robot_control_joints)):
             joint_state_aux = p.getJointState(self.robot_id, self.robot_control_joints_index[i])
             if i == 0:
@@ -342,6 +409,28 @@ class KinovaGen3():
         return joint_state_torque
 
     def get_actual_control_joints_full(self):
+        """
+        retrieves and returns a list of actual control joint states for a robot,
+        obtained by iterating over the joint states and concatenating them into a
+        single list.
+
+        Returns:
+            `numpy.ndarray`.: a 3D array of joint states for the robot, with each
+            element representing the position of a joint in the robot's body.
+            
+            		- `jointsdata`: This is a list of length 3 \* number of joints in
+            the robot, where each element is a tuple containing the current position
+            (x, y, z) and orientation (roll, pitch, yaw) of a single joint.
+            		- The list is initialized with zeros to represent the joint positions
+            when the function is called.
+            		- The function uses a for loop to populate the list with the actual
+            values from the robot's joint states.
+            		- Each joint's position and orientation are represented by separate
+            elements in the tuple, which is consistent with the structure of the
+            `JointState` class used by the `robot_control` module.
+            
+
+        """
         jointsdata=[0]*3*len(self.robot_control_joints)
         for i in range(len(self.robot_control_joints)):
             jointstate_aux = p.getJointState(self.robot_id, self.robot_control_joints_index[i])
@@ -349,6 +438,54 @@ class KinovaGen3():
                 jointsdata[i*3+j] = jointstate_aux[k]
         return jointsdata
     def forward_kinematics_7dof_kinova_gen3_1(self,current_joints):
+        """
+        computes the kinematic transformation matrix (TKinova) for a Kinova Gen
+        III robot, given the current joint angles and parameters (dh_a and dh_d).
+        The resulting TKinova matrix represents the end-effector coordinates in
+        the world coordinate system, as calculated through the forward kinematics
+        of the robot.
+
+        Args:
+            current_joints (float): 6-axis joint angles of the robot in real-time,
+                which are used to compute the kinematic chain's pose and generate
+                the final transformation matrix.
+
+        Returns:
+            4x4 rotation matrix.: a 4x4 rotation matrix representing the kinematic
+            transformation of a RoboThespian arm.
+            
+            		- TKinova: This is an 8x4x4 numpy array representing the kinematic
+            tree of the robot. Each element in the array corresponds to a joint
+            in the robot, with the first three dimensions (0, 0, and 1) representing
+            the position of the end effector, and the last three dimensions (2,
+            3, and 4) representing the orientation of the end effector.
+            		- dh_a: This is an 8-element numpy array representing the linear
+            gain coefficients for each joint in the robot. These coefficients are
+            used to correct the kinematic errors in the robot's movement.
+            		- dh_d: This is an 8-element numpy array representing the rotational
+            gain coefficients for each joint in the robot. These coefficients are
+            used to correct the rotational kinematic errors in the robot's movement.
+            		- robot_theta_zeros: This is a 7-element numpy array representing
+            the initial angles of the robot's joints, measured in radians.
+            		- robot_theta: This is an 8-element numpy array representing the
+            final angles of the robot's joints, computed by adding the kinematic
+            errors to the initial angles.
+            		- TBaseEnd: This is a 4x4 numpy array representing the identity
+            matrix, used as a starting point for computing the final kinematic
+            tree of the robot.
+            
+            	The output of the `forward_kinematics_7dof_kinova_gen3_1` function
+            can be destructured and analyzed further to understand its properties
+            and attributes. For example, the values in the TKinova array represent
+            the positions and orientations of the end effector in the robot's
+            coordinate system, while the values in the dh_a and dh_d arrays represent
+            the linear and rotational gain coefficients for each joint. The values
+            in the robot_theta and TBaseEnd arrays can be used to compute the final
+            angles of the robot's joints, taking into account any kinematic errors
+            or other factors that may affect the robot's movement.
+            
+
+        """
         dh_a = [0]*8
         dh_d = [0,\
             -(0.1564+0.1284)\
@@ -392,6 +529,38 @@ class KinovaGen3():
         return TBaseEnd
 
     def forward_kinematics_7dof_kinova_gen3_1_2(self,current_joints):
+        """
+        performs forward kinematics for a Kinova Gen3 robot with 7 degrees of
+        freedom, given the current joint positions as input. It calculates the
+        end-effector position and orientation in world coordinates using the
+        kinematic tree.
+
+        Args:
+            current_joints (int): 8 joint angles of the robot, which are used to
+                compute the kinematic transformation matrix `TKinova`.
+
+        Returns:
+            4x4 numpy array.: a 4x4 rotation matrix representing the kinematic
+            transformation of a 7-DOF robot based on the current joint angles.
+            
+            		- `TBaseEnd`: A 4x4 matrix representing the base link transformation.
+            It is a identity matrix.
+            		- The elements of `TKinova`: These are the kinematic transformations
+            for each joint in the robot. Each row represents the position and
+            orientation of a joint in the world frame, while each column represents
+            the corresponding position and orientation in the robot frame.
+            		- `dh_a` and `dh_d`: These are two vectors representing the dynamic
+            constraints of the robot. They are used to compute the final position
+            and orientation of the end effector in the world frame.
+            		- `robot_theta`: An 8-dimensional vector representing the current
+            position and orientation of each joint in the robot.
+            		- `TKinova[i,:,:]`: Each element of this matrix represents the
+            kinematic transformation for a particular joint in the robot. The
+            subscripts indicate the joint number (i), the rotation axis ([:]), and
+            the translation vector ([:,:]) corresponding to each joint.
+            
+
+        """
         dh_a = [0]*8
         dh_d = [0\
             ,0\
@@ -433,6 +602,35 @@ class KinovaGen3():
         return TBaseEnd
 
     def forward_kinematics_7dof_kinova_gen3_2(self,current_joints):
+        """
+        calculates the end-effector position of a Kinova Gen3 arm based on the
+        joint angles inputted as arguments, using a matrix multiplication approach.
+
+        Args:
+            current_joints (7-dimensional array.): 7-dimensional joint angles of
+                the robot in the current state, which are used to compute the
+                kinematic tree and solve the forward kinematics problem.
+                
+                		- `np.array([...])`: This line represents a 4D array with shape
+                `(6, 10)` representing the joint angles of the robot in degrees.
+                Each row corresponds to one of the 6 joints in the robot's kinematic
+                chain, and each column represents the angle of that joint.
+                		- `current_joints`: This is the input variable passed into the
+                function, which deserializes the joint angles from a numpy array
+                to a Python object. The name `current_joints` suggests that this
+                variable may be updated within the function or used as part of its
+                output.
+                
+                	Therefore, `current_joints` has the attributes and properties of
+                a numpy array with 4 dimensions and shape `(6, 10)`, representing
+                the joint angles of a 7-DOF robot in degrees.
+                
+
+        Returns:
+            float: a 6x7 matrix representing the forward kinematic transformation
+            of a 7-DoF robot arm given its current joint angles.
+
+        """
         q = current_joints
 
         T01 = np.array([\
@@ -523,6 +721,50 @@ class KinovaGen3():
         #pose defined x,y,z | RPY
 
         #i don't take the accoun the base I computed later
+        """
+        solves the inverse kinematics problem for a 7-DoF Kinova Gen III robot,
+        using a numerical optimization method to find the joint angles that achieve
+        a specific end-effector pose.
+
+        Args:
+            pose_desired (3D rotation vector represented as three element vectors
+                (x, y, z) or NumPy array.): 4D joint angles (position and orientation)
+                of the end effector that the controller wants to reach as its
+                desired configuration, and it is used to compute the desired
+                rotation matrix and angular velocity vector for the manipulator's
+                joints.
+                
+                		- ` pose_desired['q']`: 2D numpy array containing the desired
+                positions of the robot's joints in radians. Each element in the
+                array corresponds to one joint, and has shape (2,).
+                		- `pose_desired['θ']`: 1D numpy array containing the desired
+                orientation of the end effector in radians. Has shape (1,).
+                		- `pose_desired['z']`: scalar containing the desired height of
+                the end effector.
+                		- `pose_desired['α']`: scalar containing the desired pitch angle
+                of the robot's wrist joint.
+                		- `pose_desired['β']`: scalar containing the desired yaw angle
+                of the robot's shoulder joint.
+                		- `pose_desired['γ']`: scalar containing the desired roll angle
+                of the robot's elbow joint.
+                		- `pose_desired['ρ']`: scalar containing the desired roll angle
+                of the robot's wrist joint.
+                
+                	These properties/attributes of `pose_desired` are used in the
+                function to define the system of equations that models the kinematics
+                of the 7-DoF robot, and to compute the optimal solution for the
+                end effector pose based on the desired positions of the joints.
+                
+            current_joints (float): 3D joint angles of the robot at the current
+                time step, which are used as the initial conditions for the
+                optimization problem to determine the optimal joint angles for the
+                given task.
+
+        Returns:
+            list: a list of three angles, representing the positions of the end
+            effector of a robotic arm.
+
+        """
         dh_a = [0]*7
         dh_d = [0\
             ,0\
@@ -698,6 +940,34 @@ class KinovaGen3():
 
         # Define the system of equation
         def sys_eq_sph_w_p(q):
+            """
+            computes the position and velocity of a spacecraft in a spherical
+            coordinate system using a simple harmonic oscillator model. It takes
+            in a single input vector `q` representing the current state of the
+            spacecraft, and returns three equations representing the position,
+            velocity, and acceleration of the spacecraft in spherical coordinates.
+
+            Args:
+                q (1-dimensional array of real numbers.): 3D position of a point
+                    in space, and it is used to calculate the three components of
+                    the spatial position vector in the return value of the function.
+                    
+                    		- `q[0]`: The x-component of the 3D vector representation
+                    of the spherical coordinate system.
+                    		- `q[1]`: The y-component of the 3D vector representation
+                    of the spherical coordinate system.
+                    		- `q[2]`: The z-component of the 3D vector representation
+                    of the spherical coordinate system.
+                    		- `q5`, `q6`, and `q7`: These are the values of the spherical
+                    coordinates in the polar form, which are used to compute the
+                    distances between points on the sphere.
+                    
+
+            Returns:
+                float: a list of three angles representing the orientation of a
+                spherical coordinate system in polar coordinates.
+
+            """
             q5 = q[0]
             q6 = q[1]
             q7 = q[2]
@@ -721,6 +991,47 @@ class KinovaGen3():
             return [eq1,eq2,eq3]
 
         def sys_eq_sph_w_n(q):
+            """
+            calculates the spherical coordinates of a given vector. It takes a
+            vector as input and returns three spherical coordinates (longitude,
+            latitude, and altitude) representing the position of the vector in
+            spherical coordinates.
+
+            Args:
+                q (ndarray.): 3D coordinates of a point in space, which are used
+                    to compute the x, y, and z components of the position vector
+                    and the angle between the position vector and the x-axis.
+                    
+                    		- `q[0]`: The x-coordinate of the center of mass of the system.
+                    		- `q[1]`: The y-coordinate of the center of mass of the system.
+                    		- `q[2]`: The z-coordinate of the center of mass of the system.
+                    
+                    	The function then calculates several related quantities, including:
+                    
+                    		- `nx`: The x-component of the angular momentum of the system.
+                    		- `ny`: The y-component of the angular momentum of the system.
+                    		- `nz`: The z-component of the angular momentum of the system.
+                    
+                    	The function also defines several other quantities, including:
+                    
+                    		- `sx`: The x-coordinate of the spin angular momentum of the
+                    system.
+                    		- `sy`: The y-coordinate of the spin angular momentum of the
+                    system.
+                    		- `sz`: The z-coordinate of the spin angular momentum of the
+                    system.
+                    
+                    	Finally, the function returns an array containing the three
+                    components of the general rotation angle (eq1), the angles of
+                    rotation around the x, y, and z axes (eq2), and the angle of
+                    rotation around the z axis (eq3).
+                    
+
+            Returns:
+                list: three angles: `eq1`, `eq2`, and `eq3`, representing the
+                spherical coordinates of a point in space.
+
+            """
             q5 = q[0]
             q6 = q[1]
             q7 = q[2]
@@ -772,6 +1083,36 @@ class KinovaGen3():
         return theta_result_ret
 
     def get_jacobian(self,current_joints):
+        """
+        calculates the jacobian matrix for a given robot, based on its joint angles
+        and velocity, and returns the tensor values.
+
+        Args:
+            current_joints (ndarray (a multi-dimensional NumPy array).): 6D joint
+                states of the robot as provided by the user for calculating the
+                Jacobian matrix.
+                
+                		- `current_joints`: This is the input tensor representing the
+                current joint states of the robot.
+                		- `pos`: This is a tensor representing the positions of the
+                robot's end effector in global space.
+                		- `vel`: This is a tensor representing the velocities of the
+                robot's end effector in global space.
+                		- `torq`: This is a tensor representing the torques applied to
+                the robot's joints.
+                		- `last_robot_joint_index`: This is an integer representing the
+                index of the last robot joint in the system.
+                		- `computeLinkVelocity` and `computeForwardKinematics`: These
+                are optional boolean flags that determine whether the function
+                should compute the link velocity or not, and whether it should
+                perform forward kinematics or not.
+                		- `link_trn`, `link_rot`, `com_trn`, `com_rot`, `frame_pos`,
+                `frame_rot`, `link_vt`, and `link_vr`: These are tensors representing
+                the torques, rotations, positions, and velocities of the robot's
+                links and joints in global space.
+                
+
+        """
         pos, vel, torq = get_actual_control_joints_angle(self.robot_id)
         result = p.getLinkState(self.robot_id, self.last_robot_joint_index, computeLinkVelocity=1, computeForwardKinematics=1)
         link_trn, link_rot, com_trn, com_rot, frame_pos, frame_rot, link_vt, link_vr = result
@@ -781,6 +1122,26 @@ class KinovaGen3():
         #pose defined x,y,z | RPY
 
         #i don't take the accoun the base I computed later
+        """
+        performs inverse kinematics for a 7-DOF robotic arm, specifically the
+        Kinova Gen III. It takes the current joint angles as input and calculates
+        the optimal joint angles to reach a target position and orientation of the
+        end effector based on the robot's Jacobian matrix.
+
+        Args:
+            pose_desired (int): 4x3 rotation matrix that specifies the desired end
+                position and orientation of the end effector with respect to the
+                robot's body, which is used to generate the Jacobian matrix and
+                solve the optimization problem.
+            current_joints (int): 7 joint angles of the robot's end effector in
+                the current state, which is used to determine the initial conditions
+                for the system's solution closer to the actual joint angles.
+
+        Returns:
+            float: a list of 7 joint angles that minimize the difference between
+            the desired and actual robot positions.
+
+        """
         dh_a = [0]*7
         dh_d = [-(0.1564+0.1284)\
             ,-(0.0054+0.0064)\
@@ -949,6 +1310,44 @@ class KinovaGen3():
 
         # Define the system of equation
         def sys_eq_sph_w_p(q):
+            """
+            computes the spherical coordinates (nx, ny, nz) and their polar
+            coordinates (x, y, z) from a given vector.
+
+            Args:
+                q (ndarray or NumPy array.): 3D cartesian coordinates of a point
+                    in space, which are used to calculate the spherical coordinates
+                    of that point.
+                    
+                    		- `q5`: The first element of `q`.
+                    		- `q6`: The second element of `q`.
+                    		- `q7`: The third element of `q`.
+                    		- `nx`: The product of the sine and cosine of `q5`, the sine
+                    of `q7`, and the cosine of the dot product of `q5` and `q6`.
+                    		- `ny`: The product of the cosine and sinus of `q7`, and the
+                    cosine of `q6`.
+                    		- `nz`: The product of the cosine and sine of `q5`, and the
+                    sinus of `q6`.
+                    		- `sx`: The product of the cosine and sine of `q7`, and the
+                    cosine of `q5`.
+                    		- `sy`: The product of the cosine and sine of `q6`.
+                    		- `sz`: The product of the cosine and sinus of `q5`, and the
+                    sinus of `q6`.
+                    		- `ax`: The product of the cosine and sine of `q5` and `q6`.
+                    		- `ay`: The product of the cosine of `q6` and the sinus of
+                    `q7`.
+                    		- `az`: The product of the sinus of `q5` and the cosine of
+                    `q6`.
+                    
+                    	In summary, `q` is a list of three elements representing the
+                    position of a point in 3D space relative to some origin.
+                    
+
+            Returns:
+                float: a list of three angles representing the positions of a point
+                in spherical coordinates.
+
+            """
             q5 = q[0]
             q6 = q[1]
             q7 = q[2]
@@ -972,6 +1371,22 @@ class KinovaGen3():
             return [eq1,eq2,eq3]
 
         def sys_eq_sph_w_n(q):
+            """
+            computes the spherical coordinates of a point in a 3D space given its
+            Cartesian coordinates. It returns the spherical coordinates (longitude,
+            latitude, radius) of the point as a list of three elements.
+
+            Args:
+                q (list): 3D point of a system being transformed, and its values
+                    are used to calculate the components of the transformation
+                    matrix that maps the system's original coordinates to its new
+                    coordinates.
+
+            Returns:
+                list: three equations representing the positions of a satellite
+                in a spherical coordinate system.
+
+            """
             q5 = q[0]
             q6 = q[1]
             q7 = q[2]
@@ -1026,6 +1441,26 @@ class KinovaGen3():
         #pose defined x,y,z | RPY
 
         #i don't take the accoun the base I computed later
+        """
+        solves the 7 DOF kinematic chain's inverse kinematics problem, given the
+        actual joint angles and the desired end-effector positions, using the Gen
+        3 algorithm from KINOVATM. It returns the calculated joint angles.
+
+        Args:
+            pose_desired (int): 4-tuple of Euler angles representing the desired
+                end position and orientation of the robot's end effector, which
+                is used to define the system of equations that are solved to compute
+                the joint angles that achieve the desired end position and orientation.
+            current_joints (int): 3D joint angles of the robot's arm at the current
+                time step, which is used as the initial condition for solving the
+                system of equations closer to the actual joint angles.
+
+        Returns:
+            list: a list of 7 joint angles that achieve a specific end-effector
+            position and orientation, taking into account the constraints of a
+            7-DOF kinematic chain.
+
+        """
         dh_a = [0]*7
         dh_d = [-(0.1564+0.1284)\
             ,-(0.0054+0.0064)\
@@ -1194,6 +1629,39 @@ class KinovaGen3():
 
         # Define the system of equation
         def sys_eq_sph_w_p(q):
+            """
+            computes the position and orientation of a point on a sphere given
+            three Cartesian coordinates. It returns the angle of the point's
+            position, rotation around the z-axis, and rotation around the x-axis.
+
+            Args:
+                q (ndarray of shape (3,).): 3D position vector of a point in space
+                    that undergoes a rotation about an arbitrary axis, which is
+                    defined by the `q6` component.
+                    
+                    		- `q5`, `q6`, and `q7` are the x, y, and z components of
+                    `q`, respectively.
+                    		- `nx`, `ny`, and `nz` are calculated as the dot product of
+                    `q5` and `q7`, minus the dot product of `q6` and `q7`.
+                    		- `sx`, `sy`, and `sz` are calculated as the dot product of
+                    `q5` and `q6`, minus the dot product of `q5` and `q7`, plus
+                    the dot product of `q6` and `q7`.
+                    		- `ax`, `ay`, and `az` are calculated as the dot product of
+                    `q5` and `q6`, minus the dot product of `q5` and `q7`, and
+                    minus the dot product of `q6` and `q7`, respectively.
+                    
+                    	These calculations are performed in a coordinate system defined
+                    by the function, where each component of `q` represents a point
+                    on a sphere. The final three elements of the output list
+                    represent the angles of the sphere, measured counterclockwise
+                    from the x-axis.
+                    
+
+            Returns:
+                list: a list of three angular equations representing the position
+                of a satellite in spherical coordinates.
+
+            """
             q5 = q[0]
             q6 = q[1]
             q7 = q[2]
@@ -1217,6 +1685,44 @@ class KinovaGen3():
             return [eq1,eq2,eq3]
 
         def sys_eq_sph_w_n(q):
+            """
+            takes a vector of spherical coordinates (`q`) as input and computes
+            three angular equations (equations) using those coordinates.
+
+            Args:
+                q (ndarray or NumPy array.): 3D point to be transformed through a
+                    rotation around the x-, y-, and z-axes, respectively.
+                    
+                    		- `q[0]` represents the x-coordinate of the spherical position
+                    vector.
+                    		- `q[1]` represents the y-coordinate of the spherical position
+                    vector.
+                    		- `q[2]` represents the z-coordinate of the spherical position
+                    vector.
+                    		- `np.sin(q5)` and `np.cos(q5)` represent the sine and cosine
+                    components of the spherical position vector in the x-y plane.
+                    		- `np.sin(q7)` and `np.cos(q7)` represent the sine and cosine
+                    components of the spherical position vector in the z-axis.
+                    		- `np.cos(q6)` represents the cosine component of the spherical
+                    position vector in the x-y plane.
+                    		- `nx`, `ny`, and `nz` are calculated as the dot product of
+                    the spherical position vector with the unit vectors in the x,
+                    y, and z directions, respectively.
+                    		- `sx`, `sy`, and `sz` are calculated as the dot product of
+                    the spherical position vector with the unit vectors in the x,
+                    y, and z directions, respectively.
+                    		- `ax`, `ay`, and `az` are calculated as the cosine of the
+                    angle between the spherical position vector and the x, y, and
+                    z direction units, respectively.
+                    		- `math.atan2()` calculates the arctangent of the product
+                    of two vectors in a Cartesian coordinate system.
+                    
+
+            Returns:
+                list: three equations representing the spherical coordinates of a
+                point in a 3D space.
+
+            """
             q5 = q[0]
             q6 = q[1]
             q7 = q[2]
@@ -1269,6 +1775,31 @@ class KinovaGen3():
 
     def getRotationalFromEuler(self,euler_angles):
 
+        """
+        computes a 3x3 rotation matrix from given Euler angles (ry, rx, p) using
+        the Rodrigues' formula and returns the resulting matrix as an numpy array.
+
+        Args:
+            euler_angles (ndarray.): 3D rotational angles (roll, pitch, and yaw)
+                of a rigid body in Euler's angles representation.
+                
+                		- `r`, `p`, and `y` represent the Euler angles in the rotation
+                matrix.
+                		- `euler_angles` is a tuple of length 3 containing these three
+                components.
+                		- `np.array()` is used to convert the tuple into a numpy array
+                for further manipulation.
+                
+                	In summary, `euler_angles` is an input tuple that contains the
+                Euler angles in the following order: roll (r), pitch (p), and yaw
+                (y). The function processes these angles using the rotation matrix
+                to produce the rotational matrix representation of the Euler angles.
+                
+
+        Returns:
+            float: a numpy array representing the rotation matrix in three dimensions.
+
+        """
         r,p,y = euler_angles
 
         Rotational = np.array([\
@@ -1280,6 +1811,59 @@ class KinovaGen3():
         return Rotational
 
     def getHomogeniusFromRotTran(self,Rot,Tran):
+        """
+        combines two input matrices, `Rot` and `Tran`, to form a 3D matrix `Hom`.
+        The resulting matrix is a concatenation of the rotation and translation
+        vectors with an additional scale factor for each axis.
+
+        Args:
+            Rot (ndarray ( NumPy array).): 3x1 rotation matrix that transforms the
+                3D tensor of tranquility coordinates into the reference frame.
+                
+                		- `np.array(Rot)` converts the rotational transformation `Rot`
+                to an array of floating-point numbers.
+                		- ` Rot = np.array(Rot)` is used to define the rotation matrix
+                directly without using `np.array()`.
+                		- `Tran = np.array(Tran)` converts the translational component
+                `Tran` to an array of floating-point numbers, identical to `Rot`.
+                		- `Tran = Tran.reshape([3,1])` rearranges the dimensions of
+                `Tran` from [3, 4] to [3, 1], ensuring that all translations are
+                stacked along the first axis (i.e., column-wise).
+                		- `scale_factor = np.array([0,0,0,1])` creates a scalar array
+                with values of [0, 0, 0, 1] to scale the `Hom` array later in the
+                code.
+                		- `np.vstack((Hom, scale_factor))` concatenates the `Hom` array
+                with the scale factor along the first axis (i.e., row-wise),
+                effectively forming a [3, 5] array that includes both `Rot` and `Tran`.
+                
+            Tran (1D NumPy array.): 3D transformation matrix for the translation
+                of the object's coordinates from the world space to the body space.
+                
+                	1/ `Tran` is a numpy array with shape `(3, 1)`, indicating that
+                it has three elements in each row and one element in total.
+                	2/ `Tran` is deserialized from an input stream, as evidenced by
+                its irregular shape.
+                	3/ The values of `Tran` are not explicitly specified, suggesting
+                that they may vary depending on the input data.
+                
+
+        Returns:
+            array-shaped homogeneous tensor.: a numpy array with two dimensions,
+            containing the homogenized rotation and translation vectors.
+            
+            		- The `Hom` array has shape `(4, 4)`, representing the homogeneous
+            transformation matrix.
+            		- The first three columns of `Hom` represent the rotation component
+            of the transformation, while the fourth column represents the scaling
+            component.
+            		- The elements of `scale_factor` are set to `[0, 0, 0, 1]`, indicating
+            that no scaling is applied to the output transformation.
+            
+            	The returned array can be used for further mathematical operations
+            involving homogeneous transformations.
+            
+
+        """
         Tran = np.array(Tran)
         Tran = Tran.reshape([3,1])
         Rot = np.array(Rot)
@@ -1292,6 +1876,51 @@ class KinovaGen3():
         return Hom
 
     def getHomogeniusFromEulTran(self,Euler,Tran):
+        """
+        takes Euler and Tran angles as input and returns the homogeneous transformation
+        matrix as output.
+
+        Args:
+            Euler (3D rotation matrix in the form of a numpy array.): 3D rotation
+                transformation given as a list of three angles in radians, which
+                is used to generate the homogeneous transformation matrix.
+                
+                		- `Euler`: This is a 3D vector containing the Euler angles
+                representing the rotational part of the transformation. The
+                dimensions of `Euler` are (3,) or (n,), where n is the number of
+                degrees of freedom in the transformation.
+                		- `Tran`: This is a 4th-dimensional tensor representing the
+                translation part of the transformation. The dimensions of `Tran`
+                are (1, 3), indicating that it contains a single element representing
+                the displacement vector in 3D space.
+                
+            Tran (rotational transformation.): 3x3 rotation matrix used to transform
+                the Euler angles into homogeneous coordinates.
+                
+                		- `Tran`: A rotation matrix represented as a 3x3 numpy array.
+                It can be accessed using attribute access syntax (e.g., `Tran[0]`
+                for the upper-left element).
+                		- `Euler`: An Euler angle vector represented as a 3-element numpy
+                array in radians.
+                		- `Rot`: A rotation matrix obtained by applying the Euler angles
+                to the identity matrix using matrix multiplication, represented
+                as a 3x3 numpy array.
+                
+
+        Returns:
+            `homogeneous matrix`.: a homogeneous transformation matrix.
+            
+            	Rotational transformation (Rot): This is a 3x3 rotation matrix obtained
+            from the Euler angles provided in the input argument `Euler`. The
+            rotation matrix represents a rotational transformation of the original
+            coordinate system.
+            	Homogenious tensor (Hom): This is an array of shape `(3, 3)` containing
+            the homogenious transformation coefficients of the output. The homogenious
+            tensor encodes the spatial transformation applied by the Euler angles
+            to the input coordinates.
+            
+
+        """
         Rot = self.getRotationalFromEuler(Euler)
         Hom = self.getHomogeniusFromRotTran(Rot,Tran)
 
@@ -1299,6 +1928,47 @@ class KinovaGen3():
 
     def move_cartesian(self, pose, max_iterations = 10**8 ,nullspace = None, desired_force_per_one_list = [1], desired_vel_per_one_list = [1] , wait = True, counter_max = 10**4, error_threshold = 10 ** -3):
 
+        """
+        performs inverse kinematics on a robot using the `calculateInverseKinematics`
+        method of a physics engine, and then moves the joints based on the calculated
+        angles.
+
+        Args:
+            pose (list): 7D pose of the robot, consisting of position and orientation
+                quaternion, which the function uses to calculate the correspondence
+                to joint angles and perform control actions.
+            max_iterations (int): maximum number of iterations for solving the
+                inverse kinematics calculation in this function.
+            nullspace (bool): joint angles corresponding to the pose in the rest
+                position or nearest position and limits, skipping the computation
+                of inverse kinematics if not needed, otherwise it's equivalent to
+                finding the joint angles corresponding to the given pose.
+            desired_force_per_one_list (list): force value that the robot should
+                apply to each joint in order to reach the desired position.
+            desired_vel_per_one_list (list): maximum desired velocity for each
+                joint of the robot in the move_joints method call, which the
+                algorithm uses to generate the control action.
+            wait (bool): time for which the control action is executed before
+                checking if the target position is reached.
+            counter_max (int): maximum number of iterations allowed for solving
+                the inverse kinematics, and it is used to terminate the process
+                early if a satisfactory solution is found within that limit.
+            error_threshold (`error_threshold`.): maximum allowable difference
+                between the calculated joint angles and the desired values, and
+                is used to stop the iterations when the difference falls below the
+                threshold value.
+                
+                		- `error_threshold`: An instance of `float`. It represents the
+                maximum tolerated difference between the actual joint angles and
+                the desired values. If the difference is above this threshold, the
+                control action is stopped.
+                		- Unit: The unit of `error_threshold` is not explicitly stated
+                in the function definition. However, it is assumed to be a dimensional
+                value (e.g., meters, degrees) compatible with the joint angles and
+                their computations.
+                
+
+        """
         if (nullspace == None):
             nullspace = self.nullspace
 
@@ -1337,12 +2007,36 @@ class KinovaGen3():
         self.move_joints(joint_param_value=self.home_angles)
 
     def set_home(self):
+        """
+        sets the joint angles for a robot to their home position using a loop that
+        iterates through all joints and updates them individually with the target
+        angle and velocity values provided in the function.
+
+        """
         for i in range(len(self.robot_control_joints)):
             p.resetJointState(bodyUniqueId=self.robot_id, jointIndex=i,
                               targetValue=self.home_angles[i], targetVelocity=0)
 
     def get_actual_tcp_pose(self, print_value=False,referent_to_base = False):
 
+        """
+        calculates the position and orientation of a TCP (Tool-Class Position)
+        relative to the base robot, taking into account the TCP's offset and the
+        rotation of the base robot. It provides the world coordinates of the TCP
+        end pose in a matrix format.
+
+        Args:
+            print_value (bool): whether or not to display the position and orientation
+                of the TCP end in the response.
+            referent_to_base (bool): 4x4 homogenous transformation matrix between
+                the base link and the TCP link, which is applied to the position
+                and orientation of the TCP end to obtain its world-relative pose.
+
+        Returns:
+            list: a set of transformation matrices that represent the pose of the
+            TCP in the world frame, including its position and orientation.
+
+        """
         last_robot_link_info = p.getLinkState(self.robot_id, self.last_robot_joint_index)
         world_last_robot_link_position = last_robot_link_info[0]
         world_last_robot_link_orientation_q = last_robot_link_info[1]
@@ -1379,6 +2073,39 @@ class KinovaGen3():
 
     def get_cartesian_offset_target_pose(self,desired_position_offset,desired_orientation_e_offset):
 
+        """
+        calculates the required position and orientation offset for a robot to
+        reach a desired pose based on its current position and orientation.
+
+        Args:
+            desired_position_offset (3D position vector in homogeneous form,
+                representing the desired offset to apply to the robot's actual
+                position.): 3D position offset desired for the target pose relative
+                to the actual TCP position.
+                
+                		- `desired_position_offset`: This is a 3D position vector in
+                world coordinates representing the desired offset for the robot's
+                position. Its components are represented by integers (`int`).
+                
+            desired_orientation_e_offset (3D vector containing the desired orientation
+                offsets in euler angle representation.): 3D Euler angles that
+                represent the desired orientation of the end effector with respect
+                to its current position, which the function uses to calculate the
+                appropriate move commands for the robot's end effector.
+                
+                		- `desired_position_offset`: a 3D vector representing the desired
+                offset for the position of the target link in the global coordinate
+                system.
+                		- `desired_orientation_e_offset`: a 3D vector representing the
+                desired orientation offset for the target link in the global
+                coordinate system.
+                
+
+        Returns:
+            float: an array containing the desired position and orientation of the
+            end effector in Cartesian space, based on the inputs provided.
+
+        """
         [actual_position,actual_orientation_q] = self.get_actual_tcp_pose()
         actual_orientation_e = p.getEulerFromQuaternion(actual_orientation_q)
         move_position = [actual_position[0]+desired_position_offset[0],actual_position[1]+desired_position_offset[1],\
@@ -1392,6 +2119,40 @@ class KinovaGen3():
 
     def move_cartesian_offset(self,desired_position_offset,desired_orientation_e_offset,max_iterations = 1000 ,nullspace = None, desired_force_per_one_list = [1], desired_vel_per_one_list = [1] , wait = True, counter_max = 20, error_threshold = 10 ** -3):
 
+        """
+        computes and moves a robot's position and orientation offset to a target
+        pose while avoiding collisions and reaching the desired velocity using a
+        maximum number of iterations, nullspace, and desired forces per iteration.
+
+        Args:
+            desired_position_offset (float): 3D position offset that the robot
+                should move to, relative to its current position.
+            desired_orientation_e_offset (float): 3D rotation matrix that the robot
+                should apply to its end effector in addition to the translational
+                offset requested in `move_cartesian_offset()`.
+            max_iterations (int): maximum number of iterations to perform for each
+                position and orientation adjustment during the motion planning process.
+            nullspace (None): 4x4 transformation matrix used to transform the
+                desired end position and orientation from world coordinates to
+                robot frame, which is used in the motion planning process.
+            desired_force_per_one_list (list): 1-dimensional force vector that the
+                robot should apply to move towards the desired position in the
+                absence of any other torques or forces.
+            desired_vel_per_one_list (list): maximum desired velocity of the robot
+                per joint list in the Cartesian space during the movement process,
+                which is used as an input to the movement algorithm along with
+                other control parameters to achieve the desired motion.
+            wait (bool): duration for which the robot should pause after moving
+                before restarting the movement sequence.
+            counter_max (int): maximum number of iterations for the movement
+                algorithm to reach the desired position and orientation, after
+                which the method stops moving and reports the result.
+            error_threshold (float): maximum acceptable error in the position and
+                orientation of the end effector after reaching the desired position
+                and orientation, and is used to determine whether the motion has
+                been completed successfully.
+
+        """
         [move_position,move_orientation_q] = self.get_cartesian_offset_target_pose(desired_position_offset,desired_orientation_e_offset)
 
         self.move_cartesian([move_position,move_orientation_q],max_iterations=max_iterations\
@@ -1401,6 +2162,58 @@ class KinovaGen3():
 
     def get_robot_base_pose_from_world_pose(world_position,world_orientation_q):
 
+        """
+        computes the pose of a robot base in world coordinates using a set of
+        pre-defined parameters. It performs inverse and direct transforms, and
+        multiplies the transform matrices to obtain the final result.
+
+        Args:
+            world_position (4D vector.): 3D position of the world relative to the
+                robot's base, which is transformed to get the robot's base position
+                in the world frame.
+                
+                		- `world_position`: A 4D vector representing the position of the
+                robot in the world coordinate system. It has values in meters for
+                each dimension (x, y, z, and w).
+                		- `world_orientation_q`: A 4D quaternion representing the
+                orientation of the robot in the world coordinate system. It is a
+                unit-length vector that describes the rotation of the robot around
+                its center in the world frame.
+                
+            world_orientation_q (𝜙 (quaternion).): 4x4 quaternion matrix that
+                describes the orientation of the robot's base in world coordinates,
+                which is used to transform the robot's base position and orientation
+                from world coordinates to robot base coordinates.
+                
+                		- `world_orientation_q`: A 4x3 homogeneous transformation matrix
+                that represents the world orientation of the robot relative to its
+                base coordinate system. The first three columns represent the
+                rotation around the x, y, and z axes, respectively, while the
+                fourth column represents the scalar value of the translation vector
+                (i.e., the position of the robot's base with respect to its original
+                location).
+                
+
+        Returns:
+            instance of the `pinv.Pose` class, which represents the transformed
+            robot base position and orientation in the world coordinate frame based
+            on the input world pose and orientation.: the transformed position and
+            orientation of the robot's base in world coordinates.
+            
+            		- `robot_base_world_position`: The position of the robot's base in
+            the world coordinate system.
+            		- `robot_base_world_orientation_q`: The orientation of the robot's
+            base in the world coordinate system, represented as a quaternion.
+            		- `world_position`: The position of the robot's base in the environment
+            coordinate system.
+            		- `world_orientation_q`: The orientation of the robot's base in the
+            environment coordinate system, represented as a quaternion.
+            		- `invertTransform`: A function used to invert a transformation matrix.
+            		- `multiplyTransforms`: A function used to multiply two transformation
+            matrices together.
+            
+
+        """
         [world_robot_base_position, world_robot_base_orientation_q] = p.getBasePositionAndOrientation(self.robot_id)
         [robot_base_world_position, robot_base_world_orientation_q] = p.invertTransform (world_robot_base_position, world_robot_base_orientation_q)
 
@@ -1465,6 +2278,38 @@ class KinovaGen3():
         return world_lastlink_pose
 
     def get_object_position(self, objectID, modify_center=[0.0, 0.0, 0.0], orientation_correction_e=[-1.57, 0, 1.57]):
+        """
+        calculates and returns an object's position and orientation in world space,
+        based on its ID and optional modification center and orientation correction
+        values.
+
+        Args:
+            objectID (int): 3D object whose position and orientation are to be retrieved.
+            modify_center (float): 3D position where the world coordinate system
+                should be translated and scaled to account for any desired offset
+                or rotation of the object's center of mass relative to its actual
+                position.
+            orientation_correction_e (3D Euler angles sequence.): 3D Euler angles
+                in Earth-centered coordinates to correct the object's orientation
+                calculated from its world position and orientation, expressed as
+                a list of three values in degrees [-1.57, 0, 1.57].
+                
+                		- `-1.57`, `0`, and `1.57`: These values correspond to the X,
+                Y, and Z components of the quaternion's angle axis, respectively.
+                They serve as a rotation offset for the object's orientation,
+                helping to correct for potential misalignments in the scene.
+                
+                	Therefore, `orientation_correction_e` is an array of three numbers
+                that help refine the object's orientation estimate through this
+                quaternion-based correction.
+                
+
+        Returns:
+            list: a list containing the position and orientation of an object in
+            the world reference frame, after applying modifications to the center
+            and orientation correction.
+
+        """
         self.objectIDpick = objectID
         object_link_info = p.getBasePositionAndOrientation(self.objectIDpick)
         object_position = object_link_info[0]  # refered to world
@@ -1481,6 +2326,15 @@ class KinovaGen3():
         return [object_position_pick, object_orientation_pick_q]
 
     def wait(self, time_wait):
+        """
+        waits for a specified time interval before executing the next iteration
+        of the simulation.
+
+        Args:
+            time_wait (int): duration of simulation to be waited before proceeding
+                with the next iteration of the loop in milliseconds.
+
+        """
         if self.visual_inspection:
             t = int(time_wait/self.time_step)
         else:
@@ -1512,6 +2366,17 @@ class KinovaGen3():
         return "error"
 
     def Copy_file(self,path2read,path2copy):
+        """
+        reads a file located at `path2read` and copies its contents to a new file
+        located at `path2copy`.
+
+        Args:
+            path2read (str): file that will be read from and its contents will be
+                written to the `path2copy`.
+            path2copy (str): location where the contents of the file read from
+                `path2read` are written.
+
+        """
         readf = open(path2read,"r")
         writef = open(path2copy,"w")
         for line in readf:
@@ -1529,6 +2394,14 @@ class KinovaGen3():
         link_mod = ["mass","inertia"]
         return link_mod
     def get_modify_elements_robot(self):
+        """
+        returns an array of 18 dynamic element names in robot simulations.
+
+        Returns:
+            list: a list of 17 string names for attributes that can be modified
+            to customize the robot's dynamics.
+
+        """
         elements_changeDynamics = ["mass","lateral_friction","spinning_friction","rolling_friction",\
                                 "restitution","linear_damping","angular_damping","contact_stiffness",\
                                 "contact_damping","friction_anchor","inertia","collision_sphere_radius",\
@@ -1733,6 +2606,22 @@ class KinovaGen3():
 
     def modify_urdf_list(self,path2read,path2write,joints_names_2modify_list,element_to_modify_list, value_list ):
 
+        """
+        checks and modifies URDF joint values based on a list of expected values
+        and a list of links to modify.
+
+        Args:
+            path2read (str): file path to read the urdf joints information from.
+            path2write (str): path to write modified URDF joints to an external file.
+            joints_names_2modify_list (str): list of joints or links that should
+                be modified in the UrDF file based on their expected values.
+            element_to_modify_list (list): list of urdf joints to be modified based
+                on their expected values from the external file.
+            value_list (list): list of values that need to be applied to the urdf
+                joints, and it is used to check if the expected number of values
+                is matching with the actual values provided.
+
+        """
         possible_elements_to_modify = self.get_modify_elements_urdf_joint()
         possible_elements_to_modify.extend(self.get_modify_elements_urdf_link())
 
@@ -1792,6 +2681,18 @@ class KinovaGen3():
 
     def modify_robot_pybullet(self,joints_names_2modify_list,element_to_modify_list, value_list ):
 
+        """
+        modifies the robot's dynamics by changing the specified joint properties.
+
+        Args:
+            joints_names_2modify_list (list): list of names of robot joints to
+                modify their parameters.
+            element_to_modify_list (list): list of joint elements to be modified
+                based on the corresponding values provided in the `value_list`.
+            value_list (list): 3D list of values that will be assigned to the
+                specified joint parameters.
+
+        """
         possible_elements_to_modify = self.get_modify_elements_robot()
 
         #Check the elements lenght it's right before do nothing
@@ -1868,6 +2769,20 @@ class KinovaGen3():
                         print("the parameter "+ element+" it's not a parameter of the changeDynamics parameters")
     def modify_robot_pybullet_base(self,element_to_modify_list, value_list ):
 
+        """
+        checks if any of the specified base parameters need to be updated based
+        on the given list of values. If any parameter needs updating, it changes
+        the corresponding value for that parameter.
+
+        Args:
+            element_to_modify_list (int): list of parameters to modify in the
+                robot's dynamics, which are selected from a set of possible
+                parameters defined in `possible_elements_to_modify`.
+            value_list (list): 0-based index list of the values to be updated for
+                each corresponding parameter of the robot's dynamics in the
+                `changeDynamics` method call.
+
+        """
         possible_elements_to_modify = ["mass_base","inertia_base"]
 
         #Check the elements lenght it's right before do nothing
@@ -1942,6 +2857,30 @@ class KinovaGen3():
 
     def get_robot_pybullet_param_dynamics(self,joint_names_2read_list):
 
+        """
+        retrieves dynamics information for a robot using PyBullet. It iterates
+        over a list of joint names and extracts the dynamics data for each joint,
+        vstacking the data into a single NumPy array.
+
+        Args:
+            joint_names_2read_list (str): list of joint names to read data for,
+                which determines the joints for which the dynamics information is
+                retrieved from the PyBullet robot simulation environment.
+
+        Returns:
+            `numpy array`.: a NumPy array containing the dynamic data of the robot.
+            
+            	1/ Data: This variable contains an array with the dynamics information
+            of the robot's joints. The array has multiple dimensions representing
+            the time and space variables.
+            	2/ shape: This attribute provides the number of rows and columns in
+            the Data array.
+            
+            	Without referring to the function or any other external data, this
+            description of the output properties is provided in under 100 words.
+            
+
+        """
         first = True
         for joint_name in joint_names_2read_list :
             joint_index = self.joints[joint_name].id
@@ -1956,6 +2895,29 @@ class KinovaGen3():
         return Data
     def get_robot_pybullet_param_joints(self,joint_names_2read_list):
 
+        """
+        retrieves joint parameters from a Bullet robot simulation using PyBullet
+        and stacks them into a NumPy array.
+
+        Args:
+            joint_names_2read_list (list): list of joint names that are to be read
+                from the Bullet simulation environment using the `p.getJointInfo()`
+                function.
+
+        Returns:
+            `ndarray`.: a numpy array containing joint information of the robot.
+            
+            		- `Data`: A numpy array containing the joint parameters for each
+            joint in the list `joint_names_2read_list`. Each element in the array
+            is a 4-dimensional vector representing the position and orientation
+            of the joint.
+            		- `shape`: The shape of the output array, which is `(N,3)` where `N`
+            is the number of joints in the list `joint_names_2read_list`.
+            
+            	Note: No summary is provided at the end as requested.
+            
+
+        """
         first = True
         for joint_name in joint_names_2read_list :
             joint_index = self.joints[joint_name].id
@@ -1970,6 +2932,12 @@ class KinovaGen3():
         return Data
 
     def record_database(self):
+        """
+        updates a database with the current robot's joint angles, velocities, and
+        torque, as well as its current TCP pose and orientation. It also saves the
+        current time.
+
+        """
         if(self.database_name != self.database_name_old):
 
             if(self.database_name_old != None):

@@ -39,6 +39,52 @@ console = Console(highlight=False)
 
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
+        """
+        of `SpecificWorker` sets up a Bullet Python environment and loads a kinova
+        gen3 robot arm, floor, and table. It creates a constraint to fix the robot
+        arm at home position and sets up timers for computing target joint angles
+        and velocities.
+
+        Args:
+            proxy_map (object.): 2D coordinate map of a grid-based robot environment,
+                which is used to simulate the robot's motion within the specified
+                space.
+                
+                		- `proxy_map`: This is a dictionary-like object that contains
+                various properties and attributes of the robot's proxy map.
+                		- `startup_check`: This parameter is a boolean value indicating
+                whether the startup check should be performed or not. It defaults
+                to `False`.
+                		- `physicsClient`: This is an instance of the `pybullet`
+                `PhysicsClient` class, which represents the simulation environment
+                for the robot. It is initialized with the given `proxy_map` and
+                other properties.
+                		- ` Period`: This is an integer value representing the time
+                interval between successive computations in milliseconds.
+                		- `table_id`: This is an integer value representing the unique
+                ID of the table that the arm will be placed on.
+                		- `robot`: This is an instance of the `KinovaGen3` class, which
+                represents the robot and its end effector. It is loaded from a
+                file using the `loadURDF()` function.
+                		- `robot_id`: This is an integer value representing the unique
+                ID of the robot.
+                		- `end_effector_link_index`: This is an integer value representing
+                the index of the end effector link in the robot's URDF file.
+                		- `info`: This is a tuple containing information about the number
+                of joints in the robot.
+                		- `pose`: This is a 3D array representing the position and
+                orientation of the robot's end effector in global coordinates.
+                		- `joint_axis`: This is an integer value representing the axis
+                of rotation for each joint in the robot.
+                		- `parentFramePosition`, `childFramePosition`, `parentFrameOrientation`,
+                and `childFrameOrientation`: These are 3D arrays representing the
+                position and orientation of the parent frame and child frame in
+                global coordinates, respectively.
+                
+            startup_check (bool): start check of the pybullet environment and runs
+                it in GUI mode when set to True and skips it when set to False.
+
+        """
         super(SpecificWorker, self).__init__(proxy_map)
         self.Period = 0
         if startup_check:
@@ -114,6 +160,26 @@ class SpecificWorker(GenericWorker):
         # except:
         #	traceback.print_exc()
         #	print("Error reading config params")
+        """
+        sets the inner model of an instance by calling the `InnerModel` constructor
+        with a parameter containing the path to the model file. If any error occurs
+        during the construction, it handles the exceptions and prints an error
+        message instead. The function returns `True`.
+
+        Args:
+            params (dict): configuration parameters for the code, which are used
+                to initialize the inner model.
+
+        Returns:
+            `True` value.: `True`.
+            
+            		- `True`: This is the return value indicating successful configuration
+            of parameters.
+            		- `self.innermodel`: This attribute contains the `InnerModel` instance
+            created from the provided `params["InnerModelPath"]`.
+            
+
+        """
         return True
 
 
@@ -124,6 +190,12 @@ class SpecificWorker(GenericWorker):
         #       [round(x - y, 2) for x, y in
         #        zip(self.robot.get_actual_control_joints_velocity(), self.target_velocities[:7])], self.target_velocities)
 
+        """
+        computes and adjusts joint control angles based on target angles and error
+        thresholds, and then updates the robot's actual control joint angles using
+        the move_joints method.
+
+        """
         print("Errors:",
               [round(x - y, 2) for x, y in
                zip(self.robot.get_actual_control_joints_angle(), self.target_angles[:7])],
@@ -155,6 +227,12 @@ class SpecificWorker(GenericWorker):
     # =============== Methods ==================
 
     def startup_check(self):
+        """
+        tests and initializes variables related to a RoboCompKinovaArm and its
+        gripper. It prints the test results to the console and schedules an
+        application quit after 200 milliseconds.
+
+        """
         print(f"Testing RoboCompKinovaArm.TPose from ifaces.RoboCompKinovaArm")
         test = ifaces.RoboCompKinovaArm.TPose()
         print(f"Testing RoboCompKinovaArm.TGripper from ifaces.RoboCompKinovaArm")
@@ -172,6 +250,11 @@ class SpecificWorker(GenericWorker):
         #
         # write your CODE here
         #
+        """
+        is used to close the gripper of a robotic arm, enabling it to interact
+        with its environment by manipulating objects or performing tasks.
+
+        """
         pass
 
 
@@ -179,6 +262,37 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of getCenterOfTool method from KinovaArm interface
     #
     def KinovaArm_getCenterOfTool(self, referencedTo):
+        """
+        calculates the center of a tool referenced to a specific interface of a
+        Kinova Arm.
+
+        Args:
+            referencedTo (`ifaces.RoboCompKinovaArm.TPose` object.): 3D position
+                of the reference frame to which the arm's center should be aligned.
+                
+                		- `referencedTo`: A reference to an instance of `RoboCompKinovaArm`,
+                representing the arm to which the center of the tool will be computed.
+                
+                	The function computes and returns the center of the tool referenced
+                to the specified arm, following the input parameters.
+                
+
+        Returns:
+            `TPose`.: a `RoboCompKinovaArm.TPose` object containing the center of
+            the tool referenced to the arm.
+            
+            		- `TPose`: This is a `RoboCompKinovaArm.TPose` object, which represents
+            the center of the tool in relation to the robot's end effector.
+            		- `x`: The x-coordinate of the center of the tool.
+            		- `y`: The y-coordinate of the center of the tool.
+            		- `z`: The z-coordinate of the center of the tool.
+            
+            	These coordinates represent the position of the tool's center relative
+            to the robot's base, which can be used for further processing or
+            analysis in the application.
+            
+
+        """
         ret = ifaces.RoboCompKinovaArm.TPose()
         #
         # write your CODE here
@@ -188,6 +302,27 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of getGripperState method from KinovaArm interface
     #
     def KinovaArm_getGripperState(self):
+        """
+        retrieves the current gripper state of a RoboComp Kinova Arm.
+
+        Returns:
+            instance of `ifaces.RoboCompKinovaArm.TGripper`.: a `TGripper` object
+            containing information about the gripper state of the Kinova arm.
+            
+            	1/ `ret`: This is the `TGripper` object that represents the current
+            state of the gripper. It has several attributes and methods related
+            to the gripper's position, velocity, acceleration, force, and other
+            aspects of its behavior.
+            	2/ `RoboCompKinovaArm`: This is the class that `ret` belongs to. It
+            provides a set of methods for interacting with the Kinova Arm, including
+            `getGripperState`, which returns the current state of the gripper.
+            	3/ `TGripper`: This is a class that represents the gripper's state
+            as a set of values that describe its position, velocity, and other
+            attributes. It is the output type of the `KinovaArm_getGripperState`
+            function.
+            
+
+        """
         ret = ifaces.RoboCompKinovaArm.TGripper()
         #
         # write your CODE here
@@ -201,6 +336,10 @@ class SpecificWorker(GenericWorker):
         #
         # write your CODE here
         #
+        """
+        appears to open the gripper mechanism of an robotic arm.
+
+        """
         pass
 
 
@@ -212,6 +351,27 @@ class SpecificWorker(GenericWorker):
         #
         # write your CODE here
         #
+        """
+        sets the center of a tool referenced to a specific pose in space.
+
+        Args:
+            pose (3D vector.): 7-dimensional position of the tool relative to the
+                end effector of the robot, which is referenced to a specific frame
+                of reference.
+                
+                		- `pose`: A `Pose` object containing the desired position and
+                orientation of the tool relative to the base link.
+                
+            referencedTo (`kinova.Arm.ReferenceFrame`.): 3D reference frame for
+                the tool center point, which is used to transform the pose from
+                the world coordinate system to the tool coordinate system.
+                
+                		- `referencedTo`: A reference to an instance of `KinovaTool` or
+                its subclass, which contains information about a tool used in the
+                arm's task.
+                
+
+        """
         pass
 
     # =============== Methods for SubscribesTo ================
@@ -220,6 +380,27 @@ class SpecificWorker(GenericWorker):
     # SUBSCRIPTION to sendData method from JoystickAdapter interface
     #
     def JoystickAdapter_sendData(self, data):
+        """
+        receives input data from a joystick and updates the position of a gripper
+        based on the joystick's axis values.
+
+        Args:
+            data (`Axis`.): 3D orientation data of a joystick or game controller,
+                which is used to update the joint angles of the robot's end effector
+                based on the user inputs.
+                
+                		- `axes`: A list of axes in the joystick, each represented as a
+                dictionary with name and value attributes.
+                		+ `name`: The axis name (e.g., "mode", "X_axis", etc.).
+                		+ `value`: The current value of the axis (either a float value
+                or -1 if the axis is not present in the input data).
+                		- `joy_selected_joint`: An integer variable representing the
+                currently selected joint from 0 to 6.
+                		- `target_angles`: A list of angle values for each of the 7
+                joints, initialized to 0.
+                
+
+        """
         for axis in data.axes:
             match axis.name:
                 case "mode":
