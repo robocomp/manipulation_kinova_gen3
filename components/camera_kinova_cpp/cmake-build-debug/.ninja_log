@@ -1,0 +1,26 @@
+# ninja log v5
+0	268	0	src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_camera_kinova_cpp_src.util	2da6aa8d5133263c
+0	787	1710427545116969359	src/camera_kinova_cpp_autogen/timestamp	ab63242263c8cf8d
+0	787	1710427545116969359	src/camera_kinova_cpp_autogen/mocs_compilation.cpp	ab63242263c8cf8d
+0	787	1710427545116969359	/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/camera_kinova_cpp_autogen/timestamp	ab63242263c8cf8d
+0	787	1710427545116969359	/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/camera_kinova_cpp_autogen/mocs_compilation.cpp	ab63242263c8cf8d
+787	790	1710427545124969533	src/ui_mainUI.h	654c110a64d3a3c7
+787	790	1710427545124969533	/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/ui_mainUI.h	654c110a64d3a3c7
+788	794	1710427545128969623	src/CameraRGBDSimple.cpp	2b59edccb956aef1
+788	794	1710427545128969623	src/CameraRGBDSimple.h	2b59edccb956aef1
+788	794	1710427545128969623	/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/CameraRGBDSimple.cpp	2b59edccb956aef1
+788	794	1710427545128969623	/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/CameraRGBDSimple.h	2b59edccb956aef1
+787	795	1710427545128969623	src/CommonBehavior.cpp	2ff68a85d698b4b9
+787	795	1710427545128969623	src/CommonBehavior.h	2ff68a85d698b4b9
+787	795	1710427545128969623	/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/CommonBehavior.cpp	2ff68a85d698b4b9
+787	795	1710427545128969623	/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/CommonBehavior.h	2ff68a85d698b4b9
+795	2199	1710427546533000338	src/CMakeFiles/camera_kinova_cpp.dir/home/robocomp/robocomp/classes/sigwatch/sigwatch.cpp.o	e0f08027c2c7b15c
+796	3600	1710427547933031007	src/CMakeFiles/camera_kinova_cpp.dir/CommonBehavior.cpp.o	b9e10752e57d8434
+796	3825	1710427548157035920	src/CMakeFiles/camera_kinova_cpp.dir/CameraRGBDSimple.cpp.o	e4b4f56f1be8bb7
+795	4118	1710427548453042413	src/CMakeFiles/camera_kinova_cpp.dir/home/robocomp/robocomp/classes/qlog/qlog.cpp.o	a76da0a32d65b04f
+795	6157	1710427550489087116	src/CMakeFiles/camera_kinova_cpp.dir/home/robocomp/robocomp/classes/rapplication/rapplication.cpp.o	9215b7f27c997787
+796	6865	1710427551197102682	src/CMakeFiles/camera_kinova_cpp.dir/genericworker.cpp.o	215635c2fbd2baae
+796	8149	1710427552481130939	src/CMakeFiles/camera_kinova_cpp.dir/camerargbdsimpleI.cpp.o	44e3ae1d1277b234
+796	8217	1710427552549132437	src/CMakeFiles/camera_kinova_cpp.dir/genericmonitor.cpp.o	ff10fe83d249a04c
+796	8234	1710427552565132790	src/CMakeFiles/camera_kinova_cpp.dir/commonbehaviorI.cpp.o	a7c70de82dc97181
+795	8450	1710427552781137547	src/CMakeFiles/camera_kinova_cpp.dir/specificmonitor.cpp.o	7e446d4a506c4526

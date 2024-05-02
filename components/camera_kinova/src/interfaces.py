@@ -44,6 +44,24 @@ class DepthType(list):
         super(DepthType, self).insert(index, item)
 
 setattr(RoboCompCameraRGBDSimple, "DepthType", DepthType)
+class PointsType(list):
+    def __init__(self, iterable=list()):
+        super(PointsType, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, RoboCompCameraRGBDSimple.Point3D)
+        super(PointsType, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, RoboCompCameraRGBDSimple.Point3D)
+        super(PointsType, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, RoboCompCameraRGBDSimple.Point3D)
+        super(PointsType, self).insert(index, item)
+
+setattr(RoboCompCameraRGBDSimple, "PointsType", PointsType)
 
 import camerargbdsimpleI
 

@@ -7,6 +7,7 @@
 # date: 11-2019 (file modified)
 # ------------------------------------------------------------------------------------------------------
 
+
 import os
 import time
 import math
@@ -56,10 +57,12 @@ class KinovaGen3():
 
         self.root = ""
         self.urdf_root = pybullet_data.getDataPath()
-        self.robot_urdf = "/home/robocomp/robocomp/components/manipulation_kinova_gen3/pybullet_controller/gen3_robotiq_2f_140.urdf"
+        self.robot_urdf = "/home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/pybullet_controller/kinova/kinova_with_pybullet/gen3_robotiq_2f_85.urdf"
 
-        self.robot_launch_pos = [0, 0.3, 0.6]
+        #self.robot_launch_pos = [0, 0.3, 0.6]
+        self.robot_launch_pos = [-0.3, 0.0, 0.64]
         self.robot_launch_orien = p.getQuaternionFromEuler([0, 0, 0])
+        #self.robot_launch_orien = p.getQuaternionFromEuler([0, 0, -1.57])
 
         self.last_robot_joint_name = "EndEffector"
         self.robot_control_joints = ["joint_1", "joint_2", "joint_3", "joint_4", "joint_5", "joint_6", "joint_7"]
@@ -73,8 +76,16 @@ class KinovaGen3():
         self.tcp_offset_orien_e = [0.0, 0.0, 0.0]
 
         self.nullspace = False
-        self.home_angles = [1.57, 0.392, 0.0, 1.962, 0.0, 0.78, -1.57, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                            0.0, 0.0, 0.0, 0.0, 0.0, 0.0 ]
+        # self.home_angles = [1.57, 0.392, 0.0, 1.962, 0.0, 0.78, -1.57, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        #                     0.0, 0.0, 0.0, 0.0, 0.0, 0.0] #Posicion base original
+
+        self.home_angles = [0, -0.34, 3.14, -2.54, -6.28, -0.87, 1.57, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                             0.0, 0.0, 0.0, 0.0, 0.0, 0.0] #Posicion base modificada
+
+        #self.home_angles = [0, -0.34, 3.14, -2.54, -6.28, -0.87, 1.57, 0.0, 0.0, 0.0, 0.0, 0.0]  #Sin pinza
+
+        #self.home_angles = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] #Brazo extendido
+
         val = 1.5
         self.position_gains = [val, val, val, val, val, val, val, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
                             0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -88,7 +99,8 @@ class KinovaGen3():
         self.time_step = 0.001
 
         # launch robot in the world
-        self.robot_id = p.loadURDF(self.robot_urdf, self.robot_launch_pos, self.robot_launch_orien, flags = p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT )
+        self.robot_id = p.loadURDF(self.robot_urdf, self.robot_launch_pos, self.robot_launch_orien,
+                                   flags= p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT)
         print("Kinova Gen3 launched")
         p.setTimeStep(self.time_step)
 
@@ -1340,6 +1352,8 @@ class KinovaGen3():
         for i in range(len(self.robot_control_joints)):
             p.resetJointState(bodyUniqueId=self.robot_id, jointIndex=i,
                               targetValue=self.home_angles[i], targetVelocity=0)
+        for i in range(len(self.robot_control_joints)):
+            p.setJointMotorControl2(self.robot_id, i, p.POSITION_CONTROL, targetPosition=self.home_angles[i])
 
     def get_actual_tcp_pose(self, print_value=False,referent_to_base = False):
 

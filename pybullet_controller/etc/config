@@ -1,5 +1,6 @@
-# Endpoints for implements interfaces
-KinovaArm.Endpoints=tcp -p 10776
+# Proxies for required interfaces
+KinovaArmProxy = kinovaarm:tcp -h localhost -p 17954
+
 
 # Endpoints for subscriptions interfaces
 JoystickAdapterTopic.Endpoints=tcp -p 14837

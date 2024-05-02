@@ -1,0 +1,43 @@
+file(REMOVE_RECURSE
+  "../bin/camera_kinova_cpp"
+  "../bin/camera_kinova_cpp.pdb"
+  "CMakeFiles/camera_kinova_cpp_autogen.dir/AutogenUsed.txt"
+  "CMakeFiles/camera_kinova_cpp_autogen.dir/ParseCache.txt"
+  "camera_kinova_cpp_autogen"
+  "CMakeFiles/camera_kinova_cpp.dir/CameraRGBDSimple.cpp.o"
+  "CMakeFiles/camera_kinova_cpp.dir/CameraRGBDSimple.cpp.o.d"
+  "CMakeFiles/camera_kinova_cpp.dir/CommonBehavior.cpp.o"
+  "CMakeFiles/camera_kinova_cpp.dir/CommonBehavior.cpp.o.d"
+  "CMakeFiles/camera_kinova_cpp.dir/camera_kinova_cpp_autogen/mocs_compilation.cpp.o"
+  "CMakeFiles/camera_kinova_cpp.dir/camera_kinova_cpp_autogen/mocs_compilation.cpp.o.d"
+  "CMakeFiles/camera_kinova_cpp.dir/camerargbdsimpleI.cpp.o"
+  "CMakeFiles/camera_kinova_cpp.dir/camerargbdsimpleI.cpp.o.d"
+  "CMakeFiles/camera_kinova_cpp.dir/commonbehaviorI.cpp.o"
+  "CMakeFiles/camera_kinova_cpp.dir/commonbehaviorI.cpp.o.d"
+  "CMakeFiles/camera_kinova_cpp.dir/genericmonitor.cpp.o"
+  "CMakeFiles/camera_kinova_cpp.dir/genericmonitor.cpp.o.d"
+  "CMakeFiles/camera_kinova_cpp.dir/genericworker.cpp.o"
+  "CMakeFiles/camera_kinova_cpp.dir/genericworker.cpp.o.d"
+  "CMakeFiles/camera_kinova_cpp.dir/home/robocomp/robocomp/classes/qlog/qlog.cpp.o"
+  "CMakeFiles/camera_kinova_cpp.dir/home/robocomp/robocomp/classes/qlog/qlog.cpp.o.d"
+  "CMakeFiles/camera_kinova_cpp.dir/home/robocomp/robocomp/classes/rapplication/rapplication.cpp.o"
+  "CMakeFiles/camera_kinova_cpp.dir/home/robocomp/robocomp/classes/rapplication/rapplication.cpp.o.d"
+  "CMakeFiles/camera_kinova_cpp.dir/home/robocomp/robocomp/classes/sigwatch/sigwatch.cpp.o"
+  "CMakeFiles/camera_kinova_cpp.dir/home/robocomp/robocomp/classes/sigwatch/sigwatch.cpp.o.d"
+  "CMakeFiles/camera_kinova_cpp.dir/main.cpp.o"
+  "CMakeFiles/camera_kinova_cpp.dir/main.cpp.o.d"
+  "CMakeFiles/camera_kinova_cpp.dir/specificmonitor.cpp.o"
+  "CMakeFiles/camera_kinova_cpp.dir/specificmonitor.cpp.o.d"
+  "CMakeFiles/camera_kinova_cpp.dir/specificworker.cpp.o"
+  "CMakeFiles/camera_kinova_cpp.dir/specificworker.cpp.o.d"
+  "CameraRGBDSimple.cpp"
+  "CameraRGBDSimple.h"
+  "CommonBehavior.cpp"
+  "CommonBehavior.h"
+  "ui_mainUI.h"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/camera_kinova_cpp.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

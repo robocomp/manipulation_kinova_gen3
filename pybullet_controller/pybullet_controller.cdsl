@@ -5,7 +5,7 @@ Component pybullet_controller
 {
     Communications
     {
-        implements KinovaArm;
+        requires KinovaArm;
         subscribesTo JoystickAdapter;
     };
     language python;

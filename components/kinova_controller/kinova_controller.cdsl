@@ -1,0 +1,12 @@
+import "KinovaArm.idsl";
+
+
+Component kinova_controller
+{
+    Communications
+    {
+        implements KinovaArm;
+    };
+    language python;
+};
+

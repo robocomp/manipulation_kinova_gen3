@@ -1,0 +1,12 @@
+import "CameraRGBDSimple.idsl";
+
+Component camera_kinova_cpp
+{
+    Communications
+    {
+        implements CameraRGBDSimple;
+    };
+    language Cpp11;
+    gui Qt(QMainWindow);
+};
+

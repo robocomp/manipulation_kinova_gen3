@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2022 by YOUR NAME HERE
+#    Copyright (C) 2024 by YOUR NAME HERE
 #
 #    This file is part of RoboComp
 #
@@ -46,3 +46,6 @@ class CameraRGBDSimpleI(CameraRGBDSimple):
 
     def getImage(self, camera, c):
         return self.worker.CameraRGBDSimple_getImage(camera)
+
+    def getPoints(self, camera, c):
+        return self.worker.CameraRGBDSimple_getPoints(camera)

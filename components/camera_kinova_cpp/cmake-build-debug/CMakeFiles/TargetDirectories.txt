@@ -1,0 +1,16 @@
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/CMakeFiles/list_install_components.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/CMakeFiles/install.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/CMakeFiles/install/local.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/CMakeFiles/install/strip.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_camera_kinova_cpp_src.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/CMakeFiles/camera_kinova_cpp.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/CMakeFiles/edit_cache.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/CMakeFiles/rebuild_cache.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/CMakeFiles/list_install_components.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/CMakeFiles/install.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/CMakeFiles/install/local.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/CMakeFiles/install/strip.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/CMakeFiles/camera_kinova_cpp_autogen_timestamp_deps.dir
+/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug/src/CMakeFiles/camera_kinova_cpp_autogen.dir

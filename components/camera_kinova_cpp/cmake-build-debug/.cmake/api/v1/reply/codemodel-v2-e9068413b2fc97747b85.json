@@ -1,0 +1,105 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-d98872e71ee9456e55b8.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "2.8"
+					},
+					"projectIndex" : 0,
+					"source" : "."
+				},
+				{
+					"build" : "src",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-src-Debug-42500dd4d123dd2534dc.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.16"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "src",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1
+					],
+					"name" : "camera_kinova_cpp",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 1,
+					"id" : "ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_camera_kinova_cpp_src::@145eef247bfb46b6828c",
+					"jsonFile" : "target-ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_camera_kinova_cpp_src-Debug-e41504f6321137c6d46f.json",
+					"name" : "ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_camera_kinova_cpp_src",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "camera_kinova_cpp::@145eef247bfb46b6828c",
+					"jsonFile" : "target-camera_kinova_cpp-Debug-13a8aa37a7dd5bd166b9.json",
+					"name" : "camera_kinova_cpp",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "camera_kinova_cpp_autogen::@145eef247bfb46b6828c",
+					"jsonFile" : "target-camera_kinova_cpp_autogen-Debug-d29bdf6fd5da8fa999f9.json",
+					"name" : "camera_kinova_cpp_autogen",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "camera_kinova_cpp_autogen_timestamp_deps::@145eef247bfb46b6828c",
+					"jsonFile" : "target-camera_kinova_cpp_autogen_timestamp_deps-Debug-88737b01099ca885d644.json",
+					"name" : "camera_kinova_cpp_autogen_timestamp_deps",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp/cmake-build-debug",
+		"source" : "/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova_cpp"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 6
+	}
+}

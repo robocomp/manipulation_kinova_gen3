@@ -18,6 +18,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
+import sys
 
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
@@ -25,64 +26,47 @@ from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
 
-import multiprocessing as mp
+#import multiprocessing as mp
+import threading
+import queue
 import time
-import vid_streamv32 as vs
+#import vid_streamv32 as vs
 import cv2
 import numpy as np
 
-sys.path.append('/opt/robocomp/lib')
 console = Console(highlight=False)
-
-
-# If RoboComp was compiled with Python bindings you can use InnerModel in Python
-# import librobocomp_qmat
-# import librobocomp_osgviewer
-# import librobocomp_innermodel
-
 
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 0
-
-        #Current Cam
-        self.camProcess = None
-        self.cam_queue = None
-        self.stopbit = None
-        self.camlink = 'rtsp://192.168.1.10/depth' # Add your RTSP cam link
-        self.framerate = 15
-
-        #Current Cam
-        self.colorCamProcess = None
-        self.color_queue = None
-        self.colorStopbit = None
-        self.colorLink = 'rtsp://192.168.1.10/color' # Add your RTSP cam link
-        self.colorFramerate = 15
+        self.Period = 100
+        self.hide()
 
         #set  queue size
-        self.cam_queue = mp.Queue(maxsize=1)
-        self.color_queue = mp.Queue(maxsize=1)
+        self.depth_queue = queue.Queue(maxsize=1)
+        self.color_queue = queue.Queue(maxsize=1)
 
-        #get all cams
-        time.sleep(3)
+        self.color_stream = cv2.VideoCapture(
+           "gst-launch-1.0 rtspsrc location=rtsp://192.168.1.10/color latency=30 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert n-threads=2 ! video/x-raw,format=BGR ! queue ! appsink drop=true",cv2.CAP_GSTREAMER)
 
-        self.stopbit = mp.Event()
-        self.camProcess = vs.StreamCapture( self.camlink,
-                                            self.stopbit,
-                                            self.cam_queue,
-                                            self.framerate)
+        self.depth_stream = cv2.VideoCapture(
+            "gst-launch-1.0 rtspsrc location=rtsp://192.168.1.10/depth latency=30 ! rtpgstdepay ! videoconvert n-threads=2 ! video/x-raw,format=GRAY16_LE ! queue ! appsink drop=true",cv2.CAP_GSTREAMER)
+        #print(self.depth_stream.isOpened())
 
-                            
-        self.camProcess.start()
-        
-        self.colorStopbit = mp.Event()
-        self.colorCamProcess = vs.StreamCapture(self.colorLink,
-                                                self.colorStopbit,
-                                                self.color_queue,
-                                                self.colorFramerate)
-        self.colorCamProcess.start()
+        # create a thread to capture the stream and start it
+        self.color_thread = threading.Thread(target=self.video_color_thread, args=(self.color_stream, self.color_queue))
+        if(not self.color_stream.isOpened()):
+            print("color stream not opened")
+            sys.exit()
+        self.color_thread.start()
 
+        self.depth_thread = threading.Thread(target=self.video_depth_thread, args=(self.depth_stream, self.depth_queue))
+        if(not self.depth_stream.isOpened()):
+            print("depth stream not opened")
+            sys.exit()
+        self.depth_thread.start()
+
+        print("Reading threads started")
 
         if startup_check:
             self.startup_check()
@@ -92,86 +76,57 @@ class SpecificWorker(GenericWorker):
 
     def __del__(self):
         """Destructor"""
-        if self.stopbit is not None:
-            self.stopbit.set()
-            while not self.cam_queue.empty():
-                try:
-                    _ = self.cam_queue.get()
-                except:
-                    break
-                self.cam_queue.close()
+        print("Destructor")
 
-            self.camProcess.join()
-
-        if self.colorStopbit is not None:
-            self.colorStopbit.set()
-            while not self.color_queue.empty():
-                try:
-                    _ = self.color_queue.get()
-                except:
-                    break
-                self.color_queue.close()
-
-            self.colorCamProcess.join()
-
-
-        
 
     def setParams(self, params):
-        # try:
-        #	self.innermodel = InnerModel(params["InnerModelPath"])
-        # except:
-        #	traceback.print_exc()
-        #	print("Error reading config params")
         return True
 
 
     @QtCore.Slot()
     def compute(self):
         # print('SpecificWorker.compute...')
-        
-        if not self.cam_queue.empty():
-            # print('Got frame')
-            cmd, val = self.cam_queue.get()
+        #
+        # color_frame = self.color_queue.get()
+        # color_frame = cv2.resize(color_frame, (480, 270))
+        # qt_color = QImage(color_frame, color_frame.shape[1], color_frame.shape[0], QImage.Format_RGB888)
+        # pix_color = QPixmap.fromImage(qt_color).scaled(self.ui.color.width(), self.ui.color.height())
+        # self.ui.color.setPixmap(pix_color)
+        #
+        # depth_frame = self.depth_queue.get()
+        # depth_frame = cv2.resize(depth_frame, (480, 270))
+        # qt_depth = QImage(depth_frame, depth_frame.shape[1], depth_frame.shape[0], QImage.Format_Grayscale16)
+        # pix_depth = QPixmap.fromImage(qt_depth).scaled(self.ui.depth.width(), self.ui.depth.height())
+        # self.ui.depth.setPixmap(pix_depth)
+        #
+        # if self.isHidden():
+        #     sys.exit()
+        #return True
+        pass
 
-            # if cmd == vs.StreamCommands.RESOLUTION:
-            #     pass #print(val)
-
-            if cmd == vs.StreamCommands.FRAME:
-                if val is not None:
-                    
-                    print ("depth: ", val[240][127])
-
-                    val = val.astype(np.uint8)
-
-                    color = cv2.cvtColor(val, cv2.COLOR_GRAY2RGB)
-                    qt_color = QImage(color, val.shape[1], val.shape[0], QImage.Format_RGB888)
-                    pix_color = QPixmap.fromImage(qt_color).scaled(self.ui.depth.width(), self.ui.depth.height())
-                    self.ui.depth.setPixmap(pix_color)
-
-                    # print (val.shape, val)
+################################################################################################################
+    def video_color_thread(self, cap, inqueue):
+        try:
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if ret:
+                    inqueue.put(frame)
+        except KeyboardInterrupt:
+            print("hilo finish")
+        cap.release()
 
 
-        if not self.color_queue.empty():
-            # print('Got frame')
-            color_cmd, color_val = self.color_queue.get()
+    def video_depth_thread(self, cap, inqueue):
+        #print("inicio bucle")
+        try:
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if ret:
+                    inqueue.put(frame)
+        except KeyboardInterrupt:
+            print("hilo finish")
+        cap.release()
 
-            # if cmd == vs.StreamCommands.RESOLUTION:
-            #     pass #print(val)
-
-            if color_cmd == vs.StreamCommands.FRAME:
-                if color_val is not None:
-                    
-                    # print ("img: ", val.shape[1], val.shape[0], " UI: ", self.ui.color.width(), self.ui.color.height() )
-
-                    color_color = cv2.cvtColor(color_val, cv2.COLOR_BGR2RGB)
-                    color_qt_color = QImage(color_color, color_val.shape[1], color_val.shape[0], QImage.Format_RGB888)
-                    color_pix_color = QPixmap.fromImage(color_qt_color).scaled(self.ui.color.width(), self.ui.color.height())
-                    self.ui.color.setPixmap(color_pix_color)
-
-                    # print (val.shape, val)
-
-        return True
 
     def startup_check(self):
         print(f"Testing RoboCompCameraRGBDSimple.TImage from ifaces.RoboCompCameraRGBDSimple")
@@ -192,27 +147,32 @@ class SpecificWorker(GenericWorker):
     #
     def CameraRGBDSimple_getAll(self, camera):
         ret = ifaces.RoboCompCameraRGBDSimple.TRGBD()
-        #
-        # write your CODE here
-        #
+        ret.depth.depth = cv2.resize(self.depth_queue.get(), (480, 270))
+        ret.depth.height, ret.depth.width = ret.depth.depth.shape
+        ret.image.image = cv2.resize(self.color_queue.get(), (480, 270))
+        ret.image.height, ret.image.width, ret.image.depth = ret.image.image.shape
         return ret
     #
     # IMPLEMENTATION of getDepth method from CameraRGBDSimple interface
     #
     def CameraRGBDSimple_getDepth(self, camera):
+        img = self.depth_queue.get()
+        img = cv2.resize(img, (480, 270))
         ret = ifaces.RoboCompCameraRGBDSimple.TDepth()
-        #
-        # write your CODE here
-        #
+        ret.height, ret.width = img.shape
+        ret.depth = img
+
         return ret
     #
     # IMPLEMENTATION of getImage method from CameraRGBDSimple interface
     #
     def CameraRGBDSimple_getImage(self, camera):
+        img = self.color_queue.get()
+        img = cv2.resize(img, (480, 270))
         ret = ifaces.RoboCompCameraRGBDSimple.TImage()
-        #
-        # write your CODE here
-        #
+        ret.height, ret.width, ret.depth = img.shape
+        ret.image = img
+
         return ret
     # ===================================================================
     # ===================================================================
