@@ -39,8 +39,19 @@ class GenericWorker(QtCore.QObject):
     kill = QtCore.Signal()
 
     def __init__(self, mprx):
+        """
+        Sets up instance variables, including a proxy object for a `CameraRGBDSimple`
+        and `KinovaArm`, and a mutex object to synchronize access to these proxies.
+        It also initializes a timer with a period of 30 seconds.
+
+        Args:
+            mprx (str): map proxy registrations for the CameraRGBDSimpleProxy and
+                KinovaArmProxy classes.
+
+        """
         super(GenericWorker, self).__init__()
 
+        self.camerargbdsimple_proxy = mprx["CameraRGBDSimpleProxy"]
         self.kinovaarm_proxy = mprx["KinovaArmProxy"]
 
         self.mutex = QtCore.QMutex(QtCore.QMutex.Recursive)
@@ -57,6 +68,14 @@ class GenericWorker(QtCore.QObject):
     # @param per Period in ms
     @QtCore.Slot(int)
     def setPeriod(self, p):
+        """
+        Sets a new period and starts the timer for that period.
+
+        Args:
+            p (float): period of time that the `Timer` instance should run for
+                before stopping.
+
+        """
         print("Period changed", p)
         self.Period = p
         self.timer.start(self.Period)
