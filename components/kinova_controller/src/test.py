@@ -17,11 +17,36 @@ import utilities
 from kortex_api.autogen.client_stubs.BaseClientRpc import BaseClient
 from kortex_api.autogen.client_stubs.BaseCyclicClientRpc import BaseCyclicClient
 
-from kortex_api.autogen.messages import Base_pb2, BaseCyclic_pb2, Common_pb2
+from kortex_api.autogen.messages import Base_pb2, BaseCyclic_pb2, Common_pb2, DeviceConfig_pb2, Session_pb2, DeviceManager_pb2, VisionConfig_pb2
+
+from kortex_api.autogen.client_stubs.VisionConfigClientRpc import VisionConfigClient
+from kortex_api.autogen.client_stubs.DeviceManagerClientRpc import DeviceManagerClient
+
 
 # Maximum allowed waiting time during actions (in seconds)
 TIMEOUT_DURATION = 20
 
+#
+# Dictionary of all Sensor strings
+#
+all_sensor_strings = {
+    VisionConfig_pb2.SENSOR_UNSPECIFIED : "Unspecified sensor",
+    VisionConfig_pb2.SENSOR_COLOR       : "Color",
+    VisionConfig_pb2.SENSOR_DEPTH       : "Depth"
+}
+
+#
+# Dictionary of all Resolution strings
+#
+all_resolution_strings = {
+    VisionConfig_pb2.RESOLUTION_UNSPECIFIED : "Unspecified resolution",
+    VisionConfig_pb2.RESOLUTION_320x240     : "320x240",
+    VisionConfig_pb2.RESOLUTION_424x240     : "424x240",
+    VisionConfig_pb2.RESOLUTION_480x270     : "480x270",
+    VisionConfig_pb2.RESOLUTION_640x480     : "640x480",
+    VisionConfig_pb2.RESOLUTION_1280x720    : "1280x720",
+    VisionConfig_pb2.RESOLUTION_1920x1080   : "1920x1080"
+}
 
 class KinovaGen3():
     def __init__(self):
@@ -147,6 +172,153 @@ class KinovaGen3():
         self.base.SendJointSpeedsCommand(joint_speeds)
         # time.sleep(10)
         # self.base.Stop()
+
+    def move_joints_to(self, joints):
+        action = Base_pb2.Action()
+        action.name = "Example angular action movement"
+        action.application_data = ""
+
+        actuator_count = self.base.GetActuatorCount()
+
+        # Place arm straight up
+        for joint_id in range(actuator_count.count):
+            joint_angle = action.reach_joint_angles.joint_angles.joint_angles.add()
+            joint_angle.joint_identifier = joint_id
+            joint_angle.value = joints[joint_id]
+
+        e = threading.Event()
+        notification_handle = self.base.OnNotificationActionTopic(
+            self.check_for_end_or_abort(e),
+            Base_pb2.NotificationOptions()
+        )
+
+        print("Executing action")
+        self.base.ExecuteAction(action)
+
+        print("Waiting for movement to finish ...")
+        finished = e.wait(TIMEOUT_DURATION)
+        self.base.Unsubscribe(notification_handle)
+
+        if finished:
+            print("Angular movement completed")
+        else:
+            print("Timeout on action notification wait")
+        return finished
+
+    #
+    # Prints the extrinsic parameters on stdout
+    #
+    def print_extrinsic_parameters(self, extrinsics):
+        print("Rotation matrix:")
+        print("[{0: .6f} {1: .6f} {2: .6f}".format( \
+            extrinsics.rotation.row1.column1, extrinsics.rotation.row1.column2, extrinsics.rotation.row1.column3))
+        print(" {0: .6f} {1: .6f} {2: .6f}".format( \
+            extrinsics.rotation.row2.column1, extrinsics.rotation.row2.column2, extrinsics.rotation.row2.column3))
+        print(" {0: .6f} {1: .6f} {2: .6f}]".format( \
+            extrinsics.rotation.row3.column1, extrinsics.rotation.row3.column2, extrinsics.rotation.row3.column3))
+        print("Translation vector: [{0:.6f} {1:.6f} {2:.6f}]".format( \
+            extrinsics.translation.t_x, extrinsics.translation.t_y, extrinsics.translation.t_z))
+
+    #
+    # Returns the device identifier of the Vision module, 0 if not found
+    #
+    def example_vision_get_device_id(self, device_manager):
+        vision_device_id = 0
+
+        # getting all device routing information (from DeviceManagerClient service)
+        all_devices_info = device_manager.ReadAllDevices()
+
+        vision_handles = [hd for hd in all_devices_info.device_handle if hd.device_type == DeviceConfig_pb2.VISION]
+        if len(vision_handles) == 0:
+            print("Error: there is no vision device registered in the devices info")
+        elif len(vision_handles) > 1:
+            print("Error: there are more than one vision device registered in the devices info")
+        else:
+            handle = vision_handles[0]
+            vision_device_id = handle.device_identifier
+            print("Vision module found, device Id: {0}".format(vision_device_id))
+
+        return vision_device_id
+
+    #
+    # Example showing how to retrieve the extrinsic parameters
+    #
+    def example_routed_vision_get_extrinsics(self, vision_config, vision_device_id):
+        print("\n\n** Example showing how to retrieve the extrinsic parameters **")
+
+        print("\n-- Using Vision Config Service to get extrinsic parameters --")
+        extrinsics = vision_config.GetExtrinsicParameters(vision_device_id)
+        self.print_extrinsic_parameters(extrinsics)
+
+    #
+    # Returns a string matching the requested sensor
+    #
+    def sensor_to_string(self, sensor):
+        return all_sensor_strings.get(sensor, "Unknown sensor")
+
+    #
+    # Returns a string matching the requested resolution
+    #
+    def resolution_to_string(self, resolution):
+        return all_resolution_strings.get(resolution, "Unknown resolution")
+
+    #
+    # Prints the intrinsic parameters on stdout
+    #
+    def print_intrinsic_parameters(self, intrinsics):
+        print("Sensor: {0} ({1})".format(intrinsics.sensor, self.sensor_to_string(intrinsics.sensor)))
+        print("Resolution: {0} ({1})".format(intrinsics.resolution, self.resolution_to_string(intrinsics.resolution)))
+        print("Principal point x: {0:.6f}".format(intrinsics.principal_point_x))
+        print("Principal point y: {0:.6f}".format(intrinsics.principal_point_y))
+        print("Focal length x: {0:.6f}".format(intrinsics.focal_length_x))
+        print("Focal length y: {0:.6f}".format(intrinsics.focal_length_y))
+        print("Distortion coefficients: [{0:.6f} {1:.6f} {2:.6f} {3:.6f} {4:.6f}]".format( \
+            intrinsics.distortion_coeffs.k1, \
+            intrinsics.distortion_coeffs.k2, \
+            intrinsics.distortion_coeffs.p1, \
+            intrinsics.distortion_coeffs.p2, \
+            intrinsics.distortion_coeffs.k3))
+
+    #
+    # Example showing how to retrieve the intrinsic parameters of the Color and Depth sensors
+    #
+    def example_routed_vision_get_intrinsics(self, vision_config, vision_device_id):
+        sensor_id = VisionConfig_pb2.SensorIdentifier()
+        profile_id = VisionConfig_pb2.IntrinsicProfileIdentifier()
+
+        print("\n\n** Example showing how to retrieve the intrinsic parameters of the Color and Depth sensors **")
+
+        print("\n-- Using Vision Config Service to get intrinsic parameters of active color resolution --")
+        sensor_id.sensor = VisionConfig_pb2.SENSOR_COLOR
+        intrinsics = vision_config.GetIntrinsicParameters(sensor_id, vision_device_id)
+        self.print_intrinsic_parameters(intrinsics)
+
+        print("\n-- Using Vision Config Service to get intrinsic parameters of active depth resolution --")
+        sensor_id.sensor = VisionConfig_pb2.SENSOR_DEPTH
+        intrinsics = vision_config.GetIntrinsicParameters(sensor_id, vision_device_id)
+        self.print_intrinsic_parameters(intrinsics)
+
+        print("\n-- Using Vision Config Service to get intrinsic parameters for color resolution 1920x1080 --")
+        profile_id.sensor = VisionConfig_pb2.SENSOR_COLOR
+        profile_id.resolution = VisionConfig_pb2.RESOLUTION_1920x1080
+        intrinsics = vision_config.GetIntrinsicParametersProfile(profile_id, vision_device_id)
+        self.print_intrinsic_parameters(intrinsics)
+
+        print("\n-- Using Vision Config Service to get intrinsic parameters for depth resolution 424x240 --")
+        profile_id.sensor = VisionConfig_pb2.SENSOR_DEPTH
+        profile_id.resolution = VisionConfig_pb2.RESOLUTION_424x240
+        intrinsics = vision_config.GetIntrinsicParametersProfile(profile_id, vision_device_id)
+        self.print_intrinsic_parameters(intrinsics)
+
+    def get_camera_info(self):
+        device_manager = DeviceManagerClient(self.router)
+        vision_config = VisionConfigClient(self.router)
+
+        vision_device_id = self.example_vision_get_device_id(device_manager)
+
+        if vision_device_id != 0:
+            self.example_routed_vision_get_extrinsics(vision_config, vision_device_id)
+            self.example_routed_vision_get_intrinsics(vision_config, vision_device_id)
 
     def cartesian_move_relative(self, x, y, z, theta_x, theta_y, theta_z):
 

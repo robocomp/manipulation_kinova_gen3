@@ -57,7 +57,7 @@ EQUALS = =
 CMAKE_SOURCE_DIR = /home/robolab/robocomp/components/manipulation_kinova_gen3/pybullet_controller
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/robolab/robocomp/components/manipulation_kinova_gen3/pybullet_controller
+CMAKE_BINARY_DIR = /home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/pybullet_controller
 
 #=============================================================================
 # Directory level rules for the build root directory
@@ -96,14 +96,14 @@ src/clean: src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_ki
 src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_pybullet_controller_src.dir/all:
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_pybullet_controller_src.dir/build.make src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_pybullet_controller_src.dir/depend
 	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_pybullet_controller_src.dir/build.make src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_pybullet_controller_src.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/robolab/robocomp/components/manipulation_kinova_gen3/pybullet_controller/CMakeFiles --progress-num= "Built target ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_pybullet_controller_src"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/pybullet_controller/CMakeFiles --progress-num= "Built target ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_pybullet_controller_src"
 .PHONY : src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_pybullet_controller_src.dir/all
 
 # Build rule for subdir invocation for target.
 src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_pybullet_controller_src.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/robolab/robocomp/components/manipulation_kinova_gen3/pybullet_controller/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/pybullet_controller/CMakeFiles 0
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_pybullet_controller_src.dir/all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/robolab/robocomp/components/manipulation_kinova_gen3/pybullet_controller/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/pybullet_controller/CMakeFiles 0
 .PHONY : src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_pybullet_controller_src.dir/rule
 
 # Convenience name for target.

@@ -3,7 +3,7 @@
 
 # Relative path conversion top directories.
 set(CMAKE_RELATIVE_PATH_TOP_SOURCE "/home/robolab/robocomp/components/manipulation_kinova_gen3/pybullet_controller")
-set(CMAKE_RELATIVE_PATH_TOP_BINARY "/home/robolab/robocomp/components/manipulation_kinova_gen3/pybullet_controller")
+set(CMAKE_RELATIVE_PATH_TOP_BINARY "/home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/pybullet_controller")
 
 # Force unix paths in dependencies.
 set(CMAKE_FORCE_UNIX_PATHS 1)

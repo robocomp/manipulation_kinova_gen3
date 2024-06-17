@@ -51,12 +51,18 @@ module RoboCompKinovaArm
 	{
 		Speeds jointSpeeds;
 	};
+	sequence <float> Angles;
+	struct TJointAngles
+	{
+		Angles jointAngles;
+	};
 	interface KinovaArm
 	{
 		void closeGripper ();
 		TPose getCenterOfTool (ArmJoints referencedTo);
 		TGripper getGripperState ();
 		TJoints getJointsState ();
+		void moveJointsWithAngle (TJointAngles angles);
 		void moveJointsWithSpeed (TJointSpeeds speeds);
 		void openGripper ();
 		void setCenterOfTool (TPose pose, ArmJoints referencedTo);

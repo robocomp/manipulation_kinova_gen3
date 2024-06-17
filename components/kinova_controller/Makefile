@@ -60,7 +60,7 @@ EQUALS = =
 CMAKE_SOURCE_DIR = /home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/components/kinova_controller
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/robolab/robocomp/components/manipulation_kinova_gen3/components/kinova_controller
+CMAKE_BINARY_DIR = /home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/components/kinova_controller
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -87,9 +87,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/robolab/robocomp/components/manipulation_kinova_gen3/components/kinova_controller/CMakeFiles /home/robolab/robocomp/components/manipulation_kinova_gen3/components/kinova_controller//CMakeFiles/progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/components/kinova_controller/CMakeFiles /home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/components/kinova_controller//CMakeFiles/progress.marks
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/robolab/robocomp/components/manipulation_kinova_gen3/components/kinova_controller/CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/components/kinova_controller/CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -117,17 +117,17 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src
+# Target rules for targets named ICES__home_robolab_robocomp_ws_src_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src
 
 # Build rule for target.
-ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src
-.PHONY : ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src
+ICES__home_robolab_robocomp_ws_src_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ICES__home_robolab_robocomp_ws_src_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src
+.PHONY : ICES__home_robolab_robocomp_ws_src_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src
 
 # fast build rule for target.
-ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src/fast:
-	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src.dir/build.make src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src.dir/build
-.PHONY : ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src/fast
+ICES__home_robolab_robocomp_ws_src_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src/fast:
+	$(MAKE) $(MAKESILENT) -f src/CMakeFiles/ICES__home_robolab_robocomp_ws_src_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src.dir/build.make src/CMakeFiles/ICES__home_robolab_robocomp_ws_src_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src.dir/build
+.PHONY : ICES__home_robolab_robocomp_ws_src_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src/fast
 
 # Help Target
 help:
@@ -137,7 +137,7 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src"
+	@echo "... ICES__home_robolab_robocomp_ws_src_robocomp_components_manipulation_kinova_gen3_components_kinova_controller_src"
 .PHONY : help
 
 

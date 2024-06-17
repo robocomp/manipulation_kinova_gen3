@@ -5,11 +5,67 @@ from rich.console import Console, Text
 console = Console()
 
 
+Ice.loadSlice("-I ./src/ --all ./src/CameraRGBDSimple.ice")
+import RoboCompCameraRGBDSimple
 Ice.loadSlice("-I ./src/ --all ./src/JoystickAdapter.ice")
 import RoboCompJoystickAdapter
 Ice.loadSlice("-I ./src/ --all ./src/KinovaArm.ice")
 import RoboCompKinovaArm
 
+class ImgType(list):
+    def __init__(self, iterable=list()):
+        super(ImgType, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, byte)
+        super(ImgType, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, byte)
+        super(ImgType, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, byte)
+        super(ImgType, self).insert(index, item)
+
+setattr(RoboCompCameraRGBDSimple, "ImgType", ImgType)
+class DepthType(list):
+    def __init__(self, iterable=list()):
+        super(DepthType, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, byte)
+        super(DepthType, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, byte)
+        super(DepthType, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, byte)
+        super(DepthType, self).insert(index, item)
+
+setattr(RoboCompCameraRGBDSimple, "DepthType", DepthType)
+class PointsType(list):
+    def __init__(self, iterable=list()):
+        super(PointsType, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, RoboCompCameraRGBDSimple.Point3D)
+        super(PointsType, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, RoboCompCameraRGBDSimple.Point3D)
+        super(PointsType, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, RoboCompCameraRGBDSimple.Point3D)
+        super(PointsType, self).insert(index, item)
+
+setattr(RoboCompCameraRGBDSimple, "PointsType", PointsType)
 class AxisList(list):
     def __init__(self, iterable=list()):
         super(AxisList, self).__init__(iterable)
@@ -82,6 +138,24 @@ class Speeds(list):
         super(Speeds, self).insert(index, item)
 
 setattr(RoboCompKinovaArm, "Speeds", Speeds)
+class Angles(list):
+    def __init__(self, iterable=list()):
+        super(Angles, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, float)
+        super(Angles, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, float)
+        super(Angles, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, float)
+        super(Angles, self).insert(index, item)
+
+setattr(RoboCompKinovaArm, "Angles", Angles)
 
 import joystickadapterI
 
@@ -122,6 +196,8 @@ class Requires:
     def __init__(self, ice_connector):
         self.ice_connector = ice_connector
         self.mprx={}
+
+        self.CameraRGBDSimple = self.create_proxy("CameraRGBDSimpleProxy", RoboCompCameraRGBDSimple.CameraRGBDSimplePrx)
 
         self.KinovaArm = self.create_proxy("KinovaArmProxy", RoboCompKinovaArm.KinovaArmPrx)
 

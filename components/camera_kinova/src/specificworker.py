@@ -147,9 +147,11 @@ class SpecificWorker(GenericWorker):
     #
     def CameraRGBDSimple_getAll(self, camera):
         ret = ifaces.RoboCompCameraRGBDSimple.TRGBD()
-        ret.depth.depth = cv2.resize(self.depth_queue.get(), (480, 270))
+        #ret.depth.depth = cv2.resize(self.depth_queue.get(), (480, 270))
+        ret.depth.depth = self.depth_queue.get()
         ret.depth.height, ret.depth.width = ret.depth.depth.shape
-        ret.image.image = cv2.resize(self.color_queue.get(), (480, 270))
+        #ret.image.image = cv2.resize(self.color_queue.get(), (480, 270))
+        ret.image.image = self.color_queue.get()
         ret.image.height, ret.image.width, ret.image.depth = ret.image.image.shape
         return ret
     #
@@ -157,7 +159,7 @@ class SpecificWorker(GenericWorker):
     #
     def CameraRGBDSimple_getDepth(self, camera):
         img = self.depth_queue.get()
-        img = cv2.resize(img, (480, 270))
+        # img = cv2.resize(img, (480, 270))
         ret = ifaces.RoboCompCameraRGBDSimple.TDepth()
         ret.height, ret.width = img.shape
         ret.depth = img
@@ -168,7 +170,7 @@ class SpecificWorker(GenericWorker):
     #
     def CameraRGBDSimple_getImage(self, camera):
         img = self.color_queue.get()
-        img = cv2.resize(img, (480, 270))
+        # img = cv2.resize(img, (480, 270))
         ret = ifaces.RoboCompCameraRGBDSimple.TImage()
         ret.height, ret.width, ret.depth = img.shape
         ret.image = img

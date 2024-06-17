@@ -1,9 +1,10 @@
 # Endpoints for subscriptions interfaces
-JoystickAdapterTopic.Endpoints=tcp -p 12170
+JoystickAdapterTopic.Endpoints=tcp -p 15603
 
 
 # Proxies for required interfaces
-KinovaArmProxy = kinovaarm:tcp -h localhost -p 17395
+CameraRGBDSimpleProxy = camerargbdsimple:tcp -h localhost -p 16340
+KinovaArmProxy = kinovaarm:tcp -h localhost -p 18819
 
 
 

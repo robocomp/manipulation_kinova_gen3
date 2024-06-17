@@ -44,6 +44,24 @@ class Speeds(list):
         super(Speeds, self).insert(index, item)
 
 setattr(RoboCompKinovaArm, "Speeds", Speeds)
+class Angles(list):
+    def __init__(self, iterable=list()):
+        super(Angles, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, float)
+        super(Angles, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, float)
+        super(Angles, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, float)
+        super(Angles, self).insert(index, item)
+
+setattr(RoboCompKinovaArm, "Angles", Angles)
 
 import kinovaarmI
 

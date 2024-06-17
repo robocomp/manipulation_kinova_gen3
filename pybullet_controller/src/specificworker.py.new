@@ -77,6 +77,16 @@ class SpecificWorker(GenericWorker):
         return True
 
     def startup_check(self):
+        print(f"Testing RoboCompCameraRGBDSimple.Point3D from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.Point3D()
+        print(f"Testing RoboCompCameraRGBDSimple.TPoints from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.TPoints()
+        print(f"Testing RoboCompCameraRGBDSimple.TImage from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.TImage()
+        print(f"Testing RoboCompCameraRGBDSimple.TDepth from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.TDepth()
+        print(f"Testing RoboCompCameraRGBDSimple.TRGBD from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.TRGBD()
         print(f"Testing RoboCompKinovaArm.TPose from ifaces.RoboCompKinovaArm")
         test = ifaces.RoboCompKinovaArm.TPose()
         print(f"Testing RoboCompKinovaArm.TGripper from ifaces.RoboCompKinovaArm")
@@ -87,6 +97,8 @@ class SpecificWorker(GenericWorker):
         test = ifaces.RoboCompKinovaArm.TJoints()
         print(f"Testing RoboCompKinovaArm.TJointSpeeds from ifaces.RoboCompKinovaArm")
         test = ifaces.RoboCompKinovaArm.TJointSpeeds()
+        print(f"Testing RoboCompKinovaArm.TJointAngles from ifaces.RoboCompKinovaArm")
+        test = ifaces.RoboCompKinovaArm.TJointAngles()
         print(f"Testing RoboCompJoystickAdapter.AxisParams from ifaces.RoboCompJoystickAdapter")
         test = ifaces.RoboCompJoystickAdapter.AxisParams()
         print(f"Testing RoboCompJoystickAdapter.ButtonParams from ifaces.RoboCompJoystickAdapter")
@@ -116,11 +128,27 @@ class SpecificWorker(GenericWorker):
 
 
     ######################
+    # From the RoboCompCameraRGBDSimple you can call this methods:
+    # self.camerargbdsimple_proxy.getAll(...)
+    # self.camerargbdsimple_proxy.getDepth(...)
+    # self.camerargbdsimple_proxy.getImage(...)
+    # self.camerargbdsimple_proxy.getPoints(...)
+
+    ######################
+    # From the RoboCompCameraRGBDSimple you can use this types:
+    # RoboCompCameraRGBDSimple.Point3D
+    # RoboCompCameraRGBDSimple.TPoints
+    # RoboCompCameraRGBDSimple.TImage
+    # RoboCompCameraRGBDSimple.TDepth
+    # RoboCompCameraRGBDSimple.TRGBD
+
+    ######################
     # From the RoboCompKinovaArm you can call this methods:
     # self.kinovaarm_proxy.closeGripper(...)
     # self.kinovaarm_proxy.getCenterOfTool(...)
     # self.kinovaarm_proxy.getGripperState(...)
     # self.kinovaarm_proxy.getJointsState(...)
+    # self.kinovaarm_proxy.moveJointsWithAngle(...)
     # self.kinovaarm_proxy.moveJointsWithSpeed(...)
     # self.kinovaarm_proxy.openGripper(...)
     # self.kinovaarm_proxy.setCenterOfTool(...)
@@ -132,6 +160,7 @@ class SpecificWorker(GenericWorker):
     # RoboCompKinovaArm.TJoint
     # RoboCompKinovaArm.TJoints
     # RoboCompKinovaArm.TJointSpeeds
+    # RoboCompKinovaArm.TJointAngles
 
     ######################
     # From the RoboCompJoystickAdapter you can use this types:

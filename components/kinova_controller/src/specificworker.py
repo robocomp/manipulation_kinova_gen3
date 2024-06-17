@@ -19,6 +19,7 @@
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
 import numpy
+import numpy as np
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
 from rich.console import Console
@@ -41,7 +42,7 @@ from test import KinovaGen3
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 2000
+        self.Period = 1
         if startup_check:
             self.startup_check()
         else:
@@ -49,6 +50,8 @@ class SpecificWorker(GenericWorker):
             self.flag = True
             self.timer.timeout.connect(self.compute)
             self.timer.start(self.Period)
+            self.joints = []
+            self.gripper = []
 
     def __del__(self):
         """Destructor"""
@@ -64,17 +67,28 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
-        #print('SpecificWorker.compute...')
-        print(self.kinova.get_state())
-        print(self.kinova.get_gripper_state())
-        #print(self.kinova.move_gripper_speed_dest(0.1))
-        # if self.flag:
-        #     self.flag = False
-        #     self.buclePrueba()
+        if self.flag:
+            self.kinova.get_camera_info()
+            self.flag = False
 
-        # speeds = numpy.zeros(7) + 1
-        # self.kinova.move_joints_with_speeds(speeds)
+        ret = ifaces.RoboCompKinovaArm.TJoints()
+        js = self.kinova.get_joints()
+        joints = []
+        for i in range(len(js["position"])):
+            joint = ifaces.RoboCompKinovaArm.TJoint()
+            joint.angle = js["position"][i]
+            joint.velocity = js["velocity"][i]
+            joint.force = js["torque"][i]
+            joints.append(joint)
+        ret.joints = joints
+        ret.timestamp = int(time.time()*1000)
+        self.joints = ret
+        #print(self.kinova.get_state())
+        #print("Joints: ", self.joints)
 
+        ret = ifaces.RoboCompKinovaArm.TGripper()
+        ret.distance = self.kinova.get_gripper_state()
+        self.gripper = ret
 
         return True
 
@@ -85,7 +99,6 @@ class SpecificWorker(GenericWorker):
         test = ifaces.RoboCompKinovaArm.TGripper()
         QTimer.singleShot(200, QApplication.instance().quit)
         kinova_arm = KinovaGen3
-
 
 
     # =============== Methods for Component Implements ==================
@@ -116,12 +129,7 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of getGripperState method from KinovaArm interface
     #
     def KinovaArm_getGripperState(self):
-        ret = ifaces.RoboCompKinovaArm.TGripper()
-        #
-        # write your CODE here
-        #
-        ret.distance = self.kinova.get_gripper_state()
-        return ret
+        return self.gripper
     #
     # IMPLEMENTATION of openGripper method from KinovaArm interface
     #
@@ -137,19 +145,7 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of getJointsState method from KinovaArm interface
     #
     def KinovaArm_getJointsState(self):
-        ret = ifaces.RoboCompKinovaArm.TJoints()
-        js = self.kinova.get_joints()
-        joints = []
-        for i in range(len(js["position"])):
-            joint = ifaces.RoboCompKinovaArm.TJoint()
-            joint.angle = js["position"][i]
-            joint.velocity = js["velocity"][i]
-            joint.force = js["torque"][i]
-            joints.append(joint)
-        ret.joints = joints
-        ret.timestamp = int(time.time()*1000)
-        print(ret)
-        return ret
+        return self.joints
 
     #
     # IMPLEMENTATION of setCenterOfTool method from KinovaArm interface
@@ -167,6 +163,13 @@ class SpecificWorker(GenericWorker):
     def KinovaArm_moveJointsWithSpeed(self, speeds):
         self.kinova.move_joints_with_speeds(speeds.jointSpeeds)
 
+    #
+    # IMPLEMENTATION of moveJointsWithAngle method from KinovaArm interface
+    #
+    def KinovaArm_moveJointsWithAngle(self, angles):
+        print(angles.jointAngles)
+        self.kinova.move_joints_to(angles.jointAngles)
+        pass
     # ===================================================================
     # ===================================================================
 

@@ -41,6 +41,7 @@ class GenericWorker(QtCore.QObject):
     def __init__(self, mprx):
         super(GenericWorker, self).__init__()
 
+        self.camerargbdsimple_proxy = mprx["CameraRGBDSimpleProxy"]
         self.kinovaarm_proxy = mprx["KinovaArmProxy"]
 
         self.mutex = QtCore.QMutex(QtCore.QMutex.Recursive)

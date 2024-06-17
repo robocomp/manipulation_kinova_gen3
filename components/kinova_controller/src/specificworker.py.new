@@ -87,6 +87,8 @@ class SpecificWorker(GenericWorker):
         test = ifaces.RoboCompKinovaArm.TJoints()
         print(f"Testing RoboCompKinovaArm.TJointSpeeds from ifaces.RoboCompKinovaArm")
         test = ifaces.RoboCompKinovaArm.TJointSpeeds()
+        print(f"Testing RoboCompKinovaArm.TJointAngles from ifaces.RoboCompKinovaArm")
+        test = ifaces.RoboCompKinovaArm.TJointAngles()
         QTimer.singleShot(200, QApplication.instance().quit)
 
 
@@ -133,6 +135,17 @@ class SpecificWorker(GenericWorker):
         #
         return ret
     #
+    # IMPLEMENTATION of moveJointsWithAngle method from KinovaArm interface
+    #
+    def KinovaArm_moveJointsWithAngle(self, angles):
+    
+        #
+        # write your CODE here
+        #
+        pass
+
+
+    #
     # IMPLEMENTATION of moveJointsWithSpeed method from KinovaArm interface
     #
     def KinovaArm_moveJointsWithSpeed(self, speeds):
@@ -176,5 +189,6 @@ class SpecificWorker(GenericWorker):
     # RoboCompKinovaArm.TJoint
     # RoboCompKinovaArm.TJoints
     # RoboCompKinovaArm.TJointSpeeds
+    # RoboCompKinovaArm.TJointAngles
 
 

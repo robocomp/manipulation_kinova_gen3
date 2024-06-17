@@ -50,6 +50,9 @@ class KinovaArmI(KinovaArm):
     def getJointsState(self, c):
         return self.worker.KinovaArm_getJointsState()
 
+    def moveJointsWithAngle(self, angles, c):
+        return self.worker.KinovaArm_moveJointsWithAngle(angles)
+
     def moveJointsWithSpeed(self, speeds, c):
         return self.worker.KinovaArm_moveJointsWithSpeed(speeds)
 

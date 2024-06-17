@@ -1,4 +1,4 @@
-# Install script for directory: /home/robolab/robocomp/components/manipulation_kinova_gen3/components/kinova_controller/src
+# Install script for directory: /home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/components/kinova_controller/src
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

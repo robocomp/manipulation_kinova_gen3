@@ -20,6 +20,16 @@
 #
 import math
 
+import swift
+import roboticstoolbox as rtb
+import spatialmath as sm
+import numpy as np
+import qpsolvers as qp
+# spatialgeometry is a utility package for dealing with geometric objects
+import spatialgeometry as sg
+# typing utilities
+from typing import Tuple
+
 import numpy
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
@@ -31,9 +41,12 @@ import pybullet_data
 import time
 import numpy as np
 from Kinova import KinovaGen3
+import calibrator
 import os
 import cv2
 import threading
+import yaml
+import collections
 from pybullet_utils import urdfEditor as ed
 from pybullet_utils import bullet_client as bc
 
@@ -46,7 +59,7 @@ console = Console(highlight=False)
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 5
+        self.Period = 50
         self.rgb = []
         if startup_check:
             self.startup_check()
@@ -59,7 +72,9 @@ class SpecificWorker(GenericWorker):
             p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
             p.setGravity(0, 0, -9.81)
             #p.setGravity(0, 0, 0)
-            #p.setGravity(0, 0, 0) # Set gravity to 0 to avoid the arm falling down when the simulation starts (it is not realistic)
+
+            p.setRealTimeSimulation(1)
+
             flags = p.URDF_USE_INERTIA_FROM_FILE
             p.resetDebugVisualizerCamera(cameraDistance=1.5, cameraYaw=50, cameraPitch=-35,
                                          cameraTargetPosition=[0, 0, 0.5])
@@ -82,9 +97,28 @@ class SpecificWorker(GenericWorker):
             self.robot_urdf = "/home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/pybullet_controller/kinova/kinova_with_pybullet/gen3_robotiq_2f_85-mod.urdf"
             self.robot_launch_pos = [-0.3, 0.0, 0.64]
             self.robot_launch_orien = p.getQuaternionFromEuler([0, 0, 0])
-            self.home_angles = [0, -0.34, 3.14, -2.54, -6.28, -0.87, 1.57, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            self.end_effector_link_index = 12
+            self.home_angles = [0, -0.34, np.pi, -2.54, -6.28, -0.87, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                 0.0,
                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            # self.home_angles = [0, 5.93, 3.14, 3.73, -6.28, 5.41, 1.57, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            #                     0.0,
+            #                     0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+            self.observation_angles = [0, 0, np.pi, -0.96, -6.28, -2.1, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                0.0,
+                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+            self.observation_angles_2 = [0.87, 0.17, 4.01, -1.74, -6.80, -1.92, 3.22, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                0.0,
+                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+            self.observation_angles_3 = [0.26, 0.17, 3.52, -1.13, -6.406, -1.78, 2.18, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                0.0,
+                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+            self.observation_angles_cube = [2.1753, 0.6980, 2.6924, -1.3950, -6.6862, -1.8915, 3.9945, 0.0, 0.0, 0.0, 0.0,
+                                            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
             self.robot_id = p.loadURDF(self.robot_urdf, self.robot_launch_pos, self.robot_launch_orien,
                                        flags=p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT)
@@ -99,38 +133,19 @@ class SpecificWorker(GenericWorker):
 
             #////////////////////////////////////////////////////
 
-            # Load Kinova arm
-            # self.robot_id = p.loadURDF(
-            #     "/home/robocomp/robocomp/components/manipulation_kinova_gen3/pybullet_controller/gen3_robotiq_2f_140.urdf",
-            #     basePosition=[0, 0.3, 0.6], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
-            self.end_effector_link_index = 12
-            #
-            # # get number of robot joints
-            # info = p.getNumJoints(self.robot_id)
-            # # for each joint, get the joint info
-            # for j in range(info):
-            #     info = p.getJointInfo(self.robot_id, j) # joint index
-            #     pose = p.getJointState(self.robot_id, j)
-            #     print("Joint ", j, "pos = ",  pose[0], info)
+            # Load a cup to place on the table
+            self.cup = p.loadURDF("/home/robolab/software/bullet3/data/dinnerware/cup/cup_small.urdf", basePosition=[0.07, -0.20, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
 
-            self.cup = p.loadURDF("/home/robolab/software/bullet3/data/dinnerware/cup/cup_small.urdf", basePosition=[0, 0.1, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
+            # Load a cube to place on the table
+            self.cube = p.loadURDF("/home/robolab/software/bullet3/data/cube_small.urdf", basePosition=[0.07, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
 
-            #//////////////////////////////////////////////////
+            # Cargar la textura
+            texture_path = "/home/robolab/Escritorio/textura_cubo_v2.png"
+            textureId = p.loadTexture(texture_path)
 
-            # Carga del brazo de guille para pruebas
-
-            # self.robot2 = p.loadURDF("/home/robolab/Descargas/open_manipulator_p/open_manipulator_p.urdf", basePosition=[0, -0.3, 0.6], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
-            #
-            # self.n_joints_arm2 = p.getNumJoints(self.robot2)
-            # self.joints_robot2 = np.zeros(self.n_joints_arm2).tolist()
-            #
-            # self.robot2_target_pos = p.getLinkState(self.robot2, 11)[0]
-            # self.robot2_target_ori = p.getLinkState(self.robot2, 11)[1]
-            #
-            # for i in range(self.n_joints_arm2):
-            #     self.joints_robot2[i] = p.getJointState(self.robot2, i)[0]
-
-            #//////////////////////////////////////////////////
+            # Aplicar la textura al cubo
+            # Cambiar el visual shape del cubo
+            p.changeVisualShape(self.cube, -1, textureUniqueId=textureId)
 
             # Crear una restricción fija entre los dos modelos
             fixed_constraint = p.createConstraint(self.table_id, -1, self.robot_id, -1, p.JOINT_FIXED, [0, 0, 0], [0, 0.3, 0.64], [0, 0, 0], childFrameOrientation=p.getQuaternionFromEuler([0, 0, 1.57]))
@@ -139,7 +154,7 @@ class SpecificWorker(GenericWorker):
             self.hilo_lectura.start()
 
             self.hilo_camara = threading.Thread(target=self.readCamera)
-            #self.hilo_camara.start()
+            # self.hilo_camara.start()
 
             # wait for half a second
             time.sleep(0.5)
@@ -167,24 +182,67 @@ class SpecificWorker(GenericWorker):
                 pass
 
             self.target_angles = self.home_angles
-            #self.home_position = p.getLinkState(self.robot_id, self.end_effector_link_index)[0]
             self.target_position = p.getLinkState(self.robot_id, self.end_effector_link_index)[0]
             self.target_orientation = p.getLinkState(self.robot_id, self.end_effector_link_index)[1]
             self.target_velocities = [0.0] * 7
             self.joy_selected_joint = 0
-            self.move_mode = 1
+            self.move_mode = 5
             self.n_rotations = np.zeros(7).tolist()
             self.n_rotations = [0, -1, 0, -1, -1, -1, 0]
             self.ext_joints = self.kinovaarm_proxy.getJointsState()
             self.ext_gripper = self.kinovaarm_proxy.getGripperState()
+
+
+            self.posesTimes = np.array([int(time.time()*1000)])
+            self.poses = []
+            joints = []
+            for i in range(7):
+                actual_angle = (i, p.getJointState(self.robot_id, i + 1)[0])
+                joints.append(actual_angle)
+                self.poses.append(joints)
+
             self.timestamp = int(time.time()*1000)
+
+            self.inicializar_toolbox()
+
             self.timer.timeout.connect(self.compute)
             self.timer.start(self.Period)
 
             self.timer2 = QtCore.QTimer(self)
-            self.timer2.timeout.connect(self.move_joint_fixed_vel)
-            self.timer2.start(100)
+            self.timer2.timeout.connect(self.movePybulletWithExternalVel)
+            #self.timer2.start(50)
+
+            self.joint_speeds = []
+            for i in range(7):
+                self.joint_speeds.append(0)
+
+            self.gains = np.ones(7).tolist()
+
+            self.speeds = ifaces.RoboCompKinovaArm.TJointSpeeds()
+            self.speeds.jointSpeeds = self.joint_speeds
+
+            self.angles = ifaces.RoboCompKinovaArm.TJointAngles()
+
+            self.angles.jointAngles = []
+
+            self.timer3 = QtCore.QTimer(self)
+            self.timer3.timeout.connect(self.moveKinovaWithSpeeds)
+            #self.timer3.start(self.Period)
+
+            self.timer4 = QtCore.QTimer(self)
+            self.timer4.timeout.connect(self.movePybulletWithToolbox)
+            #self.timer4.start(50)
+
+            self.colorKinova = []
+            self.depthKinova = []
+            self.calibrator = calibrator.Calibrator()
+
+            self.timer5 = QtCore.QTimer(self)
+            self.timer5.timeout.connect(self.readKinovaCamera)
+            self.timer5.start(self.Period)
+
             print("SpecificWorker started")
+
 
     def __del__(self):
         """Destructor"""
@@ -221,9 +279,24 @@ class SpecificWorker(GenericWorker):
             #Move joints
             case 0:
                 self.target_angles[7:] = [0.0] * len(self.target_angles[7:])
+
+                jointsState = []
                 for i in range(len(self.target_angles)):
-                    p.resetJointState(bodyUniqueId=self.robot.robot_id,jointIndex=i,
-                                      targetValue=self.robot.home_angles[i], targetVelocity=0)
+                    p.setJointMotorControl2(self.robot_id, i+1, p.POSITION_CONTROL,
+                                            self.target_angles[i], maxVelocity=np.deg2rad(25))
+                    if i < 7:
+                        angle_speed = (p.getJointState(self.robot_id, i + 1)[0],
+                                       p.getJointState(self.robot_id, i + 1)[1])
+                        print("Joint ", i, "angle: ", angle_speed)
+                        jointsState.append(angle_speed)
+
+                self.posesTimes = np.append(self.posesTimes, int(time.time()*1000))
+                self.poses.append(jointsState)
+
+                # update the gains every 1000 ms to avoid oscillations
+                if self.timestamp+500 < int(time.time()*1000):
+                    self.timestamp = int(time.time()*1000)
+                    self.updateGains()
 
             #Cartesian movement
             case 1:
@@ -233,33 +306,33 @@ class SpecificWorker(GenericWorker):
                 joints = np.zeros(22).tolist()
                 for i in range(len(joint_positions)):
                     joints[i] = joint_positions[i]
+                    self.target_angles[i] = joint_positions[i]
 
-                joint_speeds = []
-
+                jointsState = []
                 for i in range(len(joints)):
-                    p.setJointMotorControl2(self.robot_id, i+1, p.POSITION_CONTROL, joints[i])
+                    p.setJointMotorControl2(self.robot_id, i+1, p.POSITION_CONTROL, self.target_angles[i],
+                                            maxVelocity=np.deg2rad(25))
                     if i < 7:
-                        speed = math.degrees(p.getJointState(self.robot_id, i+1)[1])
-                        joint_speeds.append(speed)
+                        angle_speed = (p.getJointState(self.robot_id, i + 1)[0],
+                                       p.getJointState(self.robot_id, i + 1)[1])
+                        jointsState.append(angle_speed)
 
-                print(joint_speeds)
-                speeds = ifaces.RoboCompKinovaArm.TJointSpeeds()
-                speeds.jointSpeeds = joint_speeds
+                self.posesTimes = np.append(self.posesTimes, int(time.time()*1000))
+                self.poses.append(jointsState)
 
-                if abs(self.timestamp - (time.time() * 1000)) > 200:
-                    self.timestamp = int(time.time() * 1000)
-                    self.kinovaarm_proxy.moveJointsWithSpeed(speeds)
+                # update the gains every 1000 ms to avoid oscillations
+                if self.timestamp+500 < int(time.time()*1000):
+                    self.timestamp = int(time.time()*1000)
+                    self.updateGains()
 
             case 2:
-                joint_positions = p.calculateInverseKinematics(self.robot.robot_id, self.end_effector_link_index,
-                                                               self.target_position, self.target_orientation)
                 joints = np.zeros(22).tolist()
                 for i in range(len(joint_positions)):
                     joints[i] = joint_positions[i]
 
                 for i in range(len(joints)):
-                    p.resetJointState(bodyUniqueId=self.robot.robot_id, jointIndex=i,
-                                      targetValue=joints[i])
+                    p.setJointMotorControl2(self.robot_id, i+1, p.POSITION_CONTROL, joints[i], maxVelocity=np.deg2rad(25))
+
 
             case 3:
                 try:
@@ -309,14 +382,62 @@ class SpecificWorker(GenericWorker):
 
             case 4:
                 try:
-                    for i in range(len(self.target_velocities)):
-                        p.setJointMotorControl2(bodyUniqueId=self.robot_id, jointIndex=i, controlMode=p.VELOCITY_CONTROL, targetPosition=self.target_velocities[i])
-
+                    self.toolbox_compute()
                 except Ice.Exception as e:
                     print(e)
 
+            case 5:    #Move to observation angles
+                print("Moving to observation angles")
+                self.moveKinovaWithAngles(self.observation_angles[:7])
+                for i in range(7):
+                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.observation_angles[i], maxVelocity=np.deg2rad(25))
 
-        p.stepSimulation()
+                self.target_angles[13] = self.ext_gripper.distance
+                self.target_angles[15] = - self.ext_gripper.distance
+                self.target_angles[17] = self.ext_gripper.distance - 0.1
+
+                self.target_angles[18] = self.ext_gripper.distance
+                self.target_angles[20] = - self.ext_gripper.distance
+                self.target_angles[22] = self.ext_gripper.distance - 0.1
+
+                for i in range(8, len(self.target_angles)):
+                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL,
+                                            targetPosition=self.target_angles[i])  # Move the arm with phisics
+
+                if self.timestamp+17000 < int(time.time()*1000):
+                    self.move_mode = 6
+            case 6:
+                self.timer.stop()
+                # self.calibrator.calibrate(self.colorKinova, self.robot_id)
+
+                # self.calibrator.calibrate3(self.robot_id, self.colorKinova)
+                self.calibrator.prueba(self.robot_id, self.colorKinova)
+
+                # self.calibrator.prueba(self.robot_id)
+                # corners = self.calibrator.detect_green_corners(self.colorKinova)
+                # print(corners)
+                # for corner in corners:
+                #     cv2.circle(self.colorKinova, corner, 8, (255, 0, 0), -1)
+                #
+                # cv2.imshow("Color", self.colorKinova)
+                # self.calibrator.calibrate2(self.colorKinova, self.robot_id)
+                self.move_mode = 7
+                self.timer.start(self.Period)
+                print("Observing")
+
+            case 7:
+                # ext_angles = []
+                # for i in range(7):
+                #     ext_angles.append(self.ext_joints.joints[i].angle)
+                # print(np.deg2rad(ext_angles))
+
+                # angles = []
+                # for i in range(7):
+                    # angles.append(p.getJointState(self.robot_id, i+1)[0])
+                # print(np.rad2deg(angles)%360)
+                pass
+
+        #p.stepSimulation()
         # pass
 
     # =============== Methods ==================
@@ -338,11 +459,134 @@ class SpecificWorker(GenericWorker):
         test = ifaces.RoboCompJoystickAdapter.TData()
         QTimer.singleShot(200, QApplication.instance().quit)
 
+    def inicializar_toolbox(self):
+        ## Launch the simulator Swift
+        self.env = swift.Swift()
+        self.env.launch(realtime=True)
+        # env = rtb.backends.PyPlot.PyPlot()
+        # env.launch(realtime=True)
+
+        # Create a KionovaGen3 robot object
+        self.kinova = rtb.models.KinovaGen3()
+        print(self.kinova.grippers)
+        # Set joint angles to ready configuration
+        self.kinova.q = self.kinova.qr
+
+        # Add the robot to the simulator
+        self.env.add(self.kinova)
+        # kinova = rtb.models.Panda()
+
+        # axes
+        self.goal_axes = sg.Axes(0.1)
+        self.ee_axes = sg.Axes(0.1)
+
+        # Add the axes to the environment
+        self.env.add(self.ee_axes)
+        self.env.add(self.goal_axes)
+        self.ee_axes.T = self.kinova.fkine(self.kinova.q)
+
+        # Number of joint in the Kinova which we are controlling
+        self.n = 7
+
+        # objects
+        self.cup = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.4, 0.4, 0), color=(0, 0, 1))
+        self.env.add(self.cup)
+
+        # Set the desired end-effector pose
+        self.rot = self.kinova.fkine(self.kinova.q).R
+        self.rot = sm.SO3.OA([-1, 0, 0], [0, 0, -1])
+        self.Tep = sm.SE3.Rt(self.rot, [0.4, 0.4, 0.13])  # green = x-axis, red = y-axis, blue = z-axis
+        self.goal_axes.T = self.Tep
+
+        self.arrived = False
+        self.dt = 0.05
+
+        self.env.step(0)
+        time.sleep(5)
+
+    def toolbox_compute(self):
+        # The current pose of the kinova's end-effector
+        self.Te = self.kinova.fkine(self.kinova.q)
+
+        # Transform from the end-effector to desired pose
+        self.eTep = self.Te.inv() * self.Tep
+
+        # Spatial error
+        self.e = np.sum(np.abs(np.r_[self.eTep.t, self.eTep.rpy() * np.pi / 180]))
+
+        # Calulate the required end-effector spatial velocity for the robot
+        # to approach the goal. Gain is set to 1.0
+        self.v, self.arrived = rtb.p_servo(self.Te, self.Tep, 1.0, threshold=0.01)
+
+        # Gain term (lambda) for control minimisation
+        self.Y = 0.01
+
+        # Quadratic component of objective function
+        self.Q = np.eye(self.n + 6)
+
+        # Joint velocity component of Q
+        self.Q[:self.n, :self.n] *= self.Y
+
+        # Slack component of Q
+        self.Q[self.n:, self.n:] = (1 / self.e) * np.eye(6)
+
+        # The equality contraints
+        self.Aeq = np.c_[self.kinova.jacobe(self.kinova.q), np.eye(6)]
+        beq = self.v.reshape((6,))
+
+        # The inequality constraints for joint limit avoidance
+        self.Ain = np.zeros((self.n + 6, self.n + 6))
+        self.bin = np.zeros(self.n + 6)
+
+        # The minimum angle (in radians) in which the joint is allowed to approach
+        # to its limit
+        self.ps = 0.05
+
+        # The influence angle (in radians) in which the velocity damper
+        # becomes active
+        self.pi = 0.9
+
+        # Form the joint limit velocity damper
+        self.Ain[:self.n, :self.n], self.bin[:self.n] = self.kinova.joint_velocity_damper(self.ps, self.pi, self.n)
+
+        # Linear component of objective function: the manipulability Jacobian
+        c = np.r_[-self.kinova.jacobm().reshape((self.n,)), np.zeros(6)]
+
+        # The lower and upper bounds on the joint velocity and slack variable
+        lim = np.deg2rad(20)
+        self.qdlim = [lim, lim, lim, lim, lim, lim, lim]  # inventadas
+        lb = -np.r_[self.qdlim, 10 * np.ones(6)]
+        ub = np.r_[self.qdlim, 10 * np.ones(6)]
+
+        # Solve for the joint velocities dq
+        qd = qp.solve_qp(self.Q, c, self.Ain, self.bin, self.Aeq, beq, lb=lb, ub=ub, solver='piqp')
+
+        # Apply the joint velocities to the kinova
+        self.kinova.qd[:self.n] = qd[:self.n]
+        self.target_velocities = qd[:self.n]
+
+        joints_angle = []
+        for i in range(7):
+            joints_angle.append(p.getJointState(self.robot_id, i + 1)[0])
+            if i == 4:
+                joints_angle[i] = joints_angle[i] + np.pi
+            if i == 5:
+                joints_angle[i] = joints_angle[i] + np.pi/2
+
+        print("Error joints", self.kinova.q-joints_angle)
+        print("/////////////////////////////////////////////////////////////////////////////////////////////////////")
+
+        # Update the ee axes
+        self.ee_axes.T = self.Te
+
+        # Step the simulator by 50 ms
+        self.env.step(self.dt)
+
     def readCamera(self):
         while True:
-            fov, aspect, nearplane, farplane = 60, 1.0, 0.01, 100
+            fov, aspect, nearplane, farplane = 60, 1.78, 0.01, 100
             projection_matrix = p.computeProjectionMatrixFOV(fov, aspect, nearplane, farplane)
-            com_p, com_o, _, _, _, _ = p.getLinkState(self.robot.robot_id, 8)
+            com_p, com_o, _, _, _, _ = p.getLinkState(self.robot_id, 9)
             rot_matrix = p.getMatrixFromQuaternion(com_o)
             rot_matrix = np.array(rot_matrix).reshape(3, 3)
             # Initial vectors
@@ -352,13 +596,154 @@ class SpecificWorker(GenericWorker):
             camera_vector = rot_matrix.dot(init_camera_vector)
             up_vector = rot_matrix.dot(init_up_vector)
             view_matrix = p.computeViewMatrix(com_p, com_p + 0.1 * camera_vector, up_vector)
-            img = p.getCameraImage(400, 400, view_matrix, projection_matrix)
+            img = p.getCameraImage(1280, 720, view_matrix, projection_matrix, renderer=p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX)
             self.rgb = img[2]
             self.rgb = cv2.rotate(self.rgb, cv2.ROTATE_180)   # Get the RGB image
+            #print(self.rgb.shape)
+            self.rgb = cv2.cvtColor(self.rgb, cv2.COLOR_RGB2BGR)
             cv2.imshow('img', self.rgb)
-            time.sleep(0.05)
+            time.sleep(0.5)
 
-    def move_joint_fixed_vel(self):
+    def readKinovaCamera(self):
+        try:
+            both = self.camerargbdsimple_proxy.getAll("CameraRGBDViewer")
+            self.colorKinova = both.image
+            self.depthKinova = both.depth
+
+            self.depthKinova = (np.frombuffer(self.depthKinova.depth, dtype=np.int16)
+                                .reshape(self.depthKinova.height, self.depthKinova.width))
+
+            self.depthKinova = cv2.normalize(src=self.depthKinova, dst=None, alpha=0, beta=255,
+                                             norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            self.colorKinova = (np.frombuffer(self.colorKinova.image, np.uint8)
+                                .reshape(self.colorKinova.height, self.colorKinova.width, self.colorKinova.depth))
+        except Ice.Exception as e:
+            print(e)
+        return True
+
+    def get_kinova_instrinsic(self):
+        try:
+            # Parameters
+            # TODO : Read from file
+            n_row = 5
+            n_col = 7
+            n_min_img = 10  # img needed for calibration
+            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)  # termination criteria
+            corner_accuracy = (11, 11)
+            result_file = "./calibration.yaml"
+
+            # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(n_row-1,n_col-1,0)
+            objp = np.zeros((n_row * n_col, 3), np.float32)
+            objp[:, :2] = np.mgrid[0:n_row, 0:n_col].T.reshape(-1, 2)
+
+            # Intialize camera and window
+            # camera = cv2.VideoCapture(0)  # Supposed to be the only camera
+            # if not camera.isOpened():
+            #     print("Camera not found!")
+            #     quit()
+            # width = int(camera.get(cv2.CAP_PROP_FRAME_WIDTH))
+            # height = int(camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+            width = self.colorKinova.shape[1]
+            height = self.colorKinova.shape[0]
+            cv2.namedWindow("Calibration")
+
+            # Usage
+            def usage():
+                print("Press on displayed window : \n")
+                print("[space]     : take picture")
+                print("[c]         : compute calibration")
+                print("[r]         : reset program")
+                print("[ESC]    : quit")
+
+            usage()
+            initialization = True
+
+            while True:
+                if initialization:
+                    print("Initialize data structures ..")
+                    objpoints = []  # 3d point in real world space
+                    imgpoints = []  # 2d points in image plane.
+                    n_img = 0
+                    initialization = False
+                    tot_error = 0
+
+                # Read from camera and display on windows
+                img = self.colorKinova
+                cv2.imshow("Calibration", img)
+
+                # Wait for instruction
+                k = cv2.waitKey(50)
+
+                # SPACE pressed to take picture
+                if k % 256 == 32:
+                    print("Adding image for calibration...")
+                    imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+                    # Find the chess board corners
+                    ret, corners = cv2.findChessboardCorners(imgGray, (n_row, n_col), None)
+
+                    # If found, add object points, image points (after refining them)
+                    if not ret:
+                        print("Cannot found Chessboard corners!")
+
+                    else:
+                        print("Chessboard corners successfully found.")
+                        objpoints.append(objp)
+                        n_img += 1
+                        corners2 = cv2.cornerSubPix(imgGray, corners, corner_accuracy, (-1, -1), criteria)
+                        imgpoints.append(corners2)
+
+                        # Draw and display the corners
+                        imgAugmnt = cv2.drawChessboardCorners(img, (n_row, n_col), corners2, ret)
+                        cv2.imshow('Calibration', imgAugmnt)
+                        cv2.waitKey(500)
+
+                        # "c" pressed to compute calibration
+                elif k % 256 == 99:
+                    if n_img <= n_min_img:
+                        print("Only ", n_img, " captured, ", " at least ", n_min_img, " images are needed")
+
+                    else:
+                        print("Computing calibration ...")
+                        ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, (width, height), None,
+                                                                           None)
+
+                        if not ret:
+                            print("Cannot compute calibration!")
+
+                        else:
+                            print("Camera calibration successfully computed")
+                            # Compute reprojection errors
+                            for i in range(len(objpoints)):
+                                imgpoints2, _ = cv2.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+                                error = cv2.norm(imgpoints[i], imgpoints2, cv2.NORM_L2) / len(imgpoints2)
+                                tot_error += error
+                            print("Camera matrix: ", mtx)
+                            print("Distortion coeffs: ", dist)
+                            print("Total error: ", tot_error)
+                            print("Mean error: ", np.mean(error))
+
+                            # Saving calibration matrix
+                            print("Saving camera matrix .. in ", result_file)
+                            data = {"camera_matrix": mtx.tolist(), "dist_coeff": dist.tolist()}
+                            with open(result_file, "w") as f:
+                                yaml.dump(data, f, default_flow_style=False)
+
+                # ESC pressed to quit
+                elif k % 256 == 27:
+                    print("Escape hit, closing...")
+                    cv2.destroyAllWindows()
+                    break
+                # "r" pressed to reset
+                elif k % 256 == 114:
+                    print("Reset program...")
+                    initialization = True
+
+        except Ice.Exception as e:
+            print(e)
+        return True
+    def movePybulletWithExternalVel(self):
         for i in range(len(self.ext_joints.joints)):
             self.target_velocities[i] = self.ext_joints.joints[i].velocity
 
@@ -368,14 +753,58 @@ class SpecificWorker(GenericWorker):
             p.setJointMotorControl2(self.robot_id, i+1, p.VELOCITY_CONTROL,
                                     targetVelocity=self.target_velocities[i])
 
+    def movePybulletWithToolbox(self):
+        for i in range(len(self.target_velocities)):
+            p.setJointMotorControl2(self.robot_id, i+1, p.VELOCITY_CONTROL,
+                                    targetVelocity=self.target_velocities[i])
 
     def readDataFromProxy(self):
         while True:
             self.ext_joints = self.kinovaarm_proxy.getJointsState()
             self.ext_gripper = self.kinovaarm_proxy.getGripperState()
             self.ext_gripper.distance = self.ext_gripper.distance * 0.8
-            time.sleep(0.1)
+            #print("ext_joints", self.ext_joints.joints)
 
+            time.sleep(0.05)
+
+    def moveKinovaWithAngles(self, angles):
+        array = np.round(np.rad2deg(angles) % 360)
+        self.angles.jointAngles = array.tolist()
+        self.kinovaarm_proxy.moveJointsWithAngle(self.angles)
+
+    def moveKinovaWithSpeeds(self):
+        self.joint_speeds = []
+        for i in range(7):
+            speed = np.rad2deg(p.getJointState(self.robot_id, i + 1)[1]) * self.gains[i]
+            self.joint_speeds.append(speed)
+
+        self.speeds.jointSpeeds = self.joint_speeds
+        #print(self.gains)
+        self.kinovaarm_proxy.moveJointsWithSpeed(self.speeds)
+
+    def updateGains(self):
+        self.posesTimes = self.posesTimes - self.ext_joints.timestamp
+        best_timestamp = np.abs(self.posesTimes).argmin()
+
+        print("Best timestamp: ", best_timestamp, self.posesTimes[best_timestamp],
+              self.ext_joints.timestamp)
+
+        joints_state = self.poses[best_timestamp]
+        for i in range(7):
+            angle = joints_state[i][0]
+            speed = joints_state[i][1]
+            error = (np.deg2rad(self.ext_joints.joints[i].angle)
+                     - angle + math.pi) % (2 * math.pi) - math.pi
+            if abs(speed) > 0.01:
+                self.gains[i] += error * 0.1
+            print("Gains: joint ", i, self.gains[i], "Kinova angle: ",
+                  np.deg2rad(self.ext_joints.joints[i].angle),
+                  "Pybullet angle: ", self.target_angles[i], "Error:", error)
+        # now draw the gains as timeseries in matplotlib
+        self.posesTimes = np.array([int(time.time() * 1000)])
+        self.poses = joints_state
+
+        print("/////////////////////")
   
     # =============== Methods for SubscribesTo ================
     # =========================================================

@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import pybullet as p
 from scipy.optimize import minimize
+from pyquaternion import Quaternion
 
 import cv2 as cv
 import glob
@@ -13,8 +14,10 @@ class Calibrator:
         self.error = 0
         self.real_corners = []
         self.robot_id = 0
-        self.com_p_offset = np.array([0.01134004, 0.00647021, -0.00534391])
-        self.com_o_offset = np.array([0.06827892, -0.03868747, -0.00570964, 0.00533773])
+        # self.com_p_offset = np.array([0.01134004, 0.00647021, -0.00534391])
+        self.com_p_offset = np.array([-0.027060, -0.009970, -0.004706])
+        # self.com_o_offset = np.array([0.06827892, -0.03868747, -0.00570964, 0.00533773])
+        self.com_o_offset = np.array([0.0, 0.0, 0.0, 0.0])
         # self.fov = 32.5368
         self.fov = 52
 
@@ -175,6 +178,57 @@ class Calibrator:
         print("Errors: ", self.errors, np.sum(self.errors))
 
         return abs(np.sum(self.errors))
+
+    def error_function3(self, params):
+        camera_translation = params
+
+        camera_rotation_matrix = np.array([
+            [0.9999999999999999, 0.0, 0.0],
+            [0.0, 0.9999999999999999, 0.0],
+            [0.0, 0.0, 1.0]
+        ])
+
+        camera_translation += self.com_p
+        com_o_matrix = p.getMatrixFromQuaternion(self.com_o)
+        camera_rotation_matrix += np.array(com_o_matrix).reshape(3, 3)
+
+        self.view_matrix = self.cvPose2BulletView(self.com_o, camera_translation)
+
+        img = p.getCameraImage(self.width, self.height, self.view_matrix, self.projection_matrix)
+        rgb = img[2]
+        rgb = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+        virtual_corners = self.detect_green_corners(rgb)
+
+        if len(virtual_corners) < len(self.real_corners):
+            print("Error: ", 2000)
+            return 2000
+
+        matched_set2 = []
+        used_indices = set()
+        v_corner_aux = np.array(virtual_corners)
+
+        for point1 in self.real_corners:
+            distances = np.linalg.norm(v_corner_aux - point1, axis=1)
+            sorted_indices = np.argsort(distances)
+
+            for idx in sorted_indices:
+                if idx not in used_indices:
+                    matched_set2.append(virtual_corners[idx])
+                    used_indices.add(idx)
+                    break
+
+        virtual_corners = matched_set2
+
+        print("//////////////////////////////////////////////////////////////////")
+        print("Real corners", self.real_corners, "virtual_corners", virtual_corners)
+
+        # Calculate the error
+        self.errors = np.linalg.norm(np.array(virtual_corners) - np.array(self.real_corners), axis=1)
+        print("Errors: ", self.errors, np.sum(self.errors))
+
+        return abs(np.sum(self.errors))
+
 
     def calibrate(self, imageKinova, robot_id):
         print("Calibrating...")
@@ -361,6 +415,70 @@ class Calibrator:
         print("Final pos: ", self.com_p, "Final rotation: ", self.com_o, "Final FOV:", self.fov)
         print("Finals offsets: ", self.com_p_offset, self.com_o_offset)
 
+    def calibrate3(self, robot_id, imageKinova):
+        self.com_p, self.com_o, _, _, _, _ = p.getLinkState(robot_id, 9)
+
+        self.com_p_init = self.com_p
+        self.com_o_init = self.com_o
+
+        self.real_corners = self.detect_green_corners(imageKinova)
+
+        print("Initial pos: ", self.com_p, "Initial rotation: ", self.com_o)
+
+        initial_params = np.concatenate((self.com_p, self.com_o))
+
+        bounds = [
+            (None, None),
+            (None, None),
+            (None, None),
+        ]
+
+        # Define camera intrinsic parameters
+        self.width = 1280  # image width
+        self.height = 720  # image height
+        f_in_pixels = 1298
+        near = 0.01  # near clipping plane
+        far = 100  # far clipping plane
+
+        # Optical center in pixel coordinates
+        optical_center_x_pixels = 620  # example x-coordinate in pixels
+        optical_center_y_pixels = 238  # example y-coordinate in pixels
+
+        fov = 2 * np.degrees(np.arctan(self.width / (2 * f_in_pixels)))
+
+        k = np.array([[f_in_pixels, 0, optical_center_x_pixels],
+                      [0, f_in_pixels, optical_center_y_pixels],
+                      [0, 0, 1]])
+
+        self.projection_matrix = self.cvK2BulletP(k, self.width, self.height, near, far)
+        print("fixed proyection matrix", self.projection_matrix)
+
+        # camera_translation = np.array([0.027060, 0.009970, 0.004706])
+        camera_translation = np.array([0.0128723, 0.0150052, 0.00575831])
+
+        initial_params = camera_translation
+
+        result_position = minimize(self.error_function3, initial_params, method='Nelder-Mead', bounds=bounds)
+
+        print("Final translation: ", result_position.x)
+
+        img = p.getCameraImage(self.width, self.height, self.view_matrix, self.projection_matrix)
+        imagePybullet = img[2]
+        imagePybullet = cv2.cvtColor(imagePybullet, cv2.COLOR_RGB2BGR)
+
+        for corner in self.real_corners:
+            cv2.circle(imageKinova, corner, 8, (255, 0, 0), -1)
+            cv2.circle(imagePybullet, corner, 8, (255, 0, 0), -1)
+
+        virtual_corners = self.detect_green_corners(imagePybullet)
+
+        for corner in virtual_corners:
+            cv2.circle(imagePybullet, corner, 8, (0, 255, 0), -1)
+
+        cv2.imshow('Detected Corners Kinova', imageKinova)
+        cv2.imshow('Detected Corners Pybullet', imagePybullet)
+
+
     def get_kinova_instrinsic(self, imageKinova):
         pass
 
@@ -392,6 +510,62 @@ class Calibrator:
         # cv2.imshow('img', rgb)
         # cv2.waitKey(2000)
 
+    def cvK2BulletP(self, K, w, h, near, far):
+        """
+        cvKtoPulletP converst the K interinsic matrix as calibrated using Opencv
+        and ROS to the projection matrix used in openGL and Pybullet.
+
+        :param K:  OpenCV 3x3 camera intrinsic matrix
+        :param w:  Image width
+        :param h:  Image height
+        :near:     The nearest objects to be included in the render
+        :far:      The furthest objects to be included in the render
+        :return:   4x4 projection matrix as used in openGL and pybullet
+        """
+        f_x = K[0, 0]
+        f_y = K[1, 1]
+        c_x = K[0, 2]
+        c_y = K[1, 2]
+        A = (near + far) / (near - far)
+        B = 2 * near * far / (near - far)
+
+        projection_matrix = [
+            [2 / w * f_x, 0, (w - 2 * c_x) / w, 0],
+            [0, 2 / h * f_y, (2 * c_y - h) / h, 0],
+            [0, 0, A, B],
+            [0, 0, -1, 0]]
+        # The transpose is needed for respecting the array structure of the OpenGL
+        return np.array(projection_matrix).T.reshape(16).tolist()
+
+    def cvPose2BulletView(self, q, t):
+        """
+        cvPose2BulletView gets orientation and position as used
+        in ROS-TF and opencv and coverts it to the view matrix used
+        in openGL and pyBullet.
+
+        :param q: ROS orientation expressed as quaternion [qx, qy, qz, qw]
+        :param t: ROS postion expressed as [tx, ty, tz]
+        :return:  4x4 view matrix as used in pybullet and openGL
+
+        """
+        q = Quaternion([q[3], q[0], q[1], q[2]])
+        R = q.rotation_matrix
+
+        T = np.vstack([np.hstack([R, np.array(t).reshape(3, 1)]),
+                       np.array([0, 0, 0, 1])])
+        # Convert opencv convention to python convention
+        # By a 180 degrees rotation along X
+        Tc = np.array([[1, 0, 0, 0],
+                       [0, -1, 0, 0],
+                       [0, 0, -1, 0],
+                       [0, 0, 0, 1]]).reshape(4, 4)
+
+        # pybullet pse is the inverse of the pose from the ROS-TF
+        T = Tc @ np.linalg.inv(T)
+        # The transpose is needed for respecting the array structure of the OpenGL
+        viewMatrix = T.T.reshape(16)
+        return viewMatrix
+
     def read_camera_fixed(self):
         # Define camera intrinsic parameters
         width = 1280  # image width
@@ -404,30 +578,21 @@ class Calibrator:
         optical_center_x_pixels = 620  # example x-coordinate in pixels
         optical_center_y_pixels = 238  # example y-coordinate in pixels
 
-        # Convert pixel coordinates to normalized device coordinates (NDC)
-        optical_center_x_ndc = (2 * optical_center_x_pixels / width) - 1
-        optical_center_y_ndc = 1 - (2 * optical_center_y_pixels / height)
-
         fov = 2 * np.degrees(np.arctan(width / (2 * f_in_pixels)))
 
-        f = 1.0 / np.tan(np.radians(fov) / 2.0)
+        k = np.array([[f_in_pixels, 0, optical_center_x_pixels],
+                      [0, f_in_pixels, optical_center_y_pixels],
+                      [0, 0, 1]])
 
-        aspect = width / height
-        projection_matrix = [
-            [f / aspect, 0, 0, 0],
-            [0, f, 0, 0],
-            [0, 0, -1, -1],
-            [0, 0, -0.02, 0]
-        ]
-
-        # Flatten the projection matrix for PyBullet
-        projection_matrix = np.array(projection_matrix).flatten().tolist()
-        projection_matrix = p.computeProjectionMatrixFOV(self.fov, aspect, near, far)
+        projection_matrix = self.cvK2BulletP(k, width, height, near, far)
 
         print("fixed proyection matrix", projection_matrix)
 
         # Define camera extrinsic parameters
-        camera_translation = np.array([-0.027060, -0.009970, -0.004706])
+        # camera_translation = np.array([0.027060, 0.009970, 0.004706])
+        camera_translation = np.array([0.0128723, 0.0150052, 0.00575831])
+        camera_translation = np.array([-0.00113026, 0.0128052, 0.00575831])
+
         camera_rotation_matrix = np.array([
             [0.9999999999999999, 0.0, 0.0],
             [0.0, 0.9999999999999999, 0.0],
@@ -436,47 +601,17 @@ class Calibrator:
 
         camera_translation += self.com_p
         com_o_matrix = p.getMatrixFromQuaternion(self.com_o)
-        camera_rotation_matrix = np.array(com_o_matrix).reshape(3, 3)
+        camera_rotation_matrix += np.array(com_o_matrix).reshape(3, 3)
 
-        # print(camera_rotation_matrix)
+        view_matrix = self.cvPose2BulletView(self.com_o, camera_translation)
 
-        eye = -np.dot(camera_rotation_matrix.T, camera_translation)
-
-        look_direction = np.array([0, 0, -1])
-        target = eye + np.dot(camera_rotation_matrix.T, look_direction)
-
-        # Calculate the up vector
-        up_local = np.array([0, 1, 0])
-        up = np.dot(camera_rotation_matrix.T, up_local)
-
-        # eye += [1, 1, 0.0]
-        #target = self.com_p + target
-
-        p.setGravity(0, 0, 0)
-        # p.setRealTimeSimulation(0)
-
-        # print(eye, target, up)
-        # Compute the view matrix
-
-        # rot_matrix = p.getMatrixFromQuaternion(self.com_o)
-        # rot_matrix = np.array(rot_matrix).reshape(3, 3)
-        # # Initial vectors
-        # init_camera_vector = (0, 0, 1)  # z-axis
-        # init_up_vector = (0, 1, 0)  # y-axis
-        # # Rotated vectors
-        # camera_vector = rot_matrix.dot(init_camera_vector)
-        # up_vector = rot_matrix.dot(init_up_vector)
-        # view_matrix = p.computeViewMatrix(self.com_p, self.com_p + 0.1 * camera_vector, up_vector)
-
-        # view_matrix = p.computeViewMatrix(eye, target, up)
-
-        view_matrix = [
-            [-camera_rotation_matrix[0][0], camera_rotation_matrix[0][1], -camera_rotation_matrix[0][2], 0,
-             -camera_rotation_matrix[1][0], camera_rotation_matrix[1][1], -camera_rotation_matrix[1][2], 0,
-             -camera_rotation_matrix[2][0], camera_rotation_matrix[2][1], -camera_rotation_matrix[2][2], 0,
-             # -camera_translation[0], camera_translation[1], -camera_translation[2], 1]
-             0.0027147, 0.15365307, -1.35894322, 1]
-        ]
+        # view_matrix = [
+        #     [-camera_rotation_matrix[0][0], camera_rotation_matrix[0][1], -camera_rotation_matrix[0][2], 0,
+        #      -camera_rotation_matrix[1][0], camera_rotation_matrix[1][1], -camera_rotation_matrix[1][2], 0,
+        #      -camera_rotation_matrix[2][0], camera_rotation_matrix[2][1], -camera_rotation_matrix[2][2], 0,
+        #      # -camera_translation[0], camera_translation[1], -camera_translation[2], 1]
+        #      0.0027147, 0.15365307, -1.35894322, 1]
+        # ]
 
         # view_matrix = [
         #     [1, 0, 0, 0,
@@ -490,12 +625,6 @@ class Calibrator:
         # print("com_p: ", self.com_p, "camera_translation: ", camera_translation)
         print("//////////////////////////////////////////////////////////////////")
 
-        eye = p.loadURDF("/home/robolab/software/bullet3/data/sphere_small.urdf", basePosition=eye,
-                                   baseOrientation=p.getQuaternionFromEuler([0, 0, 1.57]))
-        # target = p.loadURDF("/home/robolab/software/bullet3/data/sphere_small.urdf", basePosition=target,
-        #                               baseOrientation=p.getQuaternionFromEuler([0, 0, 1.57]))
-
-
         # Get the camera image
         img = p.getCameraImage(width, height, view_matrix, projection_matrix)
         rgb = img[2]
@@ -503,9 +632,43 @@ class Calibrator:
 
         return rgb
 
-    def prueba(self, robot_id):
+    def prueba(self, robot_id, imageKinova):
         self.com_p, self.com_o, _, _, _, _ = p.getLinkState(robot_id, 9)
         image = self.read_camera_fixed()
+        # image2 = self.read_camera()
+        # cv2.imshow('image2', image2)
+
+        self.real_corners = self.detect_green_corners(imageKinova)
+
+        for corner in self.real_corners:
+            cv2.circle(imageKinova, corner, 8, (255, 0, 0), -1)
+            cv2.circle(image, corner, 8, (255, 0, 0), -1)
+
+        virtual_corners = self.detect_green_corners(image)
+
+        for corner in virtual_corners:
+            cv2.circle(image, corner, 8, (0, 255, 0), -1)
+
         cv2.imshow('image', image)
-        image2 = self.read_camera()
-        cv2.imshow('image2', image2)
+        cv2.imshow('imageKinova', imageKinova)
+
+        matched_set2 = []
+        used_indices = set()
+        v_corner_aux = np.array(virtual_corners)
+
+        for point1 in self.real_corners:
+            distances = np.linalg.norm(v_corner_aux - point1, axis=1)
+            sorted_indices = np.argsort(distances)
+
+            for idx in sorted_indices:
+                if idx not in used_indices:
+                    matched_set2.append(virtual_corners[idx])
+                    used_indices.add(idx)
+                    break
+
+        virtual_corners = matched_set2
+
+        self.errors = np.linalg.norm(np.array(virtual_corners) - np.array(self.real_corners), axis=1)
+
+        print("Error: ", abs(np.sum(self.errors)))
+
