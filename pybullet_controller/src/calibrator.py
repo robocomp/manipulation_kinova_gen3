@@ -12,9 +12,9 @@ import glob
 class Calibrator:
     def __init__(self):
         """
-        Sets up class attributes `error`, `real_corners`, `robot_id`, `com_p_offset`,
-        and `fov`. It also defines these attributes as numpy arrays, but does not
-        provide any explicit initial values.
+        Initializes the `self` instance with various attributes related to the
+        calibration of a robotic arm, including `error`, `real_corners`, `robot_id`,
+        and offsets for the camera and the arm's position.
 
         """
         self.error = 0
@@ -30,18 +30,30 @@ class Calibrator:
 
     def is_rectangle(self, approx):
         """
-        Calculates the cosines of the angles between the vertices of a possible
-        rectangle and checks if all the cosines are less than 0.1, indicating that
-        the input points form a rectangle.
+        Takes a list of four points and calculates the cosine of the angle between
+        two pairs of adjacent points, sorting the values and checking if all are
+        below a threshold (0.1). It returns True if all cosines are below the
+        threshold, or False otherwise.
 
         Args:
-            approx (list): 4 points in 2D space that define a quadrilateral, which
-                is used to calculate the cosines of the angles between adjacent
-                pairs of points in the quadrilateral.
+            approx (4-dimensional numpy array.): 4-point approximation of the angle
+                between pairs of points in the input list, which is used to calculate
+                the cosine of the angle for further analysis in the function.
+                
+                	* `len(approx)` must be 4, indicating that `approx` is a list
+                with 4 elements.
+                	* Each element in `approx` has two items (a tuple), representing
+                the coordinates of a point in the rectangle.
+                
+                	Therefore, the `angle` function is applied to each pair of points
+                in `approx`, and the resulting cosine values are stored in the
+                `cosines` list. Finally, the input is verified by checking if all
+                the cosine values are less than 0.1, indicating that the rectangle
+                is a valid one.
 
         Returns:
-            undefined: a boolean value indicating whether the given approximation
-            is a rectangle or not.
+            undefined: a boolean value indicating whether the given point set forms
+            a rectangle or not.
 
         """
         if len(approx) != 4:
@@ -50,31 +62,20 @@ class Calibrator:
         def angle(pt1, pt2, pt0):
             """
             Calculates the angle between two points in 2D space based on the
-            difference in their x and y coordinates, and returns the result as a
-            decimal value between 0 and 1.
+            difference in x and y coordinates, then returns the angle as a float
+            value between 0 and π.
 
             Args:
-                pt1 (int): 2D coordinate of a point in the graphics scene.
-                pt2 (2-element NumPy array.): 2D coordinate of a second point that
-                    is used to compute the distance between two points.
-                    
-                    	* `pt2`: A 2D NumPy array containing the other point in space,
-                    to be used in computing the angle between the two points.
-                    	* `dx1`: The difference in x-coordinates of the two points,
-                    calculated as `pt1[0][0] - pt0[0][0]`.
-                    	* `dy1`: The difference in y-coordinates of the two points,
-                    calculated as `pt1[0][1] - pt0[0][1]`.
-                    	* `dx2`: The difference in x-coordinates of the other point
-                    in space, calculated as `pt2[0][0] - pt0[0][0]`.
-                    	* `dy2`: The difference in y-coordinates of the other point
-                    in space, calculated as `pt2[0][1] - pt0[0][1]`.
-                pt0 (float): 2D coordinate of the reference point from which to
-                    calculate the distance between two points.
+                pt1 (int): 2D point located at (`dx1`, `dy1`) relative to the origin.
+                pt2 (int): 2D coordinates of a point that is used to calculate the
+                    distance between the two points.
+                pt0 (int): 2D coordinate of the reference point used for computing
+                    the distance between two points.
 
             Returns:
-                undefined: the angle between two given points, calculated as the
-                hypotenuse of the vector difference divided by the magnitude of
-                the vectors.
+                undefined: the angle between two points in a 2D space, calculated
+                as the dot product of their difference vectors divided by the
+                square root of the sum of their squared distances from the origin.
 
             """
             dx1 = pt1[0][0] - pt0[0][0]
@@ -96,43 +97,26 @@ class Calibrator:
     def detect_green_corners(self, image):
         # Convertimos la imagen a espacio de color HSV
         """
-        1) converts an input image to HSV color space, 2) defines a range for green
-        color, 3) segments green colors using inRange and erosion operations, 4)
-        finds contours in the mask image, and 5) returns the coordinates of the
-        detected green corners.
+        1) converts an image to HSV color space, 2) defines a range for green
+        color, 3) segments green colors using inRange() and erode() functions, 4)
+        finds contours using findContours() and moments() functions, 5) iterates
+        over contours and obtains the center coordinates of each contour.
 
         Args:
-            image (image, represented by a NumPy array.): 2D image to be converted
-                to HSV color space and segmented for green color components.
+            image (ndarray object.): 8-bit grayscale image that is converted to
+                HSV color space and then segmented to identify green regions, which
+                are then used to find contours in the image.
                 
-                	* `image`: A numpy array of shape `(height, width, 3)`, representing
-                the input image in BGR (Blue, Green, Red) colorspace.
-                	* `hsv_image`: A new numpy array of shape `(height, width, 3)`,
-                obtained by converting the input image to the HSV colorspace using
-                `cv2.cvtColor`. The colorspace representation is based on the
-                Hue-Saturation-Value (HSV) model.
-                	* `lower_green`: A numpy array of shape `(3)`, representing the
-                lower bounds of the green color range in the HSV colorspace. The
-                elements are set to `(40, 40, 40)`.
-                	* `upper_green`: A numpy array of shape `(3)`, representing the
-                upper bounds of the green color range in the HSV colorspace. The
-                elements are set to `(80, 255, 255)`.
-                	* `mask`: A new numpy array of shape `(height, width, 3)`, obtained
-                by applying the `inRange` function to `hsv_image` within the green
-                color range defined by `lower_green` and `upper_green`. The resulting
-                array represents the pixel values within the green range.
-                	* `contours`: A list of numpy arrays of shape `(length, 2)`,
-                representing the contours detected in the `mask` image using the
-                `findContours` function. Each contour is represented as a list of
-                two numbers, the x and y coordinates of the contour points.
-                	* `corners`: A list of numpy arrays of shape `(2,)` representing
-                the corners of the contours detected in the `mask` image. Each
-                corner is represented as a pair of integers, the x and y coordinates
-                of the contour point.
+                	* `cv2.cvtColor(image, cv2.COLOR_BGR2HSV)`: Converts the input
+                image from BGR (Blue, Green, Red) to HSV (Hue, Saturation, Value)
+                color space.
+                	* `lower_green` and `upper_green`: Defines the range of green
+                colors for segmentation, where `lower_green` is the lower endpoint
+                of the range and `upper_green` is the upper endpoint.
 
         Returns:
-            undefined: a list of corner points (x, y coordinates) of the green
-            regions in an image.
+            undefined: a list of coordinate pairs representing the detected green
+            corners in an image.
 
         """
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -165,18 +149,18 @@ class Calibrator:
     def error_function(self, params):
         #print("params: ", params)
         """
-        Performs rectangle detection and matching using the Real Image and Virtual
-        Corners. It returns the error between the virtual corners and the real corners.
+        Takes in a 3D point cloud and an initial set of real corners as input, and
+        outputs the distance between the virtual corners calculated using the
+        RANSAC algorithm and the real corners, along with the error between the two.
 
         Args:
-            params (list): 3D camera parameters (including focal length, principal
-                point, and orientation) and other related values, which are used
-                to compute the corners of the real image and compare them with
-                those obtained from the virtual camera.
+            params (list): 7-element tuple passed from the parent class, which
+                contains information about the image, including its height, width,
+                and 3D reconstruction parameters.
 
         Returns:
-            undefined: the sum of the distances between the predicted virtual
-            corners and the real corners.
+            undefined: a measure of the distance between the estimated and real
+            corner points.
 
         """
         self.com_p = params[:3]
@@ -240,29 +224,18 @@ class Calibrator:
 
     def error_function2(self, params):
         """
-        Detects green corners from a given image using the SURF algorithm, matches
-        them with predefined real corners, and calculates the error between the
-        two sets. It returns the error value.
+        Calculates the distance between a set of real corners and their virtual
+        counterparts, and returns an error value based on the average Euclidean
+        distance between the two sets.
 
         Args:
-            params (ndarray.): 7-element tuple of camera parameters (3 for focus,
-                4 for orientation) and the fov value, which are passed from the
-                caller to initialize and modify the camera model's parameters
-                during the object detection process.
-                
-                	* `com_p`: An array of length 7, containing the position of the
-                blue corner in pixels.
-                	* `com_o`: An array of length 7, containing the orientation of
-                the green rectangle in degrees.
-                	* `fov`: A scalar, representing the field of view of the camera
-                in degrees.
-                
-                	Note that `params` is deserialized from a JSON dictionary, so its
-                properties can be accessed using dot notation.
+            params (tuple): 4D tensor containing the corners' coordinates and FOV,
+                which is used to compute the offset of each corner relative to its
+                initial position and to calculate the error between the detected
+                green corners and the real ones.
 
         Returns:
-            undefined: a sum of errors between detected virtual corners and actual
-            real corners.
+            undefined: a sum of distances between virtual corners and real corners.
 
         """
         self.com_p = params[:3]
@@ -312,41 +285,41 @@ class Calibrator:
 
     def error_function3(self, params):
         """
-        Compares a set of real-world corner points with a set of virtual corners
-        detected using a green circle detector, calculates the error between the
-        two sets, and returns the sum of the errors.
+        Compares real and virtual corner positions to calculate an error matrix
+        between both sets, returns the average absolute error in that matrix.
 
         Args:
-            params (ndarray or NumPy matrix, which is expected to contain the
-                parameters for the function's computation.): 4x4 homography matrix
-                that maps the 3D points from the left camera to the right camera,
-                and it is used to compute the view matrix for the right camera.
+            params (ndarray or NumPy array, which can be inferred from its definition
+                as a matrix product of two variables in the code snippet provided.):
+                3D pose of the camera and is used to calculate the view matrix,
+                translation, and rotation of the camera.
                 
-                	1/ `camera_translation`: This is an array containing the translation
-                values for the camera.
-                	2/ `camera_rotation_matrix`: This is a 3x3 array containing the
-                rotation matrix values for the camera.
-                	3/ `com_o_matrix`: This is an array containing the quaternion
-                matrix values for the object's orientation.
-                	4/ `view_matrix`: This is a 4x4 array containing the view
-                transformation matrix values for the current frame.
-                	5/ `width` and `height`: These are the image dimensions (width
-                and height, respectively) in pixels.
-                	6/ `projection_matrix`: This is a 3x4 array containing the
-                projection matrix values for the current frame.
-                	7/ `real_corners`: This is an array of length `n` containing the
-                real-world corner coordinates for the image.
-                	8/ `virtual_corners`: This is an array of length `n` containing
-                the virtual corner coordinates for the image, calculated using the
-                intrinsic and extrinsic parameters.
-                	9/ `matched_set2`: This is a list of length `n` containing the
-                indices of the matched virtual corners with real corners.
-                	10/ `used_indices`: This is a set of indices representing the
-                indices that have already been used in the matching process.
+                	* `camera_translation`: A 3x1 numpy array representing the
+                translation of the camera in the world coordinate system.
+                	* `camera_rotation_matrix`: A 3x3 numpy array representing the
+                rotation of the camera in the world coordinate system.
+                	* `com_o_matrix`: A 3x3 numpy array representing the orientation
+                of the object in the world coordinate system.
+                	* `view_matrix`: A 4x4 numpy array representing the view matrix
+                of the camera, which maps points in the world coordinate system
+                to screen coordinates.
+                	* `projection_matrix`: A 4x4 numpy array representing the projection
+                matrix of the camera, which maps points in the world coordinate
+                system to screen coordinates.
+                	* `width` and `height`: The width and height of the image,
+                respectively, which are used to calculate the corners of the green
+                box.
+                	* `real_corners`: A list of 2d numpy arrays representing the known
+                positions of the green corner in the image.
+                	* `virtual_corners`: A list of 2d numpy arrays representing the
+                predicted positions of the green corner in the image, based on the
+                learned parameters.
+                	* `errors`: A 1d numpy array representing the difference between
+                the predicted and actual positions of the green corner.
 
         Returns:
-            undefined: a single integer value representing the total error between
-            the predicted and real corner locations.
+            undefined: the sum of the errors between the detected virtual corners
+            and the ground truth real corners.
 
         """
         camera_translation = params
@@ -401,74 +374,56 @@ class Calibrator:
 
     def calibrate(self, imageKinova, robot_id):
         """
-        1) reads the input images (PyBullet and Kinova), 2) detects rectangles
-        using a custom implementation, 3) finds matching corners between the two
-        images, 4) computes the error between real and virtual corners, and 5)
-        displays the result.
+        Performs rectangle detection on an RGB image and a depth map using the
+        PyBullet library, and then compares the detected rectangles with those
+        obtained from the Kinova API to determine if the pose of the robot has
+        changed. It also computes the error between the real and detected corners.
 
         Args:
-            imageKinova (8-bit depth image.): 3D reconstruction of the environment
-                obtained from the depth sensor Kinova, which is used to detect and
-                align the virtual corners with the real ones in the image.
+            imageKinova (8-bit unsigned char, as specified by the `cv2.imread()`
+                function.): 3D point cloud data obtained from the Kinova sensor,
+                which is used to detect the rectangle in the image using the
+                disparity map.
                 
-                	* `imageKinova`: This is the output image from the Kinova camera,
-                which is used to detect the corners of the rectangle. It is a
-                3-dimensional numpy array with shape `(height, width, depth)`,
-                where `height`, `width`, and `depth` represent the number of pixels
-                in each dimension.
-                	* `camera_matrices`: This is a list of 3x3 homogeneous matrices
-                representing the camera's intrinsic parameters. These matrices are
-                used to transform the image from the world coordinates to the image
-                coordinates.
-                	* `camera_positions`: This is a list of 4-vectors representing
-                the camera's positions in the world coordinates. These vectors are
-                used to calculate the camera's field of view (FoV).
-                	* `com_p_init`, `com_p_offset`, `com_o_init`, and `com_o_offset`:
-                These are the initial values for the pitch and roll angles of the
-                camera, as well as their offsets. These offsets are used to correct
-                the detected corners of the rectangle.
-                	* `fov`: This is a scalar representing the field of view of the
-                camera in degrees. It is used to calculate the size of the rectangular
-                image.
-                	* `real_corners`: This is a list of 4-vectors representing the
-                real corners of the rectangle in the world coordinates. These
-                corners are used as input for the calibration algorithm.
+                	1/ `imageKinova`: This is the output image from the Kinova camera.
+                It is a numpy array with shape `(height, width, channels)`, where
+                height and width are the dimensions of the image, and channels are
+                the number of color channels (typically 3 for RGB).
+                	2/ `self.real_corners`: This is a list of 4 integers representing
+                the real corners of the detected rectangle in pixel coordinates.
+                These corners are used to find the rotation and scaling parameters
+                for the camera calibration process.
+                	3/ `self.com_p`: This is the initial position of the compressed
+                rectangle in pixel coordinates. It is used to initialize the
+                rectangle detection algorithm.
+                	4/ `self.com_o`: This is the initial offset of the compressed
+                rectangle in pixel coordinates. It is used to initialize the
+                rectangle detection algorithm.
+                	5/ `initial_params`: This is a list of numpy arrays containing
+                the initial parameters for the camera calibration process, including
+                the rotation and scaling matrices, and the intrinsic and extrinsic
+                parameters.
+                	6/ `bounds`: This is a tuple containing the lower and upper bounds
+                for each parameter in the optimization process. The bounds are
+                used to constrain the optimization algorithm to search within a
+                specific range for each parameter.
+                	7/ `method`: This is a string indicating the optimization algorithm
+                to be used. In this case, `Nelder-Mead` is used for camera
+                calibration. Other optimization algorithms can also be used, such
+                as gradient descent or the Levenberg-Marquardt algorithm.
+                	8/ `imagePybullet`: This is the output image from the PyBullet
+                rendering engine. It is a numpy array with shape `(height, width,
+                3)` where height and width are the dimensions of the image, and 3
+                is the number of color channels (RGBA). The image is rendered using
+                the detected rectangle and its corners, and it is displayed in the
+                `cv2.imshow` function.
                 
-                	In the `minimize` function, the `error_function` is explained below:
-                
-                	* `error_function`: This is a function that takes two inputs: the
-                initial values for the pitch and roll angles of the camera
-                (`com_p_init`, `com_p_offset`), and the offset for the detected
-                corners of the rectangle (`com_o_init`, `com_o_offset`). The
-                function returns an integer representing the minimized value of
-                the error.
-                
-                	The `error_function` calculates the error between the detected
-                corners of the rectangle and the real corners of the rectangle in
-                the world coordinates. It does this by first transforming the image
-                points to the world coordinates using the camera's intrinsic
-                parameters, and then calculating the distance between the detected
-                corners and the real corners. The error is minimized by adjusting
-                the initial values for the pitch and roll angles of the camera
-                until the difference between the detected corners and the real
-                corners is minimal.
-                
-                	In the `imagePybullet`, `blurredPybullet`, `edgesPybullet`,
-                `contoursPybullet`, `approx`, `virtual_corners`, `real_corners`,
-                and `errors` variables, their properties are explained in detail
-                in the code comments. These variables represent various aspects
-                of the image processing pipeline, such as the original image, the
-                blurred image, the edges of the image, the contours of the image,
-                the approximated contours, the virtual corners of the rectangle,
-                and the errors between the detected corners and the real corners.
-                
-                	In summary, the `calibrate` function is a key part of the pipeline
-                that corrects the detected corners of the rectangle using the real
-                corners of the rectangle in the world coordinates, based on the
-                camera's intrinsic parameters and field of view.
-            robot_id (str): 3D pose of the robot (kinova or pybullet) and is used
-                to compute the real corners of the robot's rectangle based on its
-                visual appearance.
+                	Overall, `imageKinova` provides information about the output image
+                from the Kinova camera, which is used to detect the rectangle and
+                calibrate the camera. The other properties of `imageKinova` are
+                explained above.
+            robot_id (int): 3D point cloud of the robot and is used to perform the
+                registration between the camera and the robot's point cloud.
 
         """
         print("Calibrating...")
@@ -605,16 +560,32 @@ class Calibrator:
 
     def calibrate2(self, imageKinova, robot_id):
         """
-        Performs camera calibration for a Kinova robot using the Nelder-Mead
-        algorithm to minimize the error between the predicted and actual corner
-        positions in the images captured by the camera.
+        Is responsible for calibrating a Kinect camera's position and orientation
+        using an image from the PyBullet camera. It minimizes an error function
+        to determine the optimal position and rotation, and then displays the
+        detected corners in both the Kinova and PyBullet images.
 
         Args:
-            imageKinova (int): 3D point cloud data of the Kinova robot's environment
-                and is used to detect green corners for visualization purposes.
-            robot_id (int): 4-dimensional pose of the robot, which is used to
-                retrieve the current state of the robot's linkages through the
-                `getLinkState()` method.
+            imageKinova (image object.): 2D image captured by the Kinova camera
+                and is used for detecting green corners to determine the position
+                and orientation of the robot.
+                
+                	* `imageKinova`: A Python image class object representing the
+                left camera image. It has various attributes, including `height`,
+                `width`, `pixels`, and `detected_corners`. The `detected_corners`
+                attribute is a list of (x, y) tuples representing the corners
+                detected in the left camera image.
+                
+                	The function explains the properties of `imagePybullet` as well:
+                
+                	* `imagePybullet`: A Python image class object representing the
+                right camera image. It has similar attributes as `imageKinova`,
+                including `height`, `width`, `pixels`, and `detected_corners`. The
+                `detected_corners` attribute is a list of (x, y) tuples representing
+                the corners detected in the right camera image.
+            robot_id (int): 3D pose of a specific robot in the environment, which
+                is used to initialize the optimization process and evaluate the
+                final solution.
 
         """
         self.com_p, self.com_o, _, _, _, _ = p.getLinkState(robot_id, 9)
@@ -670,30 +641,17 @@ class Calibrator:
 
     def calibrate3(self, robot_id, imageKinova):
         """
-        Calculates the fixed camera projection matrix, detects real and virtual
-        corners from an input RGB image, and displays the detected corners using
-        OpenCV's imshow function.
+        Defines camera intrinsic parameters, projects an image onto a 2D plane,
+        minimizes the distance between the projected corners and the detected
+        corners in the projected image, and visualizes the results on both the
+        original and projected images.
 
         Args:
-            robot_id (float): 3D coordinate of the robot's body in the world frame,
-                which is used to initialize the camera position and rotation for
-                the visual servoing task.
-            imageKinova (ndarray.): 3D point cloud data from the Kinova VCC-100
-                robot's sensor, which is used to detect corners and create a 2D
-                image of the robot's environment.
-                
-                	* `width`: The width of the image in pixels (1280).
-                	* `height`: The height of the image in pixels (720).
-                	* `view_matrix`: The view matrix of the camera, which represents
-                the camera's intrinsic and extrinsic parameters.
-                	* `projection_matrix`: The projection matrix of the camera, which
-                represents the camera's intrinsic and extrinsic parameters.
-                	* `imagePybullet`: A PyBullet image object that represents the
-                image captured by the camera.
-                
-                	The function returns a tuple containing the final translation of
-                the camera in 3D space, which is represented by the `result_position`
-                attribute.
+            robot_id (int): 9th element of a tuple passed to the `getLinkState()`
+                method, which provides the state of a specific robot connected to
+                the Kinova platform.
+            imageKinova (float): 2D image captured by the Kinova camera and is
+                used to detect green corners in the image.
 
         """
         self.com_p, self.com_o, _, _, _, _ = p.getLinkState(robot_id, 9)
@@ -702,16 +660,6 @@ class Calibrator:
         self.com_o_init = self.com_o
 
         self.real_corners = self.detect_green_corners(imageKinova)
-
-        print("Initial pos: ", self.com_p, "Initial rotation: ", self.com_o)
-
-        initial_params = np.concatenate((self.com_p, self.com_o))
-
-        bounds = [
-            (None, None),
-            (None, None),
-            (None, None),
-        ]
 
         # Define camera intrinsic parameters
         self.width = 1280  # image width
@@ -736,6 +684,12 @@ class Calibrator:
         # camera_translation = np.array([0.027060, 0.009970, 0.004706])
         camera_translation = np.array([0.0128723, 0.0150052, 0.00575831])
 
+        bounds = [
+            (camera_translation[0]-0.01, camera_translation[0]+0.01),
+            (camera_translation[1]-0.01, camera_translation[1]+0.01),
+            (camera_translation[2]-0.0005, camera_translation[2]+0.0005),
+        ]
+
         initial_params = camera_translation
 
         result_position = minimize(self.error_function3, initial_params, method='Nelder-Mead', bounds=bounds)
@@ -758,28 +712,23 @@ class Calibrator:
         cv2.imshow('Detected Corners Kinova', imageKinova)
         cv2.imshow('Detected Corners Pybullet', imagePybullet)
 
-
-    def get_kinova_instrinsic(self, imageKinova):
-        pass
-
     def read_camera(self):
         """
-        1) computes a projection and view matrix from FOV, aspect, nearplane, and
-        farplane using pyscene's `computeProjectionMatrixFOV` and `computeViewMatrix`,
-        respectively. 2) It rotates the camera's position, up vector, and eye
-        position by computing a quaternion based on the given rotation angles. 3)
-        It generates an RGB image from the view matrix and projection matrix using
-        PyScence's `getCameraImage`.
+        1) computes a view matrix and projection matrix for a camera model based
+        on a field of view (FOV), aspect ratio, near plane, far plane, and comoving
+        point, 2) rotates the vectors using a quaternion, and 3) generates an RGB
+        image from the view matrix and projection matrix.
 
         Returns:
-            undefined: a rotated and projected RGB image of the scene.
+            undefined: a rotated RGB image of the camera view.
             
-            	* `rgb`: This is an array-like object that represents the RGB image
-            captured by the camera. It has shape `(height, width, 3)` where height
-            and width are the dimensions of the image, and the third axis represents
-            the color channels (red, green, blue).
-            	* `img`: This is a scalar value that represents the total number of
-            pixels in the RGB image.
+            	* `img`: This is a 3-dimensional NumPy array representing the RGB
+            image captured by the camera. The shape of the array is (height, width,
+            3), where height and width represent the dimensions of the image, and
+            the third dimension represents the color channels (RGB).
+            	* `rgb`: This is a 2-dimensional NumPy array representing the RGB
+            image captured by the camera. The shape of the array is (height, width),
+            where height and width represent the dimensions of the image.
 
         """
         aspect, nearplane, farplane = 1.78, 0.01, 100
@@ -811,15 +760,42 @@ class Calibrator:
 
     def cvK2BulletP(self, K, w, h, near, far):
         """
-        cvKtoPulletP converst the K interinsic matrix as calibrated using Opencv
-        and ROS to the projection matrix used in openGL and Pybullet.
+        Computes a projection matrix for bullet transformation.
 
-        :param K:  OpenCV 3x3 camera intrinsic matrix
-        :param w:  Image width
-        :param h:  Image height
-        :near:     The nearest objects to be included in the render
-        :far:      The furthest objects to be included in the render
-        :return:   4x4 projection matrix as used in openGL and pybullet
+        Args:
+            K (float): 2D perspective transformation matrix, which maps points
+                from the near plane to the far plane.
+            w (float): 2D screen width in meters, which is used to scale the
+                x-coordinates of the projection matrix.
+            h (int): vertical coordinate of the far plane, which is used in the
+                computation of the projection matrix.
+            near (2D vector.): 2D point at which the projection matrix is applied,
+                with coordinates `(0, 0)` in the function.
+                
+                	* `near`: A 2D vector with length of 4 representing the near plane
+                coordinates. It has components `0` and `1` representing the x- and
+                y-coordinates of the near plane, respectively.
+            far (float): 2D distance from the near plane of the projection, used
+                to calculate the ratio of near to far distances and produce the
+                correct perspective distortion.
+
+        Returns:
+            undefined: a 4D numpy array representing the projection matrix for an
+            orthographic camera with near and far distances given in input.
+            
+            	* `projection_matrix`: A 16-element array representing the projection
+            matrix in homogeneous coordinates (i.e., column vectors). The first
+            four elements represent the perspective factors for the near and far
+            planes, while the remaining eight elements represent the translation
+            and scaling of the projection coordinate system relative to the screen
+            coordinate system.
+            	* `transpose`: A boolean value indicating whether the output array
+            is transposed or not (in this case, it is set to `True`).
+            	* `T`: The transpose operation performed on the input array before
+            returning it as a list of 16 floating-point numbers.
+            	* `.reshape(16)`: The reshaping operation applied to the output array
+            to obtain a contiguous block of size 16.
+
         """
         f_x = K[0, 0]
         f_y = K[1, 1]
@@ -838,13 +814,62 @@ class Calibrator:
 
     def cvPose2BulletView(self, q, t):
         """
-        cvPose2BulletView gets orientation and position as used
-        in ROS-TF and opencv and coverts it to the view matrix used
-        in openGL and pyBullet.
+        Takes a quaternion representing the pose of a robot in ROS-TF format and
+        converts it to the corresponding view matrix in OpenGl format, using the
+        pybullet library. The function first rotates the quaternion by 180 degrees
+        along the X axis, then computes the inverse of the pose transformation
+        matrix, and finally transposes the resulting matrix to respect the array
+        structure of the OpenGl view matrix.
 
-        :param q: ROS orientation expressed as quaternion [qx, qy, qz, qw]
-        :param t: ROS postion expressed as [tx, ty, tz]
-        :return:  4x4 view matrix as used in pybullet and openGL
+        Args:
+            q (4D array.): 4-dimensional Quaternion object that contains the
+                orientation information of the object being rendered.
+                
+                	* `q[3]`: The third element of `q` represents the z-rotation of
+                the quaternion around the world-up axis.
+                	* `q[0]`: The first element of `q` represents the x-rotation of
+                the quaternion around the world-up axis.
+                	* `q[1]`: The second element of `q` represents the y-rotation of
+                the quaternion around the world-up axis.
+                	* `q[2]`: The fourth element of `q` represents the x-position of
+                the quaternion along the world-up axis.
+                	* `R`: The rotation matrix representation of the quaternion `q`.
+                	* `t`: An optional vector representing the position of the robot
+                in global coordinates. If provided, it is concatenated with the
+                rotation matrix `R` to form the 4x4 pose matrix `T`.
+                	* `Tc`: The inverse of the pose from the ROS-TF format, which is
+                a 4x4 matrix representing the position and orientation of the robot
+                in global coordinates.
+                	* `viewMatrix`: The resulting view matrix representation of the
+                robot's pose in the OpenGL format, which has a shape of 16 elements.
+            t (4D NumPy array.): 3D translation vector of the object being rendered,
+                which is appended to the rotation matrix `R` and then used to form
+                the final view matrix `viewMatrix`.
+                
+                	* `t`: A numpy array with shape `(3, 1)` representing the top-level
+                object in the ROS-TF format.
+                	* `R`: The rotation matrix representing the orientation of the
+                object in world coordinates.
+                	* `T`: The translation vector representing the position of the
+                object in world coordinates.
+                
+                	Note: `t` is not destructured as it is not necessary to do so for
+                this function.
+
+        Returns:
+            undefined: a 16-by-4 matrix representing the OpenSceneGraph view matrix
+            for rendering 3D objects in bullet.
+            
+            	1/ viewMatrix - A 16x4 array representing the view matrix in OpenGL
+            format, which is the product of the rotation matrix and the translation
+            vector in bullet convention. The transpose symbol (T) is used to ensure
+            that the array structure is maintained.
+            	2/ The first three columns represent the rotational parts of the view
+            matrix, while the last column represents the translation part.
+            	3/ The rows represent the X, Y, Z, and W axes, respectively, in the
+            OpenGL convention.
+            	4/ The view matrix is used to render objects in 3D space from a
+            particular viewpoint in the Bullet library.
 
         """
         q = Quaternion([q[3], q[0], q[1], q[2]])
@@ -868,16 +893,13 @@ class Calibrator:
     def read_camera_fixed(self):
         # Define camera intrinsic parameters
         """
-        Takes in various camera and projection parameters and returns a 3D camera
-        image represented as a RGB value. It creates a fixed camera matrix, extracts
-        an eye-fixed target coordinate from the input image, computes a view matrix
-        for the camera and projection matrices based on the eye-fixed target
-        coordinates, computes a new view matrix with a translation and rotation
-        added, applies it to the original camera image, converts the image from
-        RGB to BGR format, and returns the result as an RGB value.
+        Generates a fixed camera matrix for a given extrinsic and intrinsic
+        parameters, then applies it to obtain an image from the camera's perspective.
+        The image is returned as a numpy array.
 
         Returns:
-            undefined: a RGB image representing the camera view of the environment.
+            undefined: a 3D array representing a grayscale image of the camera's
+            field of view.
 
         """
         width = 1280  # image width
@@ -901,13 +923,13 @@ class Calibrator:
         print("fixed proyection matrix", projection_matrix)
 
         # Define camera extrinsic parameters
-        # camera_translation = np.array([0.027060, 0.009970, 0.004706])
-        camera_translation = np.array([0.0128723, 0.0150052, 0.00575831])
-        camera_translation = np.array([-0.00113026, 0.0128052, 0.00575831])
+        camera_translation = np.array([0.0, 0.0, 0.0])
+        # camera_translation = np.array([-0.027060, -0.009970, -0.004706])
+        # camera_translation = np.array([0.0028723, 0.01576, 0.00618556])
 
         camera_rotation_matrix = np.array([
-            [0.9999999999999999, 0.0, 0.0],
-            [0.0, 0.9999999999999999, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
             [0.0, 0.0, 1.0]
         ])
 
@@ -926,10 +948,10 @@ class Calibrator:
         # ]
 
         # view_matrix = [
-        #     [1, 0, 0, 0,
-        #      0, 1, 0, 0,
-        #      0, 0, 1, 0,
-        #      0.0027147, 0.15365307, -1.35894322, 1]
+        #     [1.0, 0.0, 0.0, 0.0,
+        #      0.0, 1.0, 0.0, 0.0,
+        #      0.0, 0.0, 1, 0,
+        #      -self.com_p[0], -self.com_p[1]+0.05639, -self.com_p[2]-0.00305, 1]
         # ]
 
         print("fixed view matrix", np.matrix(view_matrix))
@@ -944,37 +966,27 @@ class Calibrator:
 
         return rgb
 
-    def prueba(self, robot_id, imageKinova):
+    def cube_test(self, robot_id, imageKinova):
         """
-        Performs corner detection on an input image and compares it with a predefined
-        set of real corners. It then matches the virtual corners with the real
-        corners based on distance and stores the matched set in a variable. The
-        errors between the virtual and real corners are calculated and printed to
-        the console.
+        Is used to detect green corners on two images simultaneously, and then
+        match them based on distance to create a matched set of corners between
+        the two images. It also calculates the errors between the matched sets and
+        prints the overall error.
 
         Args:
-            robot_id (int): 3D point of view of the robot's camera, which is used
-                to retrieve the link state data from the kinova controller.
-            imageKinova (ndarray or NumPy array.): 2D image of the KINOVA camera,
-                which is used to detect green corners and compute the error between
-                the detected corners and the expected ones based on the real-time
-                data from the robot's cameras.
+            robot_id (int): 9-bit identification number of the robot for which the
+                link state information is being retrieved.
+            imageKinova (ndarray (numpy array) object.): 2D image of the robot's
+                environment, which is used to detect green corners and match them
+                with the corresponding real corners detected in the camera image.
                 
-                	* `imageKinova`: A numpy array with shape `(N, 3, H, W)`, where
-                N is the number of corners detected, `H` and `W` are the height
-                and width of the image, respectively.
-                	* `real_corners`: An NumPy array with shape `(N, 2)` containing
-                the real-world corner locations in pixel coordinates.
-                	* `virtual_corners`: An NumPy array with shape `(M, 2)` where M
-                is the number of virtual corners detected, containing the virtual
-                corner locations in pixel coordinates.
-                	* `errors`: A NumPy array with shape `(M, 1)` containing the
-                errors between the real and virtual corners.
-                
-                	In summary, `imageKinova` contains the results of detecting green
-                corners in an image using the Kanade-Lucas-Tomasi (KLT) algorithm,
-                while `real_corners`, `virtual_corners`, and `errors` contain
-                additional information related to these detections.
+                	* `imageKinova`: This variable holds an image frame captured by
+                a Kinova camera. It is a numpy array with shape (height, width,
+                channels), where height and width represent the dimensions of the
+                image, and channels represent the number of color channels (typically
+                3 for RGB).
+                	* `_`: No further information is provided about this variable as
+                it is not explicitly mentioned in the code snippet.
 
         """
         self.com_p, self.com_o, _, _, _, _ = p.getLinkState(robot_id, 9)
@@ -1015,4 +1027,109 @@ class Calibrator:
         self.errors = np.linalg.norm(np.array(virtual_corners) - np.array(self.real_corners), axis=1)
 
         print("Error: ", abs(np.sum(self.errors)))
+
+    def square_test(self, robot_id, imageKinova):
+        """
+        Detects rectangles in two images by finding contours, approximating them
+        with a polygon, and checking if it has four vertices and enough area. If
+        a rectangle is found, it is drawn on both images, along with the corners
+        of the detected rectangle. The function also calculates the distance between
+        the detected rectangle and the real corners to calculate the errors.
+
+        Args:
+            robot_id (int): 3D coordinate of the camera's position and orientation
+                relative to the robot's frame, which is essential for accurately
+                detecting the rectangle and real corners.
+            imageKinova (int): 2D image of the robot's surroundings to be processed
+                for detecting rectangles, which is passed as the first argument
+                to the function.
+
+        """
+        self.com_p, self.com_o, _, _, _, _ = p.getLinkState(robot_id, 9)
+
+        # Apply GaussianBlur to reduce noise and improve edge detection
+        blurredKinova = cv2.GaussianBlur(imageKinova, (5, 5), 0)
+
+        # Apply edge detection using Canny
+        edgesKinova = cv2.Canny(blurredKinova, 50, 150)
+
+        # Find contours in the edged image
+        contoursKinova, _ = cv2.findContours(edgesKinova, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Iterate through the contours to find a rectangle
+        for contour in contoursKinova:
+            # Approximate the contour to a polygon
+            epsilon = 0.02 * cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, epsilon, True)
+
+            # If the polygon has 4 vertices, it is likely a rectangle
+            # if self.is_rectangle(approx):
+            if len(approx) == 4 and cv2.contourArea(approx) > 1000:
+                # Draw the contour on the original image
+                # print(cv2.contourArea(approx))
+                cv2.drawContours(imageKinova, [approx], -1, (0, 255, 0), 3)
+
+                # Draw circles on the corners
+                for point in approx:
+                    self.real_corners.append(tuple(point[0]))
+                    cv2.circle(imageKinova, tuple(point[0]), 10, (0, 0, 255), -1)
+
+        imagePybullet = self.read_camera_fixed()
+
+        # cv2.imshow("imageKinova", imagePybullet)
+        # cv2.imshow('Detected Rectangle Kinova', imageKinova)
+
+        blurredPybullet = cv2.GaussianBlur(imagePybullet, (5, 5), 0)
+        edgesPybullet = cv2.Canny(blurredPybullet, 50, 150)
+        contoursPybullet, _ = cv2.findContours(edgesPybullet, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        virtual_corners = []
+
+        # Iterate through the contours to find a rectangle
+        for contour in contoursPybullet:
+            # Approximate the contour to a polygon
+            epsilon = 0.02 * cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, epsilon, True)
+
+            # If the polygon has 4 vertices, it is likely a rectangle
+            # if self.is_rectangle(approx):
+            if len(approx) == 4 and cv2.contourArea(approx) > 1000:
+                # Draw the contour on the original image
+                cv2.drawContours(imagePybullet, [approx], -1, (255, 0, 255), 3)
+
+                # Draw circles on the corners
+                for point in approx:
+                    cv2.circle(imagePybullet, tuple(point[0]), 10, (255, 0, 0), -1)
+                    virtual_corners.append(tuple(point[0]))
+
+                cv2.circle(imagePybullet, tuple(approx[0][0]), 10, (0, 0, 255), -1)
+
+                cv2.drawContours(imagePybullet, [np.array(self.real_corners)], -1, (0, 255, 0), 3)
+                for point in self.real_corners:
+                    cv2.circle(imagePybullet, point, 10, (0, 0, 255), -1)
+
+        if len(virtual_corners) == 4:
+            matched_set2 = []
+            used_indices = set()
+            v_corner_aux = np.array(virtual_corners)
+
+            for point1 in self.real_corners:
+                distances = np.linalg.norm(v_corner_aux - point1, axis=1)
+                sorted_indices = np.argsort(distances)
+
+                for idx in sorted_indices:
+                    if idx not in used_indices:
+                        matched_set2.append(virtual_corners[idx])
+                        used_indices.add(idx)
+                        break
+
+            virtual_corners = matched_set2
+
+            print("Real corners", self.real_corners, "virtual_corners", virtual_corners)
+
+            self.errors = np.linalg.norm(np.array(virtual_corners) - np.array(self.real_corners), axis=1)
+            print("Errors: ", self.errors, np.sum(self.errors))
+
+        # Display the result
+        cv2.imshow('Detected Rectangle Pybullet', imagePybullet)
+        cv2.imshow('Detected Rectangle Kinova', imageKinova)
 
