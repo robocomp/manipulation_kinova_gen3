@@ -30,6 +30,8 @@ import spatialgeometry as sg
 # typing utilities
 from typing import Tuple
 
+from pyAAMED import pyAAMED
+
 import numpy
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
@@ -136,16 +138,21 @@ class SpecificWorker(GenericWorker):
             # Load a cup to place on the table
             self.cup = p.loadURDF("/home/robolab/software/bullet3/data/dinnerware/cup/cup_small.urdf", basePosition=[0.07, -0.20, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
 
-            # Load a cube to place on the table
-            self.cube = p.loadURDF("/home/robolab/software/bullet3/data/cube_small.urdf", basePosition=[0.07, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
+            self.square = p.loadURDF("/home/robolab/software/bullet3/data/cube_small_square.urdf", basePosition=[0.07, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
+            texture_path = "/home/robolab/Escritorio/textura_cubo.png"
+            textureIdSquare = p.loadTexture(texture_path)
+            p.changeVisualShape(self.square, -1, textureUniqueId=textureIdSquare)
 
-            # Cargar la textura
-            texture_path = "/home/robolab/Escritorio/textura_cubo_v2.png"
-            textureId = p.loadTexture(texture_path)
-
-            # Aplicar la textura al cubo
-            # Cambiar el visual shape del cubo
-            p.changeVisualShape(self.cube, -1, textureUniqueId=textureId)
+            # # Load a cube to place on the table
+            # self.cube = p.loadURDF("/home/robolab/software/bullet3/data/cube_small.urdf", basePosition=[0.07, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
+            #
+            # # Cargar la textura
+            # texture_path = "/home/robolab/Escritorio/textura_cubo_v2.png"
+            # textureId = p.loadTexture(texture_path)
+            #
+            # # Aplicar la textura al cubo
+            # # Cambiar el visual shape del cubo
+            # p.changeVisualShape(self.cube, -1, textureUniqueId=textureId)
 
             # Crear una restricción fija entre los dos modelos
             fixed_constraint = p.createConstraint(self.table_id, -1, self.robot_id, -1, p.JOINT_FIXED, [0, 0, 0], [0, 0.3, 0.64], [0, 0, 0], childFrameOrientation=p.getQuaternionFromEuler([0, 0, 1.57]))
@@ -411,7 +418,8 @@ class SpecificWorker(GenericWorker):
                 # self.calibrator.calibrate(self.colorKinova, self.robot_id)
 
                 # self.calibrator.calibrate3(self.robot_id, self.colorKinova)
-                self.calibrator.prueba(self.robot_id, self.colorKinova)
+                # self.calibrator.cube_test(self.robot_id, self.colorKinova)
+                self.calibrator.square_test(self.robot_id, self.colorKinova.copy())
 
                 # self.calibrator.prueba(self.robot_id)
                 # corners = self.calibrator.detect_green_corners(self.colorKinova)
@@ -423,6 +431,15 @@ class SpecificWorker(GenericWorker):
                 # self.calibrator.calibrate2(self.colorKinova, self.robot_id)
                 self.move_mode = 7
                 self.timer.start(self.Period)
+
+                aamed = pyAAMED(1080, 1940)
+                aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
+                imgG = cv2.cvtColor(self.colorKinova, cv2.COLOR_BGR2GRAY)
+                res = aamed.run_AAMED(imgG)
+                print(res)
+                aamed.drawAAMED(imgG)
+                cv2.waitKey()
+
                 print("Observing")
 
             case 7:

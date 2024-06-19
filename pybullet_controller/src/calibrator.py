@@ -423,16 +423,6 @@ class Calibrator:
 
         self.real_corners = self.detect_green_corners(imageKinova)
 
-        print("Initial pos: ", self.com_p, "Initial rotation: ", self.com_o)
-
-        initial_params = np.concatenate((self.com_p, self.com_o))
-
-        bounds = [
-            (None, None),
-            (None, None),
-            (None, None),
-        ]
-
         # Define camera intrinsic parameters
         self.width = 1280  # image width
         self.height = 720  # image height
@@ -456,6 +446,12 @@ class Calibrator:
         # camera_translation = np.array([0.027060, 0.009970, 0.004706])
         camera_translation = np.array([0.0128723, 0.0150052, 0.00575831])
 
+        bounds = [
+            (camera_translation[0]-0.01, camera_translation[0]+0.01),
+            (camera_translation[1]-0.01, camera_translation[1]+0.01),
+            (camera_translation[2]-0.0005, camera_translation[2]+0.0005),
+        ]
+
         initial_params = camera_translation
 
         result_position = minimize(self.error_function3, initial_params, method='Nelder-Mead', bounds=bounds)
@@ -477,10 +473,6 @@ class Calibrator:
 
         cv2.imshow('Detected Corners Kinova', imageKinova)
         cv2.imshow('Detected Corners Pybullet', imagePybullet)
-
-
-    def get_kinova_instrinsic(self, imageKinova):
-        pass
 
     def read_camera(self):
         aspect, nearplane, farplane = 1.78, 0.01, 100
@@ -589,13 +581,13 @@ class Calibrator:
         print("fixed proyection matrix", projection_matrix)
 
         # Define camera extrinsic parameters
-        # camera_translation = np.array([0.027060, 0.009970, 0.004706])
-        camera_translation = np.array([0.0128723, 0.0150052, 0.00575831])
-        camera_translation = np.array([-0.00113026, 0.0128052, 0.00575831])
+        camera_translation = np.array([0.0, 0.0, 0.0])
+        # camera_translation = np.array([-0.027060, -0.009970, -0.004706])
+        # camera_translation = np.array([0.0028723, 0.01576, 0.00618556])
 
         camera_rotation_matrix = np.array([
-            [0.9999999999999999, 0.0, 0.0],
-            [0.0, 0.9999999999999999, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
             [0.0, 0.0, 1.0]
         ])
 
@@ -614,10 +606,10 @@ class Calibrator:
         # ]
 
         # view_matrix = [
-        #     [1, 0, 0, 0,
-        #      0, 1, 0, 0,
-        #      0, 0, 1, 0,
-        #      0.0027147, 0.15365307, -1.35894322, 1]
+        #     [1.0, 0.0, 0.0, 0.0,
+        #      0.0, 1.0, 0.0, 0.0,
+        #      0.0, 0.0, 1, 0,
+        #      -self.com_p[0], -self.com_p[1]+0.05639, -self.com_p[2]-0.00305, 1]
         # ]
 
         print("fixed view matrix", np.matrix(view_matrix))
@@ -632,7 +624,7 @@ class Calibrator:
 
         return rgb
 
-    def prueba(self, robot_id, imageKinova):
+    def cube_test(self, robot_id, imageKinova):
         self.com_p, self.com_o, _, _, _, _ = p.getLinkState(robot_id, 9)
         image = self.read_camera_fixed()
         # image2 = self.read_camera()
@@ -671,4 +663,93 @@ class Calibrator:
         self.errors = np.linalg.norm(np.array(virtual_corners) - np.array(self.real_corners), axis=1)
 
         print("Error: ", abs(np.sum(self.errors)))
+
+    def square_test(self, robot_id, imageKinova):
+        self.com_p, self.com_o, _, _, _, _ = p.getLinkState(robot_id, 9)
+
+        # Apply GaussianBlur to reduce noise and improve edge detection
+        blurredKinova = cv2.GaussianBlur(imageKinova, (5, 5), 0)
+
+        # Apply edge detection using Canny
+        edgesKinova = cv2.Canny(blurredKinova, 50, 150)
+
+        # Find contours in the edged image
+        contoursKinova, _ = cv2.findContours(edgesKinova, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Iterate through the contours to find a rectangle
+        for contour in contoursKinova:
+            # Approximate the contour to a polygon
+            epsilon = 0.02 * cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, epsilon, True)
+
+            # If the polygon has 4 vertices, it is likely a rectangle
+            # if self.is_rectangle(approx):
+            if len(approx) == 4 and cv2.contourArea(approx) > 1000:
+                # Draw the contour on the original image
+                # print(cv2.contourArea(approx))
+                cv2.drawContours(imageKinova, [approx], -1, (0, 255, 0), 3)
+
+                # Draw circles on the corners
+                for point in approx:
+                    self.real_corners.append(tuple(point[0]))
+                    cv2.circle(imageKinova, tuple(point[0]), 10, (0, 0, 255), -1)
+
+        imagePybullet = self.read_camera_fixed()
+
+        # cv2.imshow("imageKinova", imagePybullet)
+        # cv2.imshow('Detected Rectangle Kinova', imageKinova)
+
+        blurredPybullet = cv2.GaussianBlur(imagePybullet, (5, 5), 0)
+        edgesPybullet = cv2.Canny(blurredPybullet, 50, 150)
+        contoursPybullet, _ = cv2.findContours(edgesPybullet, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        virtual_corners = []
+
+        # Iterate through the contours to find a rectangle
+        for contour in contoursPybullet:
+            # Approximate the contour to a polygon
+            epsilon = 0.02 * cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, epsilon, True)
+
+            # If the polygon has 4 vertices, it is likely a rectangle
+            # if self.is_rectangle(approx):
+            if len(approx) == 4 and cv2.contourArea(approx) > 1000:
+                # Draw the contour on the original image
+                cv2.drawContours(imagePybullet, [approx], -1, (255, 0, 255), 3)
+
+                # Draw circles on the corners
+                for point in approx:
+                    cv2.circle(imagePybullet, tuple(point[0]), 10, (255, 0, 0), -1)
+                    virtual_corners.append(tuple(point[0]))
+
+                cv2.circle(imagePybullet, tuple(approx[0][0]), 10, (0, 0, 255), -1)
+
+                cv2.drawContours(imagePybullet, [np.array(self.real_corners)], -1, (0, 255, 0), 3)
+                for point in self.real_corners:
+                    cv2.circle(imagePybullet, point, 10, (0, 0, 255), -1)
+
+        if len(virtual_corners) == 4:
+            matched_set2 = []
+            used_indices = set()
+            v_corner_aux = np.array(virtual_corners)
+
+            for point1 in self.real_corners:
+                distances = np.linalg.norm(v_corner_aux - point1, axis=1)
+                sorted_indices = np.argsort(distances)
+
+                for idx in sorted_indices:
+                    if idx not in used_indices:
+                        matched_set2.append(virtual_corners[idx])
+                        used_indices.add(idx)
+                        break
+
+            virtual_corners = matched_set2
+
+            print("Real corners", self.real_corners, "virtual_corners", virtual_corners)
+
+            self.errors = np.linalg.norm(np.array(virtual_corners) - np.array(self.real_corners), axis=1)
+            print("Errors: ", self.errors, np.sum(self.errors))
+
+        # Display the result
+        cv2.imshow('Detected Rectangle Pybullet', imagePybullet)
+        cv2.imshow('Detected Rectangle Kinova', imageKinova)
 
