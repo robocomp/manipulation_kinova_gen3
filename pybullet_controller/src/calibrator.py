@@ -3,6 +3,7 @@ import time
 import cv2
 import numpy as np
 import pybullet as p
+import interfaces as ifaces
 from scipy.optimize import minimize
 from pyquaternion import Quaternion
 
@@ -15,12 +16,38 @@ class Calibrator:
         self.real_corners = []
         self.robot_id = 0
         # self.com_p_offset = np.array([0.01134004, 0.00647021, -0.00534391])
-        self.com_p_offset = np.array([-0.027060, -0.009970, -0.004706])
+        # self.com_p_offset = np.array([-0.027060, -0.009970, -0.004706])
         # self.com_o_offset = np.array([0.06827892, -0.03868747, -0.00570964, 0.00533773])
-        self.com_o_offset = np.array([0.0, 0.0, 0.0, 0.0])
+        # self.com_o_offset = np.array([0.0, 0.0, 0.0, 0.0])
         # self.fov = 32.5368
-        self.fov = 52
-
+        # self.fov = 52
+        self.observation_angles = []
+        self.observation_angles.append([0, 0, np.pi, -0.96, -6.28, -2.1, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, # 0
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append([0.87, 0.17, 4.01, -1.74, -6.80, -1.92, 3.22, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  # 1
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append([0.26, 0.17, 3.52, -1.13, -6.406, -1.78, 2.18, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, # 2
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append([2.1753, 0.6980, 2.6924, -1.3950, -6.6862, -1.8915, 3.9945, 0.0, 0.0, 0.0,  # 3
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append([0.86, 0.30, 3.49, 5.0591-2*np.pi, 5.7567-4*np.pi, 4.3069-2*np.pi, 3.5198, 0.0, 0.0, 0.0,  # 4
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append([0.306, 0.751, 3.546, 5.3443-2*np.pi, 5.8242-4*np.pi, 4.3721-2*np.pi, 3.9988, 0.0, 0.0, 0.0,  # 5
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append([5.803-2*np.pi, 0.601, 3.272, 5.54-2*np.pi, 0.1545-2*np.pi, 4.260-2*np.pi, 4.961, 0.0, 0.0, 0.0,  # 6
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append([5.1243-2*np.pi, 0.180, 2.906, 4.803-2*np.pi, 0.464-2*np.pi, 4.429-2*np.pi, 4.683, 0.0, 0.0, 0.0,  # 7
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append([4.777-2*np.pi, 0.362, 2.666, 4.448-2*np.pi, 0.516-2*np.pi, 4.603-2*np.pi, 5.444, 0.0, 0.0, 0.0,  # 8
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append([0.0, 5.561-2*np.pi, 3.141, 5.130-2*np.pi, 6.283-4*np.pi, 4.183-2*np.pi, 1.570, 0.0, 0.0, 0.0,  # 9
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append([0.654, 0.422, 3.599, 5.332-2*np.pi, 5.791-4*np.pi, 4.183-2*np.pi, 2.504, 0.0, 0.0, 0.0,  # 10
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append([0.803, 0.804, 3.529, 5.164-2*np.pi, 5.649-4*np.pi, 4.298-2*np.pi, 2.79, 0.0, 0.0, 0.0,  # 11
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append([5.083-2*np.pi, 0.633, 3.979, 4.936-2*np.pi, 0.0029-2*np.pi, 4.651-2*np.pi, 1.062, 0.0, 0.0, 0.0,  # 12
+                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
     def is_rectangle(self, approx):
         if len(approx) != 4:
@@ -752,4 +779,16 @@ class Calibrator:
         # Display the result
         cv2.imshow('Detected Rectangle Pybullet', imagePybullet)
         cv2.imshow('Detected Rectangle Kinova', imageKinova)
+
+    def move_test(self, robot_id, kinova_proxy):
+        angles = self.observation_angles[12]
+
+        deg_angles = ifaces.RoboCompKinovaArm.TJointAngles()
+        deg_angles.jointAngles = []
+        deg_angles.jointAngles = np.round(np.rad2deg(angles) % 360).tolist()
+        kinova_proxy.moveJointsWithAngle(deg_angles)
+
+        for i in range(7):
+            p.setJointMotorControl2(robot_id, i + 1, p.POSITION_CONTROL, targetPosition=angles[i], maxVelocity=0.35)
+
 

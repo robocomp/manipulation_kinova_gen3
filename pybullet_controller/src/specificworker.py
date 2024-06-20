@@ -31,6 +31,7 @@ import spatialgeometry as sg
 from typing import Tuple
 
 from pyAAMED import pyAAMED
+import YoloDetector
 
 import numpy
 from PySide2.QtCore import QTimer
@@ -75,7 +76,7 @@ class SpecificWorker(GenericWorker):
             p.setGravity(0, 0, -9.81)
             #p.setGravity(0, 0, 0)
 
-            p.setRealTimeSimulation(1)
+            p.setRealTimeSimulation(10)
 
             flags = p.URDF_USE_INERTIA_FROM_FILE
             p.resetDebugVisualizerCamera(cameraDistance=1.5, cameraYaw=50, cameraPitch=-35,
@@ -193,7 +194,7 @@ class SpecificWorker(GenericWorker):
             self.target_orientation = p.getLinkState(self.robot_id, self.end_effector_link_index)[1]
             self.target_velocities = [0.0] * 7
             self.joy_selected_joint = 0
-            self.move_mode = 5
+            self.move_mode = 7
             self.n_rotations = np.zeros(7).tolist()
             self.n_rotations = [0, -1, 0, -1, -1, -1, 0]
             self.ext_joints = self.kinovaarm_proxy.getJointsState()
@@ -397,7 +398,7 @@ class SpecificWorker(GenericWorker):
                 print("Moving to observation angles")
                 self.moveKinovaWithAngles(self.observation_angles[:7])
                 for i in range(7):
-                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.observation_angles[i], maxVelocity=np.deg2rad(25))
+                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.observation_angles[i])
 
                 self.target_angles[13] = self.ext_gripper.distance
                 self.target_angles[15] = - self.ext_gripper.distance
@@ -411,7 +412,7 @@ class SpecificWorker(GenericWorker):
                     p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL,
                                             targetPosition=self.target_angles[i])  # Move the arm with phisics
 
-                if self.timestamp+17000 < int(time.time()*1000):
+                if self.timestamp+1000 < int(time.time()*1000):
                     self.move_mode = 6
             case 6:
                 self.timer.stop()
@@ -429,8 +430,10 @@ class SpecificWorker(GenericWorker):
                 #
                 # cv2.imshow("Color", self.colorKinova)
                 # self.calibrator.calibrate2(self.colorKinova, self.robot_id)
-                self.move_mode = 7
-                self.timer.start(self.Period)
+
+                yolodetector = YoloDetector.YoloDetector()
+                results = yolodetector.detect(self.colorKinova)
+                yolodetector.plot(results)
 
                 aamed = pyAAMED(1080, 1940)
                 aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
@@ -438,20 +441,13 @@ class SpecificWorker(GenericWorker):
                 res = aamed.run_AAMED(imgG)
                 print(res)
                 aamed.drawAAMED(imgG)
-                cv2.waitKey()
-
                 print("Observing")
+                self.move_mode = 7
+                self.timer.start(self.Period)
 
             case 7:
-                # ext_angles = []
-                # for i in range(7):
-                #     ext_angles.append(self.ext_joints.joints[i].angle)
-                # print(np.deg2rad(ext_angles))
-
-                # angles = []
-                # for i in range(7):
-                    # angles.append(p.getJointState(self.robot_id, i+1)[0])
-                # print(np.rad2deg(angles)%360)
+                # self.showKinovaAngles()
+                self.calibrator.move_test(self.robot_id, self.kinovaarm_proxy)
                 pass
 
         #p.stepSimulation()
@@ -634,9 +630,24 @@ class SpecificWorker(GenericWorker):
                                              norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
             self.colorKinova = (np.frombuffer(self.colorKinova.image, np.uint8)
                                 .reshape(self.colorKinova.height, self.colorKinova.width, self.colorKinova.depth))
+
+            cv2.imshow("ColorKinova", self.colorKinova)
+            cv2.imshow("DepthKinova", self.depthKinova)
+            cv2.waitKey(self.Period)
         except Ice.Exception as e:
             print(e)
         return True
+
+    def showKinovaAngles(self):
+        ext_angles = []
+        for i in range(7):
+            ext_angles.append(self.ext_joints.joints[i].angle)
+        print(np.deg2rad(ext_angles))
+
+        # angles = []
+        # for i in range(7):
+        #     angles.append(p.getJointState(self.robot_id, i+1)[0])
+        # print(np.rad2deg(angles)%360)
 
     def get_kinova_instrinsic(self):
         try:
@@ -760,6 +771,7 @@ class SpecificWorker(GenericWorker):
         except Ice.Exception as e:
             print(e)
         return True
+
     def movePybulletWithExternalVel(self):
         for i in range(len(self.ext_joints.joints)):
             self.target_velocities[i] = self.ext_joints.joints[i].velocity
