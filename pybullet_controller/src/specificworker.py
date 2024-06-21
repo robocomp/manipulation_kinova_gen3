@@ -396,9 +396,9 @@ class SpecificWorker(GenericWorker):
 
             case 5:    #Move to observation angles
                 print("Moving to observation angles")
-                self.moveKinovaWithAngles(self.observation_angles[:7])
+                self.moveKinovaWithAngles(self.observation_angles_cube[:7])
                 for i in range(7):
-                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.observation_angles[i])
+                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.observation_angles_cube[i])
 
                 self.target_angles[13] = self.ext_gripper.distance
                 self.target_angles[15] = - self.ext_gripper.distance
@@ -419,8 +419,8 @@ class SpecificWorker(GenericWorker):
                 # self.calibrator.calibrate(self.colorKinova, self.robot_id)
 
                 # self.calibrator.calibrate3(self.robot_id, self.colorKinova)
-                # self.calibrator.cube_test(self.robot_id, self.colorKinova)
-                self.calibrator.square_test(self.robot_id, self.colorKinova.copy())
+                self.calibrator.cube_test(self.robot_id, self.colorKinova.copy())
+                # self.calibrator.square_test(self.robot_id, self.colorKinova.copy())
 
                 # self.calibrator.prueba(self.robot_id)
                 # corners = self.calibrator.detect_green_corners(self.colorKinova)
@@ -442,13 +442,14 @@ class SpecificWorker(GenericWorker):
                 print(res)
                 aamed.drawAAMED(imgG)
                 print("Observing")
-                self.move_mode = 7
+                self.move_mode = -1
                 self.timer.start(self.Period)
 
             case 7:
                 # self.showKinovaAngles()
                 self.timer.stop()
-                self.calibrator.move_test(self.robot_id, self.kinovaarm_proxy, self.camerargbdsimple_proxy)
+                # self.calibrator.get_kinova_images(self.robot_id, self.kinovaarm_proxy, self.camerargbdsimple_proxy)
+                self.calibrator.calibrate4(self.robot_id)
                 self.move_mode = -1
 
                 self.moveKinovaWithAngles(self.home_angles[:7])

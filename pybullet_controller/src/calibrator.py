@@ -10,8 +10,10 @@ from pyquaternion import Quaternion
 import cv2 as cv
 import glob
 
+
 class Calibrator:
     def __init__(self):
+        self.width = None
         self.error = 0
         self.real_corners = []
         self.robot_id = 0
@@ -22,32 +24,48 @@ class Calibrator:
         # self.fov = 32.5368
         # self.fov = 52
         self.observation_angles = []
-        self.observation_angles.append([0, 0, np.pi, -0.96, -6.28, -2.1, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, # 0
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append(
+            [0, 0, np.pi, -0.96, -6.28, -2.1, np.pi / 2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  # 0
+             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         self.observation_angles.append([0.87, 0.17, 4.01, -1.74, -6.80, -1.92, 3.22, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  # 1
                                         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        self.observation_angles.append([0.26, 0.17, 3.52, -1.13, -6.406, -1.78, 2.18, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, # 2
+        self.observation_angles.append([0.26, 0.17, 3.52, -1.13, -6.406, -1.78, 2.18, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,  # 2
                                         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
         self.observation_angles.append([2.1753, 0.6980, 2.6924, -1.3950, -6.6862, -1.8915, 3.9945, 0.0, 0.0, 0.0,  # 3
                                         0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        self.observation_angles.append([0.86, 0.30, 3.49, 5.0591-2*np.pi, 5.7567-4*np.pi, 4.3069-2*np.pi, 3.5198, 0.0, 0.0, 0.0,  # 4
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        self.observation_angles.append([0.306, 0.751, 3.546, 5.3443-2*np.pi, 5.8242-4*np.pi, 4.3721-2*np.pi, 3.9988, 0.0, 0.0, 0.0,  # 5
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        self.observation_angles.append([5.803-2*np.pi, 0.601, 3.272, 5.54-2*np.pi, 0.1545-2*np.pi, 4.260-2*np.pi, 4.961, 0.0, 0.0, 0.0,  # 6
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        self.observation_angles.append([5.1243-2*np.pi, 0.180, 2.906, 4.803-2*np.pi, 0.464-2*np.pi, 4.429-2*np.pi, 4.683, 0.0, 0.0, 0.0,  # 7
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        self.observation_angles.append([4.777-2*np.pi, 0.362, 2.666, 4.448-2*np.pi, 0.516-2*np.pi, 4.603-2*np.pi, 5.444, 0.0, 0.0, 0.0,  # 8
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        self.observation_angles.append([0.0, 5.561-2*np.pi, 3.141, 5.130-2*np.pi, 6.283-4*np.pi, 4.183-2*np.pi, 1.570, 0.0, 0.0, 0.0,  # 9
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        self.observation_angles.append([0.654, 0.422, 3.599, 5.332-2*np.pi, 5.791-4*np.pi, 4.183-2*np.pi, 2.504, 0.0, 0.0, 0.0,  # 10
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        self.observation_angles.append([0.803, 0.804, 3.529, 5.164-2*np.pi, 5.649-4*np.pi, 4.298-2*np.pi, 2.79, 0.0, 0.0, 0.0,  # 11
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        self.observation_angles.append([5.083-2*np.pi, 0.633, 3.979, 4.936-2*np.pi, 0.0029-2*np.pi, 4.651-2*np.pi, 1.062, 0.0, 0.0, 0.0,  # 12
-                                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append(
+            [0.86, 0.30, 3.49, 5.0591 - 2 * np.pi, 5.7567 - 4 * np.pi, 4.3069 - 2 * np.pi, 3.5198, 0.0, 0.0, 0.0,  # 4
+             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append(
+            [0.306, 0.751, 3.546, 5.3443 - 2 * np.pi, 5.8242 - 4 * np.pi, 4.3721 - 2 * np.pi, 3.9988, 0.0, 0.0, 0.0,
+             # 5
+             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append(
+            [5.803 - 2 * np.pi, 0.601, 3.272, 5.54 - 2 * np.pi, 0.1545 - 2 * np.pi, 4.260 - 2 * np.pi, 4.961, 0.0, 0.0,
+             0.0,  # 6
+             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append(
+            [5.1243 - 2 * np.pi, 0.180, 2.906, 4.803 - 2 * np.pi, 0.464 - 2 * np.pi, 4.429 - 2 * np.pi, 4.683, 0.0, 0.0,
+             0.0,  # 7
+             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append(
+            [4.777 - 2 * np.pi, 0.362, 2.666, 4.448 - 2 * np.pi, 0.516 - 2 * np.pi, 4.603 - 2 * np.pi, 5.444, 0.0, 0.0,
+             0.0,  # 8
+             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append(
+            [0.0, 5.561 - 2 * np.pi, 3.141, 5.130 - 2 * np.pi, 6.283 - 4 * np.pi, 4.183 - 2 * np.pi, 1.570, 0.0, 0.0,
+             0.0,  # 9
+             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append(
+            [0.654, 0.422, 3.599, 5.332 - 2 * np.pi, 5.791 - 4 * np.pi, 4.183 - 2 * np.pi, 2.504, 0.0, 0.0, 0.0,  # 10
+             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append(
+            [0.803, 0.804, 3.529, 5.164 - 2 * np.pi, 5.649 - 4 * np.pi, 4.298 - 2 * np.pi, 2.79, 0.0, 0.0, 0.0,  # 11
+             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        self.observation_angles.append(
+            [5.083 - 2 * np.pi, 0.633, 3.979, 4.936 - 2 * np.pi, 0.0029 - 2 * np.pi, 4.651 - 2 * np.pi, 1.062, 0.0, 0.0,
+             0.0,  # 12
+             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
     def is_rectangle(self, approx):
         if len(approx) != 4:
@@ -255,7 +273,6 @@ class Calibrator:
         print("Errors: ", self.errors, np.sum(self.errors))
 
         return abs(np.sum(self.errors))
-
 
     def calibrate(self, imageKinova, robot_id):
         print("Calibrating...")
@@ -474,9 +491,9 @@ class Calibrator:
         camera_translation = np.array([0.0128723, 0.0150052, 0.00575831])
 
         bounds = [
-            (camera_translation[0]-0.01, camera_translation[0]+0.01),
-            (camera_translation[1]-0.01, camera_translation[1]+0.01),
-            (camera_translation[2]-0.0005, camera_translation[2]+0.0005),
+            (camera_translation[0] - 0.01, camera_translation[0] + 0.01),
+            (camera_translation[1] - 0.01, camera_translation[1] + 0.01),
+            (camera_translation[2] - 0.0005, camera_translation[2] + 0.0005),
         ]
 
         initial_params = camera_translation
@@ -780,8 +797,8 @@ class Calibrator:
         cv2.imshow('Detected Rectangle Pybullet', imagePybullet)
         cv2.imshow('Detected Rectangle Kinova', imageKinova)
 
-    def move_test(self, robot_id, kinova_proxy, camera_proxy):
-        for i in range(13):
+    def get_kinova_images(self, robot_id, kinova_proxy, camera_proxy):
+        for i in range(len(self.observation_angles)):
             angles = self.observation_angles[i]
 
             deg_angles = ifaces.RoboCompKinovaArm.TJointAngles()
@@ -789,13 +806,167 @@ class Calibrator:
             deg_angles.jointAngles = np.round(np.rad2deg(angles) % 360).tolist()
             kinova_proxy.moveJointsWithAngle(deg_angles)
 
-            for j in range(7):
-                p.setJointMotorControl2(robot_id, j + 1, p.POSITION_CONTROL, targetPosition=angles[j], maxVelocity=0.35)
-
-            time.sleep(5)
+            time.sleep(2)
 
             both = camera_proxy.getAll("CameraRGBDViewer")
             color = both.image
             color = (np.frombuffer(color.image, np.uint8).reshape(color.height, color.width, color.depth))
-            cv2.imwrite("kinova_images/color" + str(i) + ".png", color)
+            cv2.imwrite("kinova_images_cube/color" + str(i) + ".png", color)
+
+    def error_function4_square(self, params):
+        # Optical center in pixel coordinates
+        print("params: ", params)
+        optical_center_x_pixels = params[0]  # example x-coordinate in pixels
+        optical_center_y_pixels = params[1]  # example y-coordinate in pixels
+
+        k = np.array([[self.f_in_pixels, 0, optical_center_x_pixels],
+                      [0, self.f_in_pixels, optical_center_y_pixels],
+                      [0, 0, 1]])
+
+        projection_matrix = self.cvK2BulletP(k, self.width, self.height, self.near, self.far)
+
+        error = 0
+
+        for i in range(len(self.observation_angles)):
+            # Set the joint angles
+            angles = self.observation_angles[i]
+            for j in range(7):
+                p.setJointMotorControl2(self.robot_id, j+1, p.POSITION_CONTROL, angles[j])
+
+            com_p, com_o, _, _, _, _ = p.getLinkState(self.robot_id, 9)
+            view_matrix = self.cvPose2BulletView(com_o, com_p)
+
+            # Get the camera image from pybullet
+            img = p.getCameraImage(self.width, self.height, view_matrix, projection_matrix)
+            rgb = img[2]
+
+            cv2.imshow('Pybullet image', rgb)
+            cv2.waitKey(0)
+
+            # Get the image from the kinova camera
+            color = cv2.imread("kinova_images_square/color" + str(i) + ".png")
+
+            # Detect the square in the kinova image
+            blurredKinova = cv2.GaussianBlur(color, (5, 5), 0)
+            edgesKinova = cv2.Canny(blurredKinova, 50, 150)
+            contoursKinova, _ = cv2.findContours(edgesKinova, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            real_corners = []
+
+            if len(contoursKinova) > 0:
+                for contour in contoursKinova:
+                    epsilon = 0.02 * cv2.arcLength(contour, True)
+                    approx = cv2.approxPolyDP(contour, epsilon, True)
+
+                    if len(approx) == 4 and cv2.contourArea(approx) > 1000:
+                        cv2.drawContours(color, [approx], -1, (0, 255, 0), 3)
+
+                        for point in approx:
+                            real_corners.append(tuple(point[0]))
+                            cv2.circle(color, tuple(point[0]), 10, (0, 0, 255), -1)
+
+            cv2.imshow('Detected Rectangle Kinova', color)
+            cv2.waitKey(0)
+
+            # Detect the square in the pybullet image
+            blurredPybullet = cv2.GaussianBlur(rgb, (5, 5), 0)
+            edgesPybullet = cv2.Canny(blurredPybullet, 50, 150)
+            contoursPybullet, _ = cv2.findContours(edgesPybullet, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            virtual_corners = []
+
+            if len(contoursPybullet) > 0:
+                for contour in contoursPybullet:
+                    epsilon = 0.02 * cv2.arcLength(contour, True)
+                    approx = cv2.approxPolyDP(contour, epsilon, True)
+
+                    if len(approx) == 4 and cv2.contourArea(approx) > 1000:
+                        cv2.drawContours(rgb, [approx], -1, (255, 0, 255), 3)
+
+                        for point in approx:
+                            cv2.circle(rgb, tuple(point[0]), 10, (255, 0, 0), -1)
+                            virtual_corners.append(tuple(point[0]))
+
+                        cv2.circle(rgb, tuple(approx[0][0]), 10, (0, 0, 255), -1)
+
+                        cv2.drawContours(rgb, [np.array(real_corners)], -1, (0, 255, 0), 3)
+                        for point in real_corners:
+                            cv2.circle(rgb, point, 10, (0, 0, 255), -1)
+
+            cv2.imshow('Detected Rectangle Pybullet', rgb)
+            cv2.waitKey(0)
+
+            if len(virtual_corners) == 4:
+                matched_set2 = []
+                used_indices = set()
+                v_corner_aux = np.array(virtual_corners)
+
+                for point1 in real_corners:
+                    distances = np.linalg.norm(v_corner_aux - point1, axis=1)
+                    sorted_indices = np.argsort(distances)
+
+                    for idx in sorted_indices:
+                        if idx not in used_indices:
+                            matched_set2.append(virtual_corners[idx])
+                            used_indices.add(idx)
+                            break
+
+                virtual_corners = matched_set2
+
+                errors = np.linalg.norm(np.array(virtual_corners) - np.array(real_corners), axis=1)
+                error += abs(np.sum(errors))
+
+        print("Error: ", error)
+        return error
+
+    def error_function4_cube(self, params):
+        # Optical center in pixel coordinates
+        print("params: ", params)
+        optical_center_x_pixels = params[0]  # example x-coordinate in pixels
+        optical_center_y_pixels = params[1]  # example y-coordinate in pixels
+
+        k = np.array([[self.f_in_pixels, 0, optical_center_x_pixels],
+                      [0, self.f_in_pixels, optical_center_y_pixels],
+                      [0, 0, 1]])
+
+        projection_matrix = self.cvK2BulletP(k, self.width, self.height, self.near, self.far)
+
+        error = 0
+
+        for i in range(len(self.observation_angles)):
+            # Set the joint angles
+            angles = self.observation_angles[i]
+            for j in range(7):
+                p.setJointMotorControl2(self.robot_id, j + 1, p.POSITION_CONTROL, angles[j])
+
+            com_p, com_o, _, _, _, _ = p.getLinkState(self.robot_id, 9)
+            view_matrix = self.cvPose2BulletView(com_o, com_p)
+
+            # Get the camera image from pybullet
+            img = p.getCameraImage(self.width, self.height, view_matrix, projection_matrix)
+            rgb = img[2]
+
+            cv2.imshow('Pybullet image', rgb)
+            cv2.waitKey(0)
+
+            # Get the image from the kinova camera
+            color = cv2.imread("kinova_images_square/color" + str(i) + ".png")
+
+            # Detect the cube corners in the kinova image
+            
+
+    def calibrate4(self, robot_id):
+        # Define camera intrinsic parameters
+        self.robot_id = robot_id
+        self.width = 1280  # image width
+        self.height = 720  # image height
+        self.f_in_pixels = 1298
+        self.near = 0.01  # near clipping plane
+        self.far = 100  # far clipping plane
+
+        initial_params = np.array([620, 238])  # Optical center in pixel coordinates
+
+        result_position = minimize(self.error_function4, initial_params, method='Nelder-Mead')
+
+        print("Final optical center: ", result_position.x)
+        print("Final error: ", result_position.fun)
+
 

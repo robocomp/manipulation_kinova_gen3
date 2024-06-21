@@ -47,7 +47,7 @@ class SpecificWorker(GenericWorker):
             self.startup_check()
         else:
             self.kinova = KinovaGen3()
-            self.flag = True
+            self.flag = False
             self.timer.timeout.connect(self.compute)
             self.timer.start(self.Period)
             self.joints = []

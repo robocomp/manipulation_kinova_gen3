@@ -110,7 +110,14 @@ class SpecificWorker(GenericWorker):
             while cap.isOpened():
                 ret, frame = cap.read()
                 if ret:
-                    inqueue.put(frame)
+                    # inqueue.put_nowait(frame)
+                    try:
+                        # Intenta agregar la imagen a la cola sin bloquear
+                        inqueue.put_nowait(frame)
+                    except queue.Full:
+                        # Si la cola está llena, descarta la imagen más antigua y agrega la nueva
+                        inqueue.get_nowait()
+                        inqueue.put_nowait(frame)
         except KeyboardInterrupt:
             print("hilo finish")
         cap.release()
@@ -122,7 +129,14 @@ class SpecificWorker(GenericWorker):
             while cap.isOpened():
                 ret, frame = cap.read()
                 if ret:
-                    inqueue.put(frame)
+                    # inqueue.put_nowait(frame)
+                    try:
+                        # Intenta agregar la imagen a la cola sin bloquear
+                        inqueue.put_nowait(frame)
+                    except queue.Full:
+                        # Si la cola está llena, descarta la imagen más antigua y agrega la nueva
+                        inqueue.get_nowait()
+                        inqueue.put_nowait(frame)
         except KeyboardInterrupt:
             print("hilo finish")
         cap.release()
@@ -146,36 +160,45 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of getAll method from CameraRGBDSimple interface
     #
     def CameraRGBDSimple_getAll(self, camera):
-        ret = ifaces.RoboCompCameraRGBDSimple.TRGBD()
-        #ret.depth.depth = cv2.resize(self.depth_queue.get(), (480, 270))
-        ret.depth.depth = self.depth_queue.get()
-        ret.depth.height, ret.depth.width = ret.depth.depth.shape
-        #ret.image.image = cv2.resize(self.color_queue.get(), (480, 270))
-        ret.image.image = self.color_queue.get()
-        ret.image.height, ret.image.width, ret.image.depth = ret.image.image.shape
-        return ret
+        try:
+            ret = ifaces.RoboCompCameraRGBDSimple.TRGBD()
+            #ret.depth.depth = cv2.resize(self.depth_queue.get(), (480, 270))
+            ret.depth.depth = self.depth_queue.get_nowait()
+            ret.depth.height, ret.depth.width = ret.depth.depth.shape
+            #ret.image.image = cv2.resize(self.color_queue.get(), (480, 270))
+            ret.image.image = self.color_queue.get_nowait()
+            ret.image.height, ret.image.width, ret.image.depth = ret.image.image.shape
+            return ret
+        except queue.Empty:
+            return None
     #
     # IMPLEMENTATION of getDepth method from CameraRGBDSimple interface
     #
     def CameraRGBDSimple_getDepth(self, camera):
-        img = self.depth_queue.get()
-        # img = cv2.resize(img, (480, 270))
-        ret = ifaces.RoboCompCameraRGBDSimple.TDepth()
-        ret.height, ret.width = img.shape
-        ret.depth = img
+        try:
+            img = self.depth_queue.get()
+            # img = cv2.resize(img, (480, 270))
+            ret = ifaces.RoboCompCameraRGBDSimple.TDepth()
+            ret.height, ret.width = img.shape
+            ret.depth = img
 
-        return ret
+            return ret
+        except queue.Empty:
+            return None
     #
     # IMPLEMENTATION of getImage method from CameraRGBDSimple interface
     #
     def CameraRGBDSimple_getImage(self, camera):
-        img = self.color_queue.get()
-        # img = cv2.resize(img, (480, 270))
-        ret = ifaces.RoboCompCameraRGBDSimple.TImage()
-        ret.height, ret.width, ret.depth = img.shape
-        ret.image = img
+        try:
+            img = self.color_queue.get()
+            # img = cv2.resize(img, (480, 270))
+            ret = ifaces.RoboCompCameraRGBDSimple.TImage()
+            ret.height, ret.width, ret.depth = img.shape
+            ret.image = img
 
-        return ret
+            return ret
+        except queue.Empty:
+            return None
     # ===================================================================
     # ===================================================================
 
