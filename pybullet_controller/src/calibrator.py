@@ -780,15 +780,22 @@ class Calibrator:
         cv2.imshow('Detected Rectangle Pybullet', imagePybullet)
         cv2.imshow('Detected Rectangle Kinova', imageKinova)
 
-    def move_test(self, robot_id, kinova_proxy):
-        angles = self.observation_angles[12]
+    def move_test(self, robot_id, kinova_proxy, camera_proxy):
+        for i in range(13):
+            angles = self.observation_angles[i]
 
-        deg_angles = ifaces.RoboCompKinovaArm.TJointAngles()
-        deg_angles.jointAngles = []
-        deg_angles.jointAngles = np.round(np.rad2deg(angles) % 360).tolist()
-        kinova_proxy.moveJointsWithAngle(deg_angles)
+            deg_angles = ifaces.RoboCompKinovaArm.TJointAngles()
+            deg_angles.jointAngles = []
+            deg_angles.jointAngles = np.round(np.rad2deg(angles) % 360).tolist()
+            kinova_proxy.moveJointsWithAngle(deg_angles)
 
-        for i in range(7):
-            p.setJointMotorControl2(robot_id, i + 1, p.POSITION_CONTROL, targetPosition=angles[i], maxVelocity=0.35)
+            for j in range(7):
+                p.setJointMotorControl2(robot_id, j + 1, p.POSITION_CONTROL, targetPosition=angles[j], maxVelocity=0.35)
 
+            time.sleep(5)
+
+            both = camera_proxy.getAll("CameraRGBDViewer")
+            color = both.image
+            color = (np.frombuffer(color.image, np.uint8).reshape(color.height, color.width, color.depth))
+            cv2.imwrite("kinova_images/color" + str(i) + ".png", color)
 

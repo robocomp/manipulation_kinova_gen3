@@ -447,7 +447,12 @@ class SpecificWorker(GenericWorker):
 
             case 7:
                 # self.showKinovaAngles()
-                self.calibrator.move_test(self.robot_id, self.kinovaarm_proxy)
+                self.timer.stop()
+                self.calibrator.move_test(self.robot_id, self.kinovaarm_proxy, self.camerargbdsimple_proxy)
+                self.move_mode = -1
+
+                self.moveKinovaWithAngles(self.home_angles[:7])
+                self.timer.start(self.Period)
                 pass
 
         #p.stepSimulation()
