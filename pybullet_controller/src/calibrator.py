@@ -100,8 +100,8 @@ class Calibrator:
         mask = cv2.inRange(hsv_image, lower_green, upper_green)
         mask = cv2.erode(mask, None, iterations=1)
 
-        # cv2.imshow('mask', mask)
-        # cv2.waitKey(0)
+        cv2.imshow('mask', mask)
+        cv2.waitKey(0)
 
         # Encontramos los contornos
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -114,6 +114,7 @@ class Calibrator:
                 cX = int(M["m10"] / M["m00"])
                 cY = int(M["m01"] / M["m00"])
                 corners.append((cX, cY))
+                cv2.circle(image, (cX, cY), 7, (255, 255, 255), -1)
 
         return corners
 
@@ -811,7 +812,7 @@ class Calibrator:
             both = camera_proxy.getAll("CameraRGBDViewer")
             color = both.image
             color = (np.frombuffer(color.image, np.uint8).reshape(color.height, color.width, color.depth))
-            cv2.imwrite("kinova_images_cube/color" + str(i) + ".png", color)
+            cv2.imwrite("kinova_images_square/color" + str(i) + ".png", color)
 
     def error_function4_square(self, params):
         # Optical center in pixel coordinates
@@ -833,15 +834,14 @@ class Calibrator:
             for j in range(7):
                 p.setJointMotorControl2(self.robot_id, j+1, p.POSITION_CONTROL, angles[j])
 
+            time.sleep(0.2)
+
             com_p, com_o, _, _, _, _ = p.getLinkState(self.robot_id, 9)
             view_matrix = self.cvPose2BulletView(com_o, com_p)
 
             # Get the camera image from pybullet
             img = p.getCameraImage(self.width, self.height, view_matrix, projection_matrix)
             rgb = img[2]
-
-            cv2.imshow('Pybullet image', rgb)
-            cv2.waitKey(0)
 
             # Get the image from the kinova camera
             color = cv2.imread("kinova_images_square/color" + str(i) + ".png")
@@ -864,8 +864,8 @@ class Calibrator:
                             real_corners.append(tuple(point[0]))
                             cv2.circle(color, tuple(point[0]), 10, (0, 0, 255), -1)
 
-            cv2.imshow('Detected Rectangle Kinova', color)
-            cv2.waitKey(0)
+            # cv2.imshow('Detected Rectangle Kinova', color)
+            # cv2.waitKey(0)
 
             # Detect the square in the pybullet image
             blurredPybullet = cv2.GaussianBlur(rgb, (5, 5), 0)
@@ -891,8 +891,8 @@ class Calibrator:
                         for point in real_corners:
                             cv2.circle(rgb, point, 10, (0, 0, 255), -1)
 
-            cv2.imshow('Detected Rectangle Pybullet', rgb)
-            cv2.waitKey(0)
+            # cv2.imshow('Detected Rectangle Pybullet', rgb)
+            # cv2.waitKey(0)
 
             if len(virtual_corners) == 4:
                 matched_set2 = []
@@ -919,6 +919,7 @@ class Calibrator:
 
     def error_function4_cube(self, params):
         # Optical center in pixel coordinates
+        print("//////////////////////////////////////////////////////////////////")
         print("params: ", params)
         optical_center_x_pixels = params[0]  # example x-coordinate in pixels
         optical_center_y_pixels = params[1]  # example y-coordinate in pixels
@@ -937,6 +938,8 @@ class Calibrator:
             for j in range(7):
                 p.setJointMotorControl2(self.robot_id, j + 1, p.POSITION_CONTROL, angles[j])
 
+            time.sleep(0.5)
+
             com_p, com_o, _, _, _, _ = p.getLinkState(self.robot_id, 9)
             view_matrix = self.cvPose2BulletView(com_o, com_p)
 
@@ -944,13 +947,52 @@ class Calibrator:
             img = p.getCameraImage(self.width, self.height, view_matrix, projection_matrix)
             rgb = img[2]
 
-            cv2.imshow('Pybullet image', rgb)
-            cv2.waitKey(0)
-
             # Get the image from the kinova camera
-            color = cv2.imread("kinova_images_square/color" + str(i) + ".png")
+            color = cv2.imread("kinova_images_cube/color" + str(i) + ".png")
 
             # Detect the cube corners in the kinova image
+            self.real_corners = self.detect_green_corners(color)
+
+            virtual_corners = self.detect_green_corners(rgb)
+
+            print("nº real corners", len(self.real_corners))
+            print("nº virtual corners: ", len(virtual_corners))
+
+            cv2.imshow('Detected Rectangle Kinova', color)
+            cv2.imshow('Detected Rectangle Pybullet', rgb)
+            cv2.waitKey(0)
+
+            if len(virtual_corners) < len(self.real_corners):
+                print("Error: ", 2000)
+                return 2000
+
+            matched_set2 = []
+            used_indices = set()
+            v_corner_aux = np.array(virtual_corners)
+
+            for point1 in self.real_corners:
+                distances = np.linalg.norm(v_corner_aux - point1, axis=1)
+                sorted_indices = np.argsort(distances)
+
+                for idx in sorted_indices:
+                    if idx not in used_indices:
+                        matched_set2.append(virtual_corners[idx])
+                        used_indices.add(idx)
+                        break
+
+            virtual_corners = matched_set2
+
+            print("angle: ", i)
+            print("Real corners", self.real_corners, "virtual_corners", virtual_corners)
+
+            # Calculate the error
+            self.errors = np.linalg.norm(np.array(virtual_corners) - np.array(self.real_corners), axis=1)
+            print("Errors: ", self.errors, np.sum(self.errors))
+
+            error += abs(np.sum(self.errors))
+
+        print("Error: ", error)
+        return error
             
 
     def calibrate4(self, robot_id):
@@ -964,7 +1006,7 @@ class Calibrator:
 
         initial_params = np.array([620, 238])  # Optical center in pixel coordinates
 
-        result_position = minimize(self.error_function4, initial_params, method='Nelder-Mead')
+        result_position = minimize(self.error_function4_square, initial_params, method='Nelder-Mead')
 
         print("Final optical center: ", result_position.x)
         print("Final error: ", result_position.fun)
