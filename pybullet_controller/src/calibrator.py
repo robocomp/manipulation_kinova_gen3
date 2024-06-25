@@ -612,8 +612,8 @@ class Calibrator:
         far = 100  # far clipping plane
 
         # Optical center in pixel coordinates
-        optical_center_x_pixels = 620  # example x-coordinate in pixels
-        optical_center_y_pixels = 238  # example y-coordinate in pixels
+        optical_center_x_pixels = 646.23 #620  # example x-coordinate in pixels
+        optical_center_y_pixels = 267.62 #238  # example y-coordinate in pixels
 
         fov = 2 * np.degrees(np.arctan(width / (2 * f_in_pixels)))
 
@@ -833,6 +833,7 @@ class Calibrator:
             angles = self.observation_angles[i]
             for j in range(7):
                 p.setJointMotorControl2(self.robot_id, j+1, p.POSITION_CONTROL, angles[j])
+                # p.resetJointState(self.robot_id, j+1, angles[j])
 
             time.sleep(0.2)
 
@@ -1007,6 +1008,14 @@ class Calibrator:
         initial_params = np.array([620, 238])  # Optical center in pixel coordinates
 
         result_position = minimize(self.error_function4_square, initial_params, method='Nelder-Mead')
+
+        # get a timestamp
+        ts = time.time()
+        ts = str(ts)
+
+        # write the results to a file with timestamp
+        with open("calibration_results_square"+ts+".txt", "a") as file:
+            file.write(str(datetime.datetime.now()) + " - Final optical center: " + str(result_position.x) + " - Final error: " + str(result_position.fun) + "\n")
 
         print("Final optical center: ", result_position.x)
         print("Final error: ", result_position.fun)

@@ -1,12 +1,9 @@
-# Endpoints for subscriptions interfaces
-JoystickAdapterTopic.Endpoints=tcp -p 15603
-
-
 # Proxies for required interfaces
-CameraRGBDSimpleProxy = camerargbdsimple:tcp -h localhost -p 16340
-KinovaArmProxy = kinovaarm:tcp -h localhost -p 18819
+KinovaArmProxy = kinovaarm:tcp -h localhost -p 17954
+CameraRGBDSimpleProxy = camerargbdsimple:tcp -h localhost -p 16022
 
 
+JoystickAdapterTopic.Endpoints=tcp -p 14841
 
 # This property is used by the clients to connect to IceStorm.
 TopicManager.Proxy=IceStorm/TopicManager:default -p 9999

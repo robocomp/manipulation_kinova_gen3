@@ -194,7 +194,7 @@ class SpecificWorker(GenericWorker):
             self.target_orientation = p.getLinkState(self.robot_id, self.end_effector_link_index)[1]
             self.target_velocities = [0.0] * 7
             self.joy_selected_joint = 0
-            self.move_mode = 7
+            self.move_mode = 5
             self.n_rotations = np.zeros(7).tolist()
             self.n_rotations = [0, -1, 0, -1, -1, -1, 0]
             self.ext_joints = self.kinovaarm_proxy.getJointsState()
@@ -412,15 +412,15 @@ class SpecificWorker(GenericWorker):
                     p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL,
                                             targetPosition=self.target_angles[i])  # Move the arm with phisics
 
-                if self.timestamp+1000 < int(time.time()*1000):
+                if self.timestamp+10000 < int(time.time()*1000):
                     self.move_mode = 6
             case 6:
                 self.timer.stop()
                 # self.calibrator.calibrate(self.colorKinova, self.robot_id)
 
                 # self.calibrator.calibrate3(self.robot_id, self.colorKinova)
-                self.calibrator.cube_test(self.robot_id, self.colorKinova.copy())
-                # self.calibrator.square_test(self.robot_id, self.colorKinova.copy())
+                # self.calibrator.cube_test(self.robot_id, self.colorKinova.copy())
+                self.calibrator.square_test(self.robot_id, self.colorKinova.copy())
 
                 # self.calibrator.prueba(self.robot_id)
                 # corners = self.calibrator.detect_green_corners(self.colorKinova)
