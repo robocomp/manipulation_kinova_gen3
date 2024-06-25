@@ -4,12 +4,12 @@
     "path": "pybullet_controller/src/calibrator.py",
     "content": {
       "structured": {
-        "description": "A function `calibrate4` that takes a robot ID as input and uses it to calibrate a kinova camera using a square error function. The function first defines the necessary parameters for the calibration, such as the camera's intrinsic parameters, and then minimizes the square of the difference between the detected corners in the real image and the virtual image using the Nelder-Mead method to find the optimal optical center. Finally, it prints the final optical center and error value.",
+        "description": "A calibration algorithm for a kinova cube robot arm using a pybullet simulator and OpenCV library. The algorithm detects the corners of a green square in an image captured by a camera mounted on the robot arm, compares them to the real corners detected in a reference image, and calculates the error between the two sets of corners. The calibration process involves minimizing this error using a non-linear optimization method, and the results are written to a file for further analysis.",
         "items": [
           {
-            "id": "072d56d4-8d12-f7b8-c546-5b3e4e8290e4",
+            "id": "b8d2c134-4570-fda6-9949-d13440626d60",
             "ancestors": [],
-            "description": "Performs a calibration process for a robotic arm using a cube as a reference frame to determine the camera's intrinsic parameters and extrinsic parameters for a specific robot ID.",
+            "description": "Calibrates a Kinova robot using a 4-corners method, detecting green corners in RGB images and calculating the error between real and virtual corners. It also minimizes the error using the Nelder-Mead algorithm to find the optimal position of the optical center.",
             "attributes": [
               {
                 "name": "width",
@@ -19,22 +19,22 @@
               {
                 "name": "error",
                 "type_name": "float",
-                "description": "Calculated as a sum of absolute values of errors between real corners and detected virtual corners using the `error_function4_cube` method. It represents the overall calibration error."
+                "description": "Initialized to zero, it measures the difference between the virtual corners detected by the calibration process and the real corners of the cube. It's used for monitoring the progress of the calibration process."
               },
               {
                 "name": "real_corners",
                 "type_name": "ndarray",
-                "description": "4-dimensional, representing the corners of a real object in the image."
+                "description": "4D, representing the real corners detected from the color camera images using the Kinova robot's green markers."
               },
               {
                 "name": "robot_id",
                 "type_name": "int",
-                "description": "Used to store the ID of the robot being calibrated."
+                "description": "Used to identify the specific robot being calibrated during the process."
               },
               {
                 "name": "observation_angles",
                 "type_name": "ndarray",
-                "description": "7-dimensional, representing the angular positions of the camera's lens at each corner detection."
+                "description": "7-element vector representing the observation angles (in radians) for each of the 7 spherical joints of a Kinova robot."
               }
             ],
             "name": "Calibrator",
@@ -46,15 +46,15 @@
               "comment": null
             },
             "item_type": "class",
-            "length": 821,
+            "length": 826,
             "docLength": null
           },
           {
-            "id": "92382dcd-8cac-efa5-394b-26640b447f22",
+            "id": "0b1a205c-ff51-04a2-9346-b511337a92f0",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Is used to initialize an object of the `Calibrator` class, by setting its properties such as `observation_angles` and `model_params` based on user-input parameters.",
+            "description": "Of the Calibrator class initializes the calibration parameters for a robotic arm based on a set of predefined observation angles.",
             "params": [],
             "returns": null,
             "name": "__init__",
@@ -70,21 +70,21 @@
             "docLength": null
           },
           {
-            "id": "7f2f96b3-2555-01a9-d54b-b337213db277",
+            "id": "520e543e-4636-5dbe-5048-0d72ccce0608",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Within the `Calibrator` class determines if an approximation of a rectangle can be found based on the cosine of the angles between adjacent points. If all four angles are within a threshold (0.1), the approximation is considered a rectangle, and the function returns `True`. Otherwise, it returns `False`.",
+            "description": "Determines whether an approximate shape can be represented as a rectangle. It calculates the angle between four points and checks if all the cosine of these angles are below a threshold (0.1) indicating a rectangle-like shape. If all the cosine values are less than 0.1, the shape is considered a rectangle.",
             "params": [
               {
                 "name": "approx",
                 "type_name": "4element",
-                "description": "Used to determine if an given shape is a rectangle based on its angles."
+                "description": "Represented as a list of four numbers representing the vertices of a rectangle."
               }
             ],
             "returns": {
               "type_name": "bool",
-              "description": "True if the input approximation is a rectangle, and False otherwise."
+              "description": "True if the input approximation is a rectangle and False otherwise."
             },
             "name": "is_rectangle",
             "location": {
@@ -99,32 +99,32 @@
             "docLength": null
           },
           {
-            "id": "1aff84f4-db11-d2b4-724e-52fbfa0a2f6f",
+            "id": "fd9508be-5731-19bf-3d49-09f801a120ba",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4",
-              "7f2f96b3-2555-01a9-d54b-b337213db277"
+              "b8d2c134-4570-fda6-9949-d13440626d60",
+              "520e543e-4636-5dbe-5048-0d72ccce0608"
             ],
-            "description": "Calculates the angle between two points, based on their distances and angles from a reference point.",
+            "description": "Computes the angle between two points in a 2D space based on their distances and angles relative to a third point.",
             "params": [
               {
                 "name": "pt1",
-                "type_name": "2element",
-                "description": "Represented as `[x, y]`."
+                "type_name": "2D",
+                "description": "Represented by a list containing two elements, each representing the x and y coordinates of a point on the plane."
               },
               {
                 "name": "pt2",
                 "type_name": "2element",
-                "description": "Defined as a tuple containing two elements, (x, y), representing the second point on the line segment between point 1 and point 0."
+                "description": "Defined as a point in space (x, y) representing the second point used to calculate the angle between two points."
               },
               {
                 "name": "pt0",
                 "type_name": "0dimensional",
-                "description": "Represented by the tuple `(x0, y0)`."
+                "description": "Represented by a tuple containing two elements, representing the x and y coordinates of an arbitrary point."
               }
             ],
             "returns": {
-              "type_name": "float",
-              "description": "A measure of the angle between two points in a 2D plane, calculated using the cosine of the angle between them."
+              "type_name": "float64",
+              "description": "A measure of the angle between two points in a two-dimensional plane, calculated as the arctangent of the ratio of their distances from a reference point."
             },
             "name": "angle",
             "location": {
@@ -139,21 +139,21 @@
             "docLength": null
           },
           {
-            "id": "6636b6c2-3a8b-519e-d041-8b002d8dd9d7",
+            "id": "04df14da-1315-a7b1-4a40-90656ad02dfe",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Within a `Calibrator` class detects green corners in an image by converting it to HSV color space, defining lower and upper green ranges, applying thresholding, and finding contours using the moments of the contour.",
+            "description": "Within the `Calibrator` class detects green corners in an image by converting it to HSV color space, finding contours using the moments algorithm, and then filtering and marking the corners with circles.",
             "params": [
               {
                 "name": "image",
-                "type_name": "image",
-                "description": "Used to represent an input image for green corner detection."
+                "type_name": "npndarray",
+                "description": "The input image to be processed, which is converted from BGR2 format to HSV for corner detection."
               }
             ],
             "returns": {
               "type_name": "list",
-              "description": "3-element list containing the (x, y) coordinates of the detected green corners in the original image."
+              "description": "A list of corner points detected from an image using HSV color space and morphological operations."
             },
             "name": "detect_green_corners",
             "location": {
@@ -168,21 +168,21 @@
             "docLength": null
           },
           {
-            "id": "3a02d5db-0acf-1c80-1946-5094b7e93ebb",
+            "id": "1dbe557a-d3c6-eb8c-bc42-de2fd78e1bda",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Within the Calibrator class, calculates errors between real and virtual corners detected from an image using the SURF detector. It returns the sum of these errors.",
+            "description": "Calculates the distance between real and virtual corners, checks if they match, and computes the errors between them.",
             "params": [
               {
                 "name": "params",
                 "type_name": "ndarray",
-                "description": "7-dimensional, containing the following elements: com_p, com_o, fov, camera_matrix, dist_coeffs, focal_length, and exposure."
+                "description": "7-dimensional, containing the first 3 elements representing real corners, the next 3 elements representing virtual corners, and the last element representing the fov."
               }
             ],
             "returns": {
               "type_name": "int",
-              "description": "1000."
+              "description": "1000 if there are fewer than 4 corners matched between the real and virtual sets, otherwise it returns 0."
             },
             "name": "error_function",
             "location": {
@@ -197,21 +197,21 @@
             "docLength": null
           },
           {
-            "id": "6aea04eb-3236-41a5-5340-b4afbd6b3552",
+            "id": "9f00cc7f-a4c0-0d8c-8545-740b2c04efff",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Calculates the distance between real and virtual corners, checks for errors, and updates the errors variable with the norm of the difference between the two sets.",
+            "description": "Within the Calibrator class, takes in parameters and performs various operations related to calibration. It calculates offsets for position and orientation from initial values, prints out some information, reads a camera image, detects green corners, and compares them with real corners to calculate errors.",
             "params": [
               {
                 "name": "params",
                 "type_name": "ndarray",
-                "description": "7 elements long, containing values for camera intrinsic parameters and focal length."
+                "description": "7 elements long, containing 3 elements for com_p, 3 elements for com_o, and 1 element for fov."
               }
             ],
             "returns": {
-              "type_name": "2000value",
-              "description": "Not a standard value. It may indicate an error or exception occurred during the execution of the code."
+              "type_name": "int",
+              "description": "2000 when there are fewer than 3 real corners and more than 7 virtual corners, otherwise it returns 0."
             },
             "name": "error_function2",
             "location": {
@@ -226,21 +226,21 @@
             "docLength": null
           },
           {
-            "id": "38a11a45-5872-a69a-0247-9d785ffcac9a",
+            "id": "00554e23-a1ee-e097-a347-9b921021eac8",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Calculates the distance between real and virtual corners, checks for collisions, and updates the errors variable with the sum of the distances.",
+            "description": "Calculates the error between real and virtual corners, detects green corners, and returns the sum of errors.",
             "params": [
               {
                 "name": "params",
                 "type_name": "ndarray",
-                "description": "Used to store the translation and rotation matrix of a camera."
+                "description": "Passed as an input to the function, containing the camera translation values."
               }
             ],
             "returns": {
-              "type_name": "int",
-              "description": "2000 when there are fewer than 10 real corners matched to virtual corners, and a sum of errors between the real and virtual corners."
+              "type_name": "2000",
+              "description": "Not defined in the code snippet provided."
             },
             "name": "error_function3",
             "location": {
@@ -255,21 +255,21 @@
             "docLength": null
           },
           {
-            "id": "0dff414d-4ec5-d8ab-1241-b0bd199908f4",
+            "id": "14b89871-aea5-4a9e-e849-d3e43ef233fa",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Performs camera calibration for both Pybullet and Kinova cameras by detecting rectangles in the images, computing offsets, and updating camera parameters.",
+            "description": "Performs camera calibration for both PyBullet and Kinova cameras by detecting rectangles in the images, computing offsets, and displaying the detected rectangles on the original images.",
             "params": [
               {
                 "name": "imageKinova",
                 "type_name": "3D",
-                "description": "Used to store the input image for calibration."
+                "description": "Used to read the Kinova camera image during calibration."
               },
               {
                 "name": "robot_id",
-                "type_name": "integers",
-                "description": "Used to identify the robot to be calibrated."
+                "type_name": "int",
+                "description": "Used to identify the robot being calibrated."
               }
             ],
             "returns": null,
@@ -286,21 +286,21 @@
             "docLength": null
           },
           {
-            "id": "abcaebcf-289a-c388-4946-8fcbd9a56f55",
+            "id": "cffc3b64-0cb3-42ad-3c4b-ca60baede5a5",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Performs camera calibration for a Kinova robot using a green square detected in an image. It minimizes an error function to estimate the camera matrix, distortion coefficients, and FOV.",
+            "description": "Performs camera calibration for a Kinova robot by minimizing the error between the real and predicted corners using the Nelder-Mead algorithm, and updating the position and orientation of the camera based on the result.",
             "params": [
               {
                 "name": "imageKinova",
-                "type_name": "3D",
-                "description": "Used to store an image captured by the camera attached to the Kinova robot, which is used \nto detect green corners for calibration."
+                "type_name": "8bit",
+                "description": "4D array representing the input image for corner detection and calibration."
               },
               {
                 "name": "robot_id",
                 "type_name": "int",
-                "description": "Used to specify the robot's unique identifier for state estimation."
+                "description": "Used to identify a specific robot for calibration purposes."
               }
             ],
             "returns": null,
@@ -317,21 +317,21 @@
             "docLength": null
           },
           {
-            "id": "7c9680ad-53ac-c0b0-1246-3c58529eafd1",
+            "id": "3b75474b-5d1b-8e98-f247-1a1a92b40054",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "In the Calibrator class takes an image and robot pose, computes the fixed projection matrix, and minimizes the error between the robot pose and the corners detected in the image using the Nelder-Mead algorithm.",
+            "description": "Takes robot ID, image kinova and initial parameters as inputs. It calculates the fixed projection matrix, minimizes the error function to find the optimal camera translation, and detects green corners in the pybullet image.",
             "params": [
               {
                 "name": "robot_id",
                 "type_name": "int",
-                "description": "Used to identify a specific robot in a fleet."
+                "description": "Used to identify the robot being calibrated."
               },
               {
                 "name": "imageKinova",
                 "type_name": "3D",
-                "description": "An image from the camera used for detecting corners."
+                "description": "8-bit RGB colored, representing an image captured by a Kinova camera."
               }
             ],
             "returns": null,
@@ -348,15 +348,15 @@
             "docLength": null
           },
           {
-            "id": "0b97fd64-3b79-768e-7445-978c93f7c9bb",
+            "id": "f0595f39-dd6b-4f95-5a4c-f11c234fea17",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Computes the view and projection matrices based on the camera's field of view, aspect ratio, near plane, and far plane. It then rotates the image and converts it to a grayscale format for further processing.",
+            "description": "Computes and retrieves an image from a camera using a view matrix and projection matrix, and rotates the image based on the camera's orientation.",
             "params": [],
             "returns": {
               "type_name": "3D",
-              "description": "A numpy array with shape (1, 3, 768, 480) containing the rotated camera image."
+              "description": "A numpy array of shape (1, 3, 2) representing the RGB color values of the camera image."
             },
             "name": "read_camera",
             "location": {
@@ -371,15 +371,15 @@
             "docLength": null
           },
           {
-            "id": "10741a31-aa05-9084-4946-722056e17aba",
+            "id": "13a22e16-bf32-148f-954c-2f01065e9e70",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Calculates the fixed projection and view matrices for a camera based on its intrinsic and extrinsic parameters, and returns the RGB image captured by the camera.",
+            "description": "Generates a fixed camera matrix and view matrix based on the camera's intrinsic and extrinsic parameters, and returns a color image captured by the camera.",
             "params": [],
             "returns": {
               "type_name": "8bit",
-              "description": "3D numpy array with shape ( height, width, 3) representing a grayscale image."
+              "description": "3D-color image of size (1280, 720)."
             },
             "name": "read_camera_fixed",
             "location": {
@@ -394,21 +394,21 @@
             "docLength": null
           },
           {
-            "id": "9a0e99d7-1cff-9c83-ae46-e1eadc46e605",
+            "id": "e0c13dd5-ed23-798c-aa48-b14ea9911a4e",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Within a class `Calibrator` performs image processing tasks, including green corner detection and matching with real corners, to calculate the errors between virtual and real corners.",
+            "description": "Within the Calibrator class processes an image and green corners to detect matches between real and virtual corners, calculating errors for each match.",
             "params": [
               {
                 "name": "robot_id",
                 "type_name": "int",
-                "description": "Used to identify a specific robot in the code."
+                "description": "Used to retrieve link state data from a robot with the given ID."
               },
               {
                 "name": "imageKinova",
-                "type_name": "npndarray",
-                "description": "A representation of an image captured by a camera mounted on a kinova robot."
+                "type_name": "8bit",
+                "description": "An image that represents the green corners of the robot's kinematics."
               }
             ],
             "returns": null,
@@ -425,21 +425,21 @@
             "docLength": null
           },
           {
-            "id": "9c695caf-bc06-7bad-1c4f-2b3694c39202",
+            "id": "e679fdaa-3280-1b90-704f-96eac27ef439",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Within a Calibrator class performs rectangle detection on both PyBullet and Kinova camera images using Gaussian blur, Canny edge detection, contour finding, and circle drawing around detected rectangles. It also computes the distance between real and virtual corners and displays errors.",
+            "description": "Within the Calibrator class takes an image from a Kinova camera and a PyBullet image as input, detects rectangles in both images using the Canny edge detection algorithm and the contour area criterion, and matches the detected rectangles between the two images. It also calculates the distance between the corresponding corners of the matched rectangles and stores them in a list called `errors`.",
             "params": [
               {
                 "name": "robot_id",
-                "type_name": "int",
-                "description": "Used to identify the robot for which the square detection algorithm is being executed."
+                "type_name": "integers",
+                "description": "Used to identify the robot for which the image is being analyzed."
               },
               {
                 "name": "imageKinova",
-                "type_name": "3D",
-                "description": "Used to display the rectangular region detected on the Kinova camera image after applying \nthe Canny edge detector."
+                "type_name": "npndarray",
+                "description": "Passed as an input to the function, representing the image from which the rectangle contours will be detected."
               }
             ],
             "returns": null,
@@ -456,26 +456,26 @@
             "docLength": null
           },
           {
-            "id": "c6bc5741-e422-1da8-0d4a-e6892c6922af",
+            "id": "00c92ca2-c1dc-4f85-e843-9f2a1aaf51c9",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Within the Calibrator class enables the robot to capture images from a Kinova arm and a camera, and saves them as square-shaped color images with file names based on their index value.",
+            "description": "Within the Calibrator class takes robot ID, kinova proxy, and camera proxy as inputs. It moves the joints of a Kinova arm to specific angles, captures color images using a camera, and saves them in a specified format.",
             "params": [
               {
                 "name": "robot_id",
-                "type_name": "str",
-                "description": "Used to identify the robot for which images are being captured."
+                "type_name": "int",
+                "description": "Used to identify the robot for which kinova images are being generated."
               },
               {
                 "name": "kinova_proxy",
                 "type_name": "ifacesRoboCompKinovaArmTJointAngles",
-                "description": "Used to manipulate the joint angles of a Kinova arm."
+                "description": "Used to represent a proxy for communicating with the Kinova arm."
               },
               {
                 "name": "camera_proxy",
-                "type_name": "CameraRGBDViewer",
-                "description": "Used to retrieve RGBD images from a camera."
+                "type_name": "ifacesRoboCompKinovaArmCameraProxy",
+                "description": "Used to get images from a camera."
               }
             ],
             "returns": null,
@@ -492,21 +492,21 @@
             "docLength": null
           },
           {
-            "id": "9bffcf0b-8e81-5f87-904e-95714f8aaf20",
+            "id": "22cb1ff1-6b02-d0aa-6248-84310852f20e",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Calculates the distance between a set of virtual corners and real corners, and returns the total error. It takes in a list of parameters, including optical center x and y pixels, and projects them onto a bullet-like robot using PyBullet library.",
+            "description": "Performs calibration on a kinova robot arm by detecting and tracking corners in images captured by a camera mounted on the arm. It calculates the error between predicted and actual corner positions and returns the total error.",
             "params": [
               {
                 "name": "params",
-                "type_name": "ndarray",
-                "description": "2-dimensional, containing two elements: the optical center x pixels and optical center y pixels."
+                "type_name": "2D",
+                "description": "Passed as an array of two elements, representing the optical center X pixels and Y pixels respectively."
               }
             ],
             "returns": {
               "type_name": "int",
-              "description": "The sum of the absolute differences between the virtual corners and real corners."
+              "description": "The sum of norms of differences between virtual and real corners."
             },
             "name": "error_function4_square",
             "location": {
@@ -517,15 +517,15 @@
               "comment": null
             },
             "item_type": "method",
-            "length": 91,
+            "length": 90,
             "docLength": null
           },
           {
-            "id": "abed07ba-582f-c591-6246-0c989c0892c4",
+            "id": "d4164eac-5bb5-7381-fc47-e0ed0b76a72e",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Calculates the distance between real and virtual corners in a 3D scene, checks for errors, and returns an overall error value.",
+            "description": "Within the Calibrator class is responsible for detecting and matching green corners between a real-world image and a virtual cube, calculating the error between them, and returning the error value.",
             "params": [
               {
                 "name": "params",
@@ -535,12 +535,12 @@
             ],
             "returns": {
               "type_name": "int",
-              "description": "An error value calculated by comparing the real corners and virtual corners of a cube."
+              "description": "The sum of the norm of the difference between the detected virtual corners and the real corners."
             },
             "name": "error_function4_cube",
             "location": {
-              "start": 920,
-              "insert": 922,
+              "start": 921,
+              "insert": 923,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -550,29 +550,29 @@
             "docLength": null
           },
           {
-            "id": "58543c24-e41c-ffa6-254d-43657e4a670f",
+            "id": "ff8e6ffe-7124-6c87-4a49-7f71d1e6c6f1",
             "ancestors": [
-              "072d56d4-8d12-f7b8-c546-5b3e4e8290e4"
+              "b8d2c134-4570-fda6-9949-d13440626d60"
             ],
-            "description": "Minimizes an error function to determine the optimal position of a robot's optical center using a Nelder-Mead algorithm.",
+            "description": "Optimizes parameters for a calibration process, determining an optimal position for an optical center and computing an error value based on the position.",
             "params": [
               {
                 "name": "robot_id",
                 "type_name": "int",
-                "description": "Used to assign a unique identifier to each robot."
+                "description": "Used to assign a unique identifier for the robot being calibrated."
               }
             ],
             "returns": null,
             "name": "calibrate4",
             "location": {
-              "start": 998,
-              "insert": 1000,
+              "start": 999,
+              "insert": 1001,
               "offset": " ",
               "indent": 8,
               "comment": null
             },
             "item_type": "method",
-            "length": 7,
+            "length": 13,
             "docLength": null
           }
         ]
@@ -584,277 +584,277 @@
     "path": "pybullet_controller/src/specificworker.py",
     "content": {
       "structured": {
-        "description": "A robot arm with 7 joints and uses the PyRobot library to interact with a Robot Operating System (ROS) environment. It reads sensor data from the robot's end effector and calculates the inverse kinematics solution to reach a target position. The code also sets motor control positions for each joint using the `setJointMotorControl2` function from the PyRobot library.\n\nOverall, the code is designed to control the movement of a robot arm using sensor data and inverse kinematics calculations, with the goal of reaching a desired target position.",
+        "description": "A robot arm with seven joints and calculates the inverse kinematics solution (joint positions) to reach a target position at the end effector of the arm. It utilizes the PyRobot package for Robot Operating System (ROS) to interface with the robot and perform calculations, as well as the numpy and math modules for mathematical operations. The code first initializes variables for the robot's ID, joint indices, and target position, then calculates the inverse kinematics solution using the calculateInverseKinematics method from PyRobot. Finally, it sets the motor control of each joint to move the end effector to the target position.",
         "items": [
           {
-            "id": "5bdd92b8-00e0-d483-b74d-5403c3c23f97",
+            "id": "b6ab861c-2020-9bbe-a74e-f32b7233c8aa",
             "ancestors": [],
-            "description": "Manages the movement of a robotic arm based on sensor data from a vision system and user input. It calculates the target position and orientation of the arm's end effector and sends control signals to the arm's motors to reach the desired position and orientation.",
+            "description": "Manages a robot's movements based on data from sensors and buttons. It updates the robot's position and orientation using quaternion math and moves to the target position when the mode is \"move\". It also handles home commands for both the main robot and a secondary robot.",
             "attributes": [
               {
                 "name": "Period",
                 "type_name": "int",
-                "description": "5 by default, representing the time step between movements in seconds. It determines how often the worker will move based on the current mode."
+                "description": "3 by default, which indicates that the worker will run for 3 consecutive cycles before stopping and resetting its state."
               },
               {
                 "name": "rgb",
-                "type_name": "8element",
-                "description": "3-dimensional array, representing the color of the worker's body in RGB format."
+                "type_name": "3element",
+                "description": "Used to store the RGB values for the robot's LED lights, which can be set or retrieved through the `set_rgb` method."
               },
               {
                 "name": "startup_check",
                 "type_name": "int",
-                "description": "0-indexed, indicating which state the worker is in during startup (0 for home position, 1 for move mode, etc.)."
+                "description": "4 by default, which represents the startup check code for the robot's axis movement and gripper movement."
               },
               {
                 "name": "physicsClient",
-                "type_name": "pymelPyNode",
-                "description": "Used to interact with the PyMel physics engine to perform actions such as moving objects, rotating them, or changing their position."
+                "type_name": "instance",
+                "description": "Used to interact with a physics engine client, allowing for simulated physics-based interactions between objects."
               },
               {
                 "name": "plane",
-                "type_name": "list",
-                "description": "Used to store the target position and orientation of a plane in the robot's workspace, which can be manipulated using the buttons and axes inputs."
+                "type_name": "str",
+                "description": "A plane name, indicating which plane the worker operates on (e.g., \"X-Y\", \"YZ\", etc.)."
               },
               {
                 "name": "table_id",
                 "type_name": "int",
-                "description": "Used to identify a specific worker in a table of workers, allowing the robot to perform different actions based on which worker it is."
+                "description": "4."
               },
               {
                 "name": "robot_urdf",
-                "type_name": "str",
-                "description": "A file path to a Robot URDF file for a specific worker, which defines the robot's geometry and kinematics."
+                "type_name": "obb",
+                "description": "3D robot model's URDF (Universal Robot Description Format) file, which defines the geometry and kinematics of the robot."
               },
               {
                 "name": "robot_launch_pos",
                 "type_name": "list",
-                "description": "A list containing the position of the robot before launch, including the x, y, and z coordinates of the robot's origin."
+                "description": "A tuple of the robot's launch position (X, Y, Z coordinates)."
               },
               {
                 "name": "robot_launch_orien",
-                "type_name": "numpyarray",
-                "description": "3D rotation matrix representing the orientation of the robot's end effector."
+                "type_name": "Tuple",
+                "description": "4-element list representing the quaternion orientation of the robot's end effector in world coordinates for launching the gripper."
               },
               {
                 "name": "end_effector_link_index",
                 "type_name": "int",
-                "description": "0-based indexing for the end effector links of the robot, indicating which link the end effector is attached to."
+                "description": "0-based indexing for the end effector links of a robot, indicating the index of the link in the robot's chain."
               },
               {
                 "name": "home_angles",
-                "type_name": "list",
-                "description": "Used to store the angles for each axis in home position, which are used as references for the robot's movement."
+                "type_name": "Tuple",
+                "description": "Used to store the angles of the robot's joints when it is at its home position. It is used to compare with the angles read from the robot's encoders during movement to determine if the robot has reached its home position."
               },
               {
                 "name": "observation_angles",
-                "type_name": "list",
-                "description": "3D angles (in radians) representing the current observation of the robot, used to determine the robot's pose relative to its environment."
+                "type_name": "numpyndarray",
+                "description": "3D angles representing the orientation of the worker's end effector, which are observed by the robot during its motion."
               },
               {
                 "name": "observation_angles_2",
-                "type_name": "3element",
-                "description": "Used to store the angles for the robot's end effector (gripper) in the second observation."
+                "type_name": "3dimensional",
+                "description": "Used to store the current angle observation of the second robot arm in degrees. It is used to compute the desired position and orientation of the end effector based on the observation angles."
               },
               {
                 "name": "observation_angles_3",
-                "type_name": "list",
-                "description": "3D angles representing the orientation of the robot's end effector, used for calculating the target position and orientation of the robot's end effector based on user input."
+                "type_name": "3D",
+                "description": "A list of 3 values representing the angles for the robot's gripper, X, Y, Z axes."
               },
               {
                 "name": "observation_angles_cube",
                 "type_name": "3D",
-                "description": "A list of angles for each axis (X, Y, Z) of the cube-shaped observation space. It defines the orientation of the worker's end effector in the workspace."
+                "description": "Used to store the observation angles of the robot for each axis (X, Y, Z) in a cube format."
               },
               {
                 "name": "robot_id",
                 "type_name": "int",
-                "description": "4 by default, indicating that this worker is the fourth one in a list of workers. It is used to identify the specific robot being controlled by the worker."
+                "description": "4 in this example, indicating that the robot being controlled is the fourth robot in a sequence of robots to be controlled by the worker."
               },
               {
                 "name": "cup",
-                "type_name": "attribute",
-                "description": "Used to store the current state of the robot's end effector position and orientation in a specific workspace."
+                "type_name": "instance",
+                "description": "0 by default, which means that the worker does not have a cup."
               },
               {
                 "name": "square",
                 "type_name": "int",
-                "description": "4 by default, which represents the step size for the robot's movement in the X, Y, and Z axes."
+                "description": "4 by default, indicating that the worker can move in 4 directions (up, down, left, and right)."
               },
               {
                 "name": "hilo_lectura",
-                "type_name": "instance",
-                "description": "A function that reads data from a file using the HIL (Hardware-in-the-Loop) format, specifically for the robotic arm."
+                "type_name": "float",
+                "description": "0.01, which represents the incremental change in position or orientation of the robot's end effector when a button is pressed."
               },
               {
                 "name": "readDataFromProxy",
-                "type_name": "Callable",
-                "description": "Used to read data from a proxy server. It takes no arguments and returns a tuple containing the data as (position, orientation, buttons) for the given mode."
+                "type_name": "method",
+                "description": "Used to read data from a proxy server. It takes no arguments and returns a dictionary containing the data read from the proxy server."
               },
               {
                 "name": "hilo_camara",
-                "type_name": "list",
-                "description": "Used to store the position and orientation of the end effector in a specific frame of reference, specifically the \"camera\" frame."
+                "type_name": "str",
+                "description": "14 characters long. It seems to be a camera ID or name, possibly for a specific robot or device."
               },
               {
                 "name": "readCamera",
                 "type_name": "instance",
-                "description": "Not defined by default. It is used to read camera data from a given camera index or name, which can be \na string or integer value."
+                "description": "Not described in the code snippet provided. Therefore, I cannot provide a concise answer to this question based on the given code."
               },
               {
                 "name": "target_angles",
-                "type_name": "Tuple",
-                "description": "Used to store the target angles for the robot's axes, which are calculated based on the data received from the controller."
+                "type_name": "ndarray",
+                "description": "4D, representing the target angles for each axis (X, Y, Z, and gripper) as a list of floats in degrees."
               },
               {
                 "name": "target_position",
-                "type_name": "3element",
-                "description": "Used to store the target position of the robot's end effector for a specific task, such as moving an object from one location to another."
+                "type_name": "list",
+                "description": "Used to store the target position of the robot's end effector for each axis (X, Y, Z, and gripper). It contains the desired position of the end effector in a specific coordinate system."
               },
               {
                 "name": "target_orientation",
                 "type_name": "3D",
-                "description": "Used to store the target orientation of the robot after a move command has been applied, it's updated by the `getEulerFromQuaternion()` method."
+                "description": "Used to store the target orientation of the robot after a move command has been executed. It is updated with the new orientation value based on the `axis` attribute of the `data` list received as input."
               },
               {
                 "name": "target_velocities",
                 "type_name": "list",
-                "description": "Used to store the target velocities for each joint of the robot in the current mode."
+                "description": "A list of tuples containing the target velocity for each axis (X, Y, Z) and the gripper. The targets are the desired velocities of the robot in the specified axes and gripper movement."
               },
               {
                 "name": "joy_selected_joint",
                 "type_name": "int",
-                "description": "0-based index of the selected joint to be controlled based on the input from the joystick."
+                "description": "0-based indexing of the selected joint to control the robot's movement based on the Joy input device."
               },
               {
                 "name": "move_mode",
                 "type_name": "int",
-                "description": "0-based indexed, changing its value based on the buttons' steps in each mode (home, move, or 3rd party)."
+                "description": "0-based indexing for different move modes (e.g., home, move, or reset). It stores the current move mode selected by the user."
               },
               {
                 "name": "n_rotations",
                 "type_name": "int",
-                "description": "0-based index representing the number of rotations to apply to the robot's end effector to reach the target position. It is used in conjunction with the `move_mode` attribute to determine the motion of the robot."
+                "description": "3, indicating that the worker has 3 rotational degrees of freedom (axes)."
               },
               {
                 "name": "ext_joints",
                 "type_name": "list",
-                "description": "0-indexed, containing the joints of the robot beyond the primary joints (X, Y, Z) for the worker."
+                "description": "A list of joints that are external to the robot, such as those on a gripper or end effector."
               },
               {
                 "name": "kinovaarm_proxy",
                 "type_name": "object",
-                "description": "Used to store a Python proxy for communicating with the Kinova Arm robotic arm."
+                "description": "Used to store a proxy for interacting with the KINOVA robot's API. It is set to the result of calling the `KinovaArmProxy()` function, which creates a Python interface for the KINOVA robot's API."
               },
               {
                 "name": "ext_gripper",
                 "type_name": "str",
-                "description": "20 characters long, representing a gripper extension that can be adjusted for specific tasks."
+                "description": "2D position of the gripper in the external reference frame, which is used to control the movement of the gripper."
               },
               {
                 "name": "posesTimes",
                 "type_name": "ndarray",
-                "description": "3D array containing the position, orientation, and timestamp of the robot's end effector for each step of a given task. It is used to store the state of the robot over time during the execution of the task."
+                "description": "3D array containing the robot's pose (position and orientation) at different time steps, with each element representing a specific moment in time."
               },
               {
                 "name": "poses",
                 "type_name": "list",
-                "description": "3D position vectors for the robot's end effector, representing its current position and orientation in the workspace."
+                "description": "3D positions of the robot's end effector over time, used for positioning and orienting the robot's end effector to perform specific tasks."
               },
               {
                 "name": "timestamp",
                 "type_name": "int",
-                "description": "Representing the current timestamp in milliseconds since the epoch (January 1, 1970, 00:00:00 UTC). It is used to track the time elapsed during a task execution."
+                "description": "Used to keep track of the worker's current state, representing the number of milliseconds that have passed since the worker was created."
               },
               {
                 "name": "inicializar_toolbox",
-                "type_name": "instance",
-                "description": "Used to initialize the toolbox of the worker with the correct tool for the current operation. It takes no arguments and returns none."
+                "type_name": "method",
+                "description": "Responsible for initializing the `ToolBox` module of the PyRobot library, which provides tools to work with the robot's end effector and other features."
               },
               {
                 "name": "timer",
                 "type_name": "int",
-                "description": "0 by default, indicating that the worker is not timing out. It tracks the number of seconds the worker has been running without a break or interruption."
+                "description": "0 by default, it represents the time (in seconds) after which the worker will stop working if no new task is received."
               },
               {
                 "name": "compute",
-                "type_name": "instance",
-                "description": "Used to compute the next position and orientation of the robot based on the input data from the user."
+                "type_name": "lambda",
+                "description": "Defined as a function that takes a `data` argument, which is a `dict` object containing data from the Robot Operating System (ROS) message, and returns a value based on the data. The exact output of the `compute` attribute depends on the implementation of the class, but it is generally used to compute some value or perform some action based on the received data."
               },
               {
                 "name": "timer2",
-                "type_name": "int",
-                "description": "2 seconds by default, indicating how often the worker will check for new commands from the robot's control panel."
+                "type_name": "float",
+                "description": "2 seconds by default, which represents the time it takes for the worker to perform its task after the move mode has been triggered."
               },
               {
                 "name": "movePybulletWithExternalVel",
-                "type_name": "method",
-                "description": "Used to move the robot using PyBullet's `move()` function, while also applying external torque."
+                "type_name": "methods",
+                "description": "Responsible for moving the robot based on external velocity commands."
               },
               {
                 "name": "joint_speeds",
                 "type_name": "ndarray",
-                "description": "4D, where each element in the array corresponds to a joint and has a value representing its speed in radians per second. It is used to control the movement of the robot's joints during a motion plan."
+                "description": "4D, representing the joint speeds as (joint name, axis, position, speed) tuples for each joint in the robot. It is used to specify the desired joint positions and speeds during movement."
               },
               {
                 "name": "gains",
-                "type_name": "ndarray",
-                "description": "Used to control the speed and acceleration of the robot's movements."
+                "type_name": "float",
+                "description": "Representing the gains (or sensitivity) of each axis of the robot's end effector, which determines how much the robot moves when a button is pressed."
               },
               {
                 "name": "speeds",
-                "type_name": "int",
-                "description": "4-dimensional, representing the desired speeds for each axis of the robot's end effector in meters per second."
+                "type_name": "list",
+                "description": "0-dimensional, representing a list of target positions for each axis of the robot, which are used to control the robot's movement."
               },
               {
                 "name": "angles",
-                "type_name": "8element",
-                "description": "Used to store the angles of each joint of the robot in radians."
+                "type_name": "list",
+                "description": "Used to store the angles of the robot's axes in radians."
               },
               {
                 "name": "timer3",
-                "type_name": "int",
-                "description": "3, indicating that the worker has a timer with a value of 3."
+                "type_name": "float",
+                "description": "3 seconds by default, representing the time it takes for the worker to perform its actions."
               },
               {
                 "name": "moveKinovaWithSpeeds",
                 "type_name": "float",
-                "description": "4-dimensional, representing the desired position and orientation of the Kinova robot's end effector in a Cartesian coordinate system."
+                "description": "3-dimensional array that contains the target positions for the Kinova robot's end effectors, along with their speeds, in the x, y, and z axes."
               },
               {
                 "name": "timer4",
                 "type_name": "int",
-                "description": "4, indicating that the worker is a specific type of worker with a particular set of axes and buttons."
+                "description": "4, indicating that this worker has a timer for move mode 4."
               },
               {
                 "name": "movePybulletWithToolbox",
-                "type_name": "method",
-                "description": "Used to move the robot using PyBullet, a Python library for physics-based simulation and visualization. It takes in a list of data from the `data` attribute and moves the robot according to that data."
+                "type_name": "Callable",
+                "description": "A method that moves the robot based on data from the PyBullet API and the Toolbox API, updating the target position and orientation of the robot."
               },
               {
                 "name": "colorKinova",
                 "type_name": "str",
-                "description": "Used to store the color of the Kinova robot's end effector."
+                "description": "4 characters long, representing the color of the Kinova gripper."
               },
               {
                 "name": "depthKinova",
                 "type_name": "int",
-                "description": "0, indicating that the worker is a Kinova robot."
+                "description": "0-based indexing of the depth sensor of a Kinova robot arm, indicating the position of the end effector in the robot's workspace."
               },
               {
                 "name": "calibrator",
                 "type_name": "instance",
-                "description": "Used to store a calibration object for the robot's end effector poses."
+                "description": "Used to store a reference to the calibration data for the specific worker. It is used to read the calibration data from the file and to update the target position and orientation based on the calibration data."
               },
               {
                 "name": "timer5",
-                "type_name": "float",
-                "description": "5 seconds in length, used to control the speed of the robot's movement."
+                "type_name": "int",
+                "description": "5 by default, representing the time (in seconds) for which the worker will stay in move mode before returning to home position."
               },
               {
                 "name": "readKinovaCamera",
-                "type_name": "method",
-                "description": "Used to read the camera data from the Kinova robot's onboard camera."
+                "type_name": "Callable",
+                "description": "Used to read data from a Kinova camera. It takes no arguments and returns a tuple containing the camera's data."
               }
             ],
             "name": "SpecificWorker",
@@ -870,21 +870,21 @@
             "docLength": null
           },
           {
-            "id": "903485d9-e34e-80af-e042-6fec2c4e516e",
+            "id": "b98a0980-6807-9c8d-a847-d5e4825a8446",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Initializes the SpecificWorker class, setting up timers for moving the robot arm and reading the camera, as well as defining the joint speeds and angles based on the target positions and orientations.",
+            "description": "Sets up the necessary components for the SpecificWorker to operate, including a Kinova arm proxy, a timer for controlling the movement of the robot, and various variables for storing information about the robot's position, orientation, velocities, and more.",
             "params": [
               {
                 "name": "proxy_map",
                 "type_name": "dict",
-                "description": "Used to map PyBullet joint names to Kinova arm joint names. It allows for customizing the mapping between the two frameworks, which can be useful in case of mismatches or specific requirements."
+                "description": "Used to define a mapping between the robot's joint angles and the corresponding joint speeds for each joint. This mapping is used to compute the joint speeds that will move the robot to a desired position and orientation."
               },
               {
                 "name": "startup_check",
                 "type_name": "int",
-                "description": "0 by default, indicating that the worker has finished its startup check and is ready to process tasks."
+                "description": "Used to check if the kinova arm is properly connected and calibrated before starting the worker thread."
               }
             ],
             "returns": null,
@@ -901,21 +901,21 @@
             "docLength": null
           },
           {
-            "id": "0a88db34-d857-c694-5949-22e63f98c40a",
+            "id": "a81ee251-240b-279e-e540-41bb5566d88d",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Sets parameters for an instance of the `SpecificWorker` class, which is a subclass of `GenericWorker`. The function returns `True` upon successful parameter setting.",
+            "description": "Sets parameters for an instance of `SpecificWorker`. It returns `True` upon successful completion, indicating that the parameter setting process was successful.",
             "params": [
               {
                 "name": "params",
                 "type_name": "object",
-                "description": "Used to set parameters for an application."
+                "description": "Used to set parameters for the function."
               }
             ],
             "returns": {
-              "type_name": "True",
-              "description": "A standard return value for a successful method execution."
+              "type_name": "Boolean",
+              "description": "True if successful, otherwise it raises an exception."
             },
             "name": "setParams",
             "location": {
@@ -930,11 +930,11 @@
             "docLength": null
           },
           {
-            "id": "9dfeb4ad-c687-82bd-4c43-67589f9e8ce2",
+            "id": "1dac1ad4-9a41-c6bb-874d-1c6454f13a1e",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Performs various tasks, including:\n\n* Moving the robot to specific angles using the `moveKinovaWithAngles` method\n* Calculating and storing the observation angles for the gripper\n* Running the calibrator to update the robot's parameters\n* Processing images from the YOLO detector\n* Calibrating the robot's end effector using AAMED.",
+            "description": "Performs tasks related to observing angles, moving Kinova with angles, and calibrating the robot's end effector. It also handles observation angles and square test for Yolo detector.",
             "params": [],
             "returns": null,
             "name": "compute",
@@ -950,11 +950,11 @@
             "docLength": null
           },
           {
-            "id": "221ad3c2-f5e5-f582-dd41-627d39960f29",
+            "id": "223d6015-d489-cd94-024f-2a1af5271f80",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Tests various components and interfaces of a RoboCompKinovaArm, including TPose, TGripper, TJoint, TJoints, AxisParams, ButtonParams, and TData. It also calls the QApplication.instance().quit() method after 200 milliseconds to quit the application.",
+            "description": "Tests various components and interfaces of a RoboCompKinovaArm, including TPose, TGripper, TJoint, TJoints, AxisParams, ButtonParams, and TData. It also sets a timer to quit the application after 200 milliseconds.",
             "params": [],
             "returns": null,
             "name": "startup_check",
@@ -970,11 +970,11 @@
             "docLength": null
           },
           {
-            "id": "01d5af31-b4ce-b780-4d45-7a072f419cb4",
+            "id": "f4a772e7-1eee-d795-5944-989c12ad7ade",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Initializes the worker's toolbox, setting up kinematic and robotic components, adding objects to the environment, and defining various variables for subsequent use.",
+            "description": "Initializes the worker's toolbox by creating an environment, adding grippers and objects, and setting up axes and goal points. It also defines the worker's arrival point and time step size.",
             "params": [],
             "returns": null,
             "name": "inicializar_toolbox",
@@ -990,11 +990,11 @@
             "docLength": null
           },
           {
-            "id": "b54c8655-deb4-8c96-ac4d-5e91cfbf89f8",
+            "id": "131a9799-bf7e-ad99-b243-a01ae5e865c4",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Computes and updates the joint velocities for a robot based on user inputs, and also computes the error between the desired joint angles and the actual joint angles of the robot.",
+            "description": "Computes and updates the joint states of a robot based on its target velocities, while also handling the limits of the joints' angles.",
             "params": [],
             "returns": null,
             "name": "toolbox_compute",
@@ -1010,11 +1010,11 @@
             "docLength": null
           },
           {
-            "id": "4e205ed3-9d27-e285-b84c-c26f89235721",
+            "id": "6ff15872-9be8-7398-1d47-a654dc0a7e66",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Computes and applies a view matrix to obtain an image from a camera, then displays the resulting RGB image using OpenCV.",
+            "description": "Computes and updates the view matrix, projection matrix, and camera vector based on the robot's position and orientation. It then captures an image using the Segmentation Mask Object and displays it in a window.",
             "params": [],
             "returns": null,
             "name": "readCamera",
@@ -1030,15 +1030,15 @@
             "docLength": null
           },
           {
-            "id": "07ed4f55-d1cd-8082-a84a-a441b6ad43fe",
+            "id": "8ea53abb-f6b4-f093-d14e-3137b45d9cda",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Reads data from a Kinova camera, extracts color and depth information, and displays the results in real-time using OpenCV.",
+            "description": "Retrieves and processes RGBD data from a Kinova camera, including depth normalization and display in two separate images using OpenCV.",
             "params": [],
             "returns": {
               "type_name": "True",
-              "description": "Unspecified"
+              "description": "1-dimensional numpy array representing a boolean value indicating whether the operation was successful or not."
             },
             "name": "readKinovaCamera",
             "location": {
@@ -1053,11 +1053,11 @@
             "docLength": null
           },
           {
-            "id": "1cee2fb9-0f05-369b-634c-2d7a651e9ce0",
+            "id": "20ab2432-f654-aeb6-2b45-d8e890f52075",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Computes and prints the radians of the joint angles of a kinova robot, using the `ext_joints` attribute of the class `SpecificWorker`.",
+            "description": "Calculates and prints the radian values of the joints of a Kinova robot.",
             "params": [],
             "returns": null,
             "name": "showKinovaAngles",
@@ -1073,15 +1073,15 @@
             "docLength": null
           },
           {
-            "id": "78565bf7-8cd5-af96-f448-820c61e7b344",
+            "id": "1d9da3dc-11cc-6086-a44b-186e950efeb5",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Calibrates a camera for kinova-specific intrinsic parameters using a chessboard pattern. It captures images, detects corners, and computes the matrix and distortion coefficients. Finally, it saves the results to a file.",
+            "description": "Computes camera calibration for a Kinova manipulator using a Chessboard pattern. It captures images, detects chessboard corners, and computes the intrinsic parameters of the camera using the Extended Kalman Filter (EKF) algorithm. The resulting camera matrix and distortion coefficients are saved to a file.",
             "params": [],
             "returns": {
               "type_name": "bool",
-              "description": "1 if the calibration was successful, and 0 otherwise."
+              "description": "1 if the camera calibration was successful and 0 otherwise."
             },
             "name": "get_kinova_instrinsic",
             "location": {
@@ -1096,12 +1096,12 @@
             "docLength": null
           },
           {
-            "id": "60d6b88f-5654-65a5-2649-d9dabafab65c",
+            "id": "502a9183-1c86-61a8-164d-fdd0717446e8",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97",
-              "78565bf7-8cd5-af96-f448-820c61e7b344"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa",
+              "1d9da3dc-11cc-6086-a44b-186e950efeb5"
             ],
-            "description": "Provides a list of actions that can be taken from a displayed window: taking a picture, computing calibration, resetting the program, and quitting.",
+            "description": "Provides a brief message and four options for user interaction: taking a picture, computing calibration, resetting the program, or quitting.",
             "params": [],
             "returns": null,
             "name": "usage",
@@ -1117,11 +1117,11 @@
             "docLength": null
           },
           {
-            "id": "2b855cb1-591e-3085-a147-93f128a5a220",
+            "id": "8729f8a3-9075-8294-f044-16147bdb94ad",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Updates the velocity of the robot's joints based on external velocities provided by an external joint controller, scaling the target velocities to account for radial distance from the origin.",
+            "description": "Calculates and sets the target velocities for joints based on external joint velocities, then applies velocity control to move the robot's end effector along a predefined path.",
             "params": [],
             "returns": null,
             "name": "movePybulletWithExternalVel",
@@ -1137,11 +1137,11 @@
             "docLength": null
           },
           {
-            "id": "70d432f1-c2b1-9586-dc45-8ef86a77f58a",
+            "id": "1acbd35a-43f6-ddae-b141-26b92f2d3b45",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Controls the velocity of a robot using PyBullet, setting joint motor control inputs for each robot arm based on target velocities provided in the function call.",
+            "description": "Sets joint motor control velocity for a robot with toolbox.",
             "params": [],
             "returns": null,
             "name": "movePybulletWithToolbox",
@@ -1157,11 +1157,11 @@
             "docLength": null
           },
           {
-            "id": "aed0b195-a1e7-57a7-c546-d565c3960514",
+            "id": "d456df19-7319-7a8c-0b4a-70d6762d374f",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Reads data from a Kinova arm proxy and updates the values of external gripper distance to 80% of its original value before sleeping for 0.05 seconds.",
+            "description": "Continuously retrieves joints state and gripper state data from an external proxy, scales the gripper distance by 0.8, and sleeps for 0.05 seconds between updates.",
             "params": [],
             "returns": null,
             "name": "readDataFromProxy",
@@ -1177,16 +1177,16 @@
             "docLength": null
           },
           {
-            "id": "da01bd2b-2343-7399-bf45-6d7c7feafcad",
+            "id": "279723a7-4f4f-2f94-c249-a5202a7fbded",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Converts angles into degrees and rounds them to the nearest degree, then passes the result to the `moveJointsWithAngle` method of the `kinovaarm_proxy` instance, which moves the robot's joints based on the provided angles.",
+            "description": "Moves the kinova arm based on angles specified by the user, rounding the angle values to the nearest degree and passing them to the `moveJointsWithAngle` method of the kinova arm proxy.",
             "params": [
               {
                 "name": "angles",
                 "type_name": "ndarray",
-                "description": "1D, representing the joint angles in radians to move the Kinova arm."
+                "description": "Rounded to the nearest degree (in radians) between 0 and 360 before being assigned to a list."
               }
             ],
             "returns": null,
@@ -1203,11 +1203,11 @@
             "docLength": null
           },
           {
-            "id": "013b73e9-8442-55af-4d4b-e95023cd38c3",
+            "id": "ad40d0f8-7e37-2e98-e348-b45fb1b8dbcf",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Calculates joint speeds for a Kinova arm based on joint angles and gains, and sends the speeds to the Kinova arm proxy for movement.",
+            "description": "Generates joint speeds for a Kinova arm based on joint angles and gains, and sends the speeds to the Kinova arm controller for movement.",
             "params": [],
             "returns": null,
             "name": "moveKinovaWithSpeeds",
@@ -1223,11 +1223,11 @@
             "docLength": null
           },
           {
-            "id": "4531c9c9-dc45-2d81-3043-211b12d793ef",
+            "id": "a997749f-2f79-2399-9a43-207c80834480",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Updates the kinematic gains for each joint based on the difference between the actual and target angles, and prints the gains and error messages to the console.",
+            "description": "Updates the gains of the robot's joints based on the difference between the actual positions and target angles, and prints relevant information for error correction.",
             "params": [],
             "returns": null,
             "name": "updateGains",
@@ -1243,16 +1243,16 @@
             "docLength": null
           },
           {
-            "id": "9df0961c-9a5b-03a2-5748-793ccd793d48",
+            "id": "f0f17156-404d-1e87-ab4d-87f9832c3ef8",
             "ancestors": [
-              "5bdd92b8-00e0-d483-b74d-5403c3c23f97"
+              "b6ab861c-2020-9bbe-a74e-f32b7233c8aa"
             ],
-            "description": "Receives input data from a joystick and updates the robot's position, orientation, and mode based on the received axes and buttons values.",
+            "description": "Manages data from a joystick and sends it to the robot's control system, updating the robot's position and orientation based on the received data.",
             "params": [
               {
                 "name": "data",
                 "type_name": "dict",
-                "description": "Passed the joystick data from the user, containing the axis and button values."
+                "description": "Passed as an instance of PySerial's serial.Serial(). It contains the joystick data, including axes and buttons."
               }
             ],
             "returns": null,
