@@ -33,6 +33,8 @@ from typing import Tuple
 from pyAAMED import pyAAMED
 import YoloDetector
 
+from pyquaternion import Quaternion
+
 import numpy
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
@@ -137,7 +139,7 @@ class SpecificWorker(GenericWorker):
             #////////////////////////////////////////////////////
 
             # Load a cup to place on the table
-            self.cup = p.loadURDF("/home/robolab/software/bullet3/data/dinnerware/cup/cup_small.urdf", basePosition=[0.074, -0.20, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
+            self.pybullet_cup = p.loadURDF("/home/robolab/software/bullet3/data/dinnerware/cup/cup_small.urdf", basePosition=[0.074, 0.20, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
 
             self.square = p.loadURDF("/home/robolab/software/bullet3/data/cube_small_square.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
             texture_path = "/home/robolab/Escritorio/textura_cubo.png"
@@ -211,7 +213,7 @@ class SpecificWorker(GenericWorker):
 
             self.timestamp = int(time.time()*1000)
 
-            self.inicializar_toolbox()
+            # self.inicializar_toolbox()
 
             self.timer.timeout.connect(self.compute)
             self.timer.start(self.Period)
@@ -239,7 +241,7 @@ class SpecificWorker(GenericWorker):
 
             self.timer4 = QtCore.QTimer(self)
             self.timer4.timeout.connect(self.movePybulletWithToolbox)
-            #self.timer4.start(50)
+            # self.timer4.start(50)
 
             self.colorKinova = []
             self.depthKinova = []
@@ -396,9 +398,9 @@ class SpecificWorker(GenericWorker):
 
             case 5:    #Move to observation angles
                 print("Moving to observation angles")
-                self.moveKinovaWithAngles(self.observation_angles_cube[:7])
+                self.moveKinovaWithAngles(self.observation_angles[:7])
                 for i in range(7):
-                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.observation_angles_cube[i])
+                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.observation_angles[i])
 
                 self.target_angles[13] = self.ext_gripper.distance
                 self.target_angles[15] = - self.ext_gripper.distance
@@ -415,12 +417,12 @@ class SpecificWorker(GenericWorker):
                 if self.timestamp+10000 < int(time.time()*1000):
                     self.move_mode = 6
             case 6:
-                self.timer.stop()
+                # self.timer.stop()
                 # self.calibrator.calibrate(self.colorKinova, self.robot_id)
 
                 # self.calibrator.calibrate3(self.robot_id, self.colorKinova)
                 # self.calibrator.cube_test(self.robot_id, self.colorKinova.copy())
-                self.calibrator.square_test(self.robot_id, self.colorKinova.copy())
+                # self.calibrator.square_test(self.robot_id, self.colorKinova.copy())
 
                 # self.calibrator.prueba(self.robot_id)
                 # corners = self.calibrator.detect_green_corners(self.colorKinova)
@@ -431,30 +433,68 @@ class SpecificWorker(GenericWorker):
                 # cv2.imshow("Color", self.colorKinova)
                 # self.calibrator.calibrate2(self.colorKinova, self.robot_id)
 
-                yolodetector = YoloDetector.YoloDetector()
-                results = yolodetector.detect(self.colorKinova)
-                yolodetector.plot(results)
+                # yolodetector = YoloDetector.YoloDetector()
+                # results = yolodetector.detect(self.colorKinova)
+                # yolodetector.plot(results)
 
                 aamed = pyAAMED(1080, 1940)
                 aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
-                imgG = cv2.cvtColor(self.colorKinova, cv2.COLOR_BGR2GRAY)
-                res = aamed.run_AAMED(imgG)
-                print(res)
-                aamed.drawAAMED(imgG)
-                print("Observing")
-                self.move_mode = -1
-                self.timer.start(self.Period)
+                imgGKinova = cv2.cvtColor(self.colorKinova, cv2.COLOR_BGR2GRAY)
+                resKinova = aamed.run_AAMED(imgGKinova)
+                # print(res)
+                # aamed.drawAAMED(imgGKinova)
+
+                # for i in range(len(resKinova)):
+                #     cv2.circle(imgGKinova, (round(resKinova[i][1]), round(resKinova[i][0])), 8, (0, 0, 255), -1)
+                # cv2.imshow("test kinova", imgGKinova)
+
+                pybulletImage = self.read_camera_fixed()
+                imgGPybullet = cv2.cvtColor(pybulletImage, cv2.COLOR_BGR2GRAY)
+                resPybullet = aamed.run_AAMED(imgGPybullet)
+                # aamed.drawAAMED(imgGPybullet)
+
+                # for i in range(len(resPybullet)):
+                #     cv2.circle(imgGPybullet, (round(resPybullet[i][1]), round(resPybullet[i][0])), 8, (0, 0, 255), -1)
+                # cv2.imshow("test pybullet", imgGPybullet)
+
+                error = np.abs(resKinova[0][1] - resPybullet[0][1] + resKinova[0][0] - resPybullet[0][0])
+
+                if error > 5:
+                    print("x: ", resKinova[0][1]-resPybullet[0][1]," y: ", resKinova[0][0]-resPybullet[0][0])
+
+                    # i want to print the position of the base of the cup i load from the urdf
+                    position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
+                    position[0] = position[0] - 0.0001 * (resKinova[0][0] - resPybullet[0][0])
+                    position[1] = position[1] - 0.0001 * (resKinova[0][1] - resPybullet[0][1])
+                    p.resetBasePositionAndOrientation(self.pybullet_cup, tuple(position), p.getQuaternionFromEuler([0, 0, 0]))
+
+                else:
+                    print("Calibration finished")
+                    print(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
+                    print("Suposed final position: 0.074, 0.20, 0.64")
+
+                    self.move_mode = 7
+
+                    # self.timer.start(self.Period)
 
             case 7:
                 # self.showKinovaAngles()
                 self.timer.stop()
                 # self.calibrator.get_kinova_images(self.robot_id, self.kinovaarm_proxy, self.camerargbdsimple_proxy)
-                self.calibrator.calibrate4(self.robot_id)
-                self.move_mode = -1
+                # self.calibrator.calibrate4(self.robot_id)
+                # self.move_mode = -1
 
                 self.moveKinovaWithAngles(self.home_angles[:7])
+
+                for i in range(7):
+                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.home_angles[i])
+
+                self.inicializar_toolbox()
+                self.timer4.start(self.Period)
+
+                print("Moving to fixed cup")
+                self.move_mode = 4
                 self.timer.start(self.Period)
-                pass
 
         #p.stepSimulation()
         # pass
@@ -489,6 +529,10 @@ class SpecificWorker(GenericWorker):
         self.kinova = rtb.models.KinovaGen3()
         print(self.kinova.grippers)
         # Set joint angles to ready configuration
+        # observation_angles = self.observation_angles[:7]
+        # observation_angles[5] = observation_angles[5] + 2*np.pi
+        # print(observation_angles)
+        # self.kinova.q = observation_angles
         self.kinova.q = self.kinova.qr
 
         # Add the robot to the simulator
@@ -507,14 +551,19 @@ class SpecificWorker(GenericWorker):
         # Number of joint in the Kinova which we are controlling
         self.n = 7
 
+        cup_position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
+        cup_position[0] = cup_position[0] + 0.3  # Added the robot base offset in pybullet
+
         # objects
-        self.cup = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.4, 0.4, 0), color=(0, 0, 1))
+        self.cup = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(cup_position[0], cup_position[1], 0), color=(0, 0, 1))
+        # self.cup = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.4, 0.4, 0), color=(0, 0, 1))
         self.env.add(self.cup)
 
         # Set the desired end-effector pose
         self.rot = self.kinova.fkine(self.kinova.q).R
         self.rot = sm.SO3.OA([-1, 0, 0], [0, 0, -1])
-        self.Tep = sm.SE3.Rt(self.rot, [0.4, 0.4, 0.13])  # green = x-axis, red = y-axis, blue = z-axis
+        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.13])
+        # self.Tep = sm.SE3.Rt(self.rot, [0.4, 0.4, 0.13])  # green = x-axis, red = y-axis, blue = z-axis
         self.goal_axes.T = self.Tep
 
         self.arrived = False
@@ -623,6 +672,109 @@ class SpecificWorker(GenericWorker):
             cv2.imshow('img', self.rgb)
             time.sleep(0.5)
 
+    def cvK2BulletP(self, K, w, h, near, far):
+        """
+        cvKtoPulletP converst the K interinsic matrix as calibrated using Opencv
+        and ROS to the projection matrix used in openGL and Pybullet.
+
+        :param K:  OpenCV 3x3 camera intrinsic matrix
+        :param w:  Image width
+        :param h:  Image height
+        :near:     The nearest objects to be included in the render
+        :far:      The furthest objects to be included in the render
+        :return:   4x4 projection matrix as used in openGL and pybullet
+        """
+        f_x = K[0, 0]
+        f_y = K[1, 1]
+        c_x = K[0, 2]
+        c_y = K[1, 2]
+        A = (near + far) / (near - far)
+        B = 2 * near * far / (near - far)
+
+        projection_matrix = [
+            [2 / w * f_x, 0, (w - 2 * c_x) / w, 0],
+            [0, 2 / h * f_y, (2 * c_y - h) / h, 0],
+            [0, 0, A, B],
+            [0, 0, -1, 0]]
+        # The transpose is needed for respecting the array structure of the OpenGL
+        return np.array(projection_matrix).T.reshape(16).tolist()
+
+    def cvPose2BulletView(self, q, t):
+        """
+        cvPose2BulletView gets orientation and position as used
+        in ROS-TF and opencv and coverts it to the view matrix used
+        in openGL and pyBullet.
+
+        :param q: ROS orientation expressed as quaternion [qx, qy, qz, qw]
+        :param t: ROS postion expressed as [tx, ty, tz]
+        :return:  4x4 view matrix as used in pybullet and openGL
+
+        """
+        q = Quaternion([q[3], q[0], q[1], q[2]])
+        R = q.rotation_matrix
+
+        T = np.vstack([np.hstack([R, np.array(t).reshape(3, 1)]),
+                       np.array([0, 0, 0, 1])])
+        # Convert opencv convention to python convention
+        # By a 180 degrees rotation along X
+        Tc = np.array([[1, 0, 0, 0],
+                       [0, -1, 0, 0],
+                       [0, 0, -1, 0],
+                       [0, 0, 0, 1]]).reshape(4, 4)
+
+        # pybullet pse is the inverse of the pose from the ROS-TF
+        T = Tc @ np.linalg.inv(T)
+        # The transpose is needed for respecting the array structure of the OpenGL
+        viewMatrix = T.T.reshape(16)
+        return viewMatrix
+    def read_camera_fixed(self):
+        com_p, com_o, _, _, _, _ = p.getLinkState(self.robot_id, 9)
+        # Define camera intrinsic parameters
+        width = 1280  # image width
+        height = 720  # image height
+        f_in_pixels = 1298 #1298
+        near = 0.01  # near clipping plane
+        far = 100  # far clipping plane
+
+        # Optical center in pixel coordinates
+        optical_center_x_pixels = 646.23 #620  # example x-coordinate in pixels
+        optical_center_y_pixels = 267.62 #238  # example y-coordinate in pixels
+
+        fov = 2 * np.degrees(np.arctan(width / (2 * f_in_pixels)))
+
+        k = np.array([[f_in_pixels, 0, optical_center_x_pixels],
+                      [0, f_in_pixels, optical_center_y_pixels],
+                      [0, 0, 1]])
+
+        projection_matrix = self.cvK2BulletP(k, width, height, near, far)
+
+        # print("fixed proyection matrix", projection_matrix)
+
+        # Define camera extrinsic parameters
+        camera_translation = np.array([0.0, 0.0, 0.0])
+
+        camera_rotation_matrix = np.array([
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0]
+        ])
+
+        camera_translation += com_p
+        com_o_matrix = p.getMatrixFromQuaternion(com_o)
+        camera_rotation_matrix += np.array(com_o_matrix).reshape(3, 3)
+
+        view_matrix = self.cvPose2BulletView(com_o, camera_translation)
+
+        # print("fixed view matrix", np.matrix(view_matrix))
+        # print("//////////////////////////////////////////////////////////////////")
+
+        # Get the camera image
+        img = p.getCameraImage(width, height, view_matrix, projection_matrix)
+        rgb = img[2]
+        rgb = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+        return rgb
+
     def readKinovaCamera(self):
         try:
             both = self.camerargbdsimple_proxy.getAll("CameraRGBDViewer")
@@ -637,9 +789,9 @@ class SpecificWorker(GenericWorker):
             self.colorKinova = (np.frombuffer(self.colorKinova.image, np.uint8)
                                 .reshape(self.colorKinova.height, self.colorKinova.width, self.colorKinova.depth))
 
-            cv2.imshow("ColorKinova", self.colorKinova)
-            cv2.imshow("DepthKinova", self.depthKinova)
-            cv2.waitKey(self.Period)
+            # cv2.imshow("ColorKinova", self.colorKinova)
+            # cv2.imshow("DepthKinova", self.depthKinova)
+            # cv2.waitKey(self.Period)
         except Ice.Exception as e:
             print(e)
         return True

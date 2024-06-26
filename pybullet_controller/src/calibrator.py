@@ -607,7 +607,7 @@ class Calibrator:
         # Define camera intrinsic parameters
         width = 1280  # image width
         height = 720  # image height
-        f_in_pixels = 1298
+        f_in_pixels = 1298 #1298
         near = 0.01  # near clipping plane
         far = 100  # far clipping plane
 
@@ -819,9 +819,10 @@ class Calibrator:
         print("params: ", params)
         optical_center_x_pixels = params[0]  # example x-coordinate in pixels
         optical_center_y_pixels = params[1]  # example y-coordinate in pixels
+        f_in_pixels = params[2]
 
-        k = np.array([[self.f_in_pixels, 0, optical_center_x_pixels],
-                      [0, self.f_in_pixels, optical_center_y_pixels],
+        k = np.array([[f_in_pixels, 0, optical_center_x_pixels],
+                      [0, f_in_pixels, optical_center_y_pixels],
                       [0, 0, 1]])
 
         projection_matrix = self.cvK2BulletP(k, self.width, self.height, self.near, self.far)
@@ -1001,11 +1002,11 @@ class Calibrator:
         self.robot_id = robot_id
         self.width = 1280  # image width
         self.height = 720  # image height
-        self.f_in_pixels = 1298
+        # self.f_in_pixels = 1298
         self.near = 0.01  # near clipping plane
         self.far = 100  # far clipping plane
 
-        initial_params = np.array([620, 238])  # Optical center in pixel coordinates
+        initial_params = np.array([620, 238, 1298])  # Optical center in pixel coordinates
 
         result_position = minimize(self.error_function4_square, initial_params, method='Nelder-Mead')
 
