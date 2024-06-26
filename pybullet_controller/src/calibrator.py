@@ -13,30 +13,29 @@ import glob
 
 class Calibrator:
     """
-    Calibrates a Kinova robot using a 4-corners method, detecting green corners
-    in RGB images and calculating the error between real and virtual corners. It
-    also minimizes the error using the Nelder-Mead algorithm to find the optimal
-    position of the optical center.
+    Performs calibration of a kinova cube robot using pybullet library and OpenCV
+    for image processing. It detects green corners, compares them with real ones,
+    calculates errors and minimizes them through a non-linear optimization algorithm.
 
     Attributes:
-        width (int): 1280 pixels, representing the width of the image captured by
-            the camera.
-        error (float): Initialized to zero, it measures the difference between the
-            virtual corners detected by the calibration process and the real corners
-            of the cube. It's used for monitoring the progress of the calibration
-            process.
-        real_corners (ndarray): 4D, representing the real corners detected from
-            the color camera images using the Kinova robot's green markers.
+        width (int): 1280 pixels, which represents the width of the camera image
+            used for calibration.
+        error (float): 0 at first, then it gets updated with the error calculation
+            during the calibration process. It represents the total error between
+            the estimated and real positions of the corners.
+        real_corners (ndarray): 4D, representing the real corners of the object
+            in the image. It contains the coordinates of the real corners detected
+            using the green rectangle detection algorithm.
         robot_id (int): Used to identify the specific robot being calibrated during
             the process.
-        observation_angles (ndarray): 7-element vector representing the observation
-            angles (in radians) for each of the 7 spherical joints of a Kinova robot.
+        observation_angles (ndarray): 7-dimensional, containing the angles for
+            each joint in a robot in radians.
 
     """
     def __init__(self):
         """
-        Of the Calibrator class initializes the calibration parameters for a robotic
-        arm based on a set of predefined observation angles.
+        Sets the parameters for a calibration process, such as camera intrinsic
+        and extrinsic parameters, and the angles of observation.
 
         """
         self.width = None
@@ -95,18 +94,17 @@ class Calibrator:
 
     def is_rectangle(self, approx):
         """
-        Determines whether an approximate shape can be represented as a rectangle.
-        It calculates the angle between four points and checks if all the cosine
-        of these angles are below a threshold (0.1) indicating a rectangle-like
-        shape. If all the cosine values are less than 0.1, the shape is considered
-        a rectangle.
+        Determines whether a set of 4 points can be formed into a rectangle based
+        on the cosine of the angles between adjacent pairs of points. If all cosine
+        values are below a threshold (default 0.1), it returns True, otherwise it
+        returns False.
 
         Args:
-            approx (4element): Represented as a list of four numbers representing
-                the vertices of a rectangle.
+            approx (4element): Used to represent an approximate rectangle.
 
         Returns:
-            bool: True if the input approximation is a rectangle and False otherwise.
+            bool: True if the given approximate rectangle is a rectangle and False
+            otherwise.
 
         """
         if len(approx) != 4:
@@ -114,21 +112,18 @@ class Calibrator:
 
         def angle(pt1, pt2, pt0):
             """
-            Computes the angle between two points in a 2D space based on their
-            distances and angles relative to a third point.
+            Calculates the angle between two points in a 2D space based on their
+            distances and angles relative to a reference point.
 
             Args:
-                pt1 (2D): Represented by a list containing two elements, each
-                    representing the x and y coordinates of a point on the plane.
-                pt2 (2element): Defined as a point in space (x, y) representing
-                    the second point used to calculate the angle between two points.
-                pt0 (0dimensional): Represented by a tuple containing two elements,
-                    representing the x and y coordinates of an arbitrary point.
+                pt1 (2D): Representing a point on a two-dimensional plane.
+                pt2 (2D): Represented by a tuple containing the x and y coordinates,
+                    respectively.
+                pt0 (0dimensional): Represented as a point (x,y) value.
 
             Returns:
-                float64: A measure of the angle between two points in a two-dimensional
-                plane, calculated as the arctangent of the ratio of their distances
-                from a reference point.
+                float64: The angle between two points based on their distances and
+                directions from a reference point.
 
             """
             dx1 = pt1[0][0] - pt0[0][0]
@@ -150,17 +145,15 @@ class Calibrator:
     def detect_green_corners(self, image):
         # Convertimos la imagen a espacio de color HSV
         """
-        Within the `Calibrator` class detects green corners in an image by converting
-        it to HSV color space, finding contours using the moments algorithm, and
-        then filtering and marking the corners with circles.
+        Detects green regions in an image using HSV color space, then finds contours
+        within those regions and extracts corner points.
 
         Args:
-            image (npndarray): The input image to be processed, which is converted
-                from BGR2 format to HSV for corner detection.
+            image (image): Used to represent the input image for corner detection.
 
         Returns:
-            list: A list of corner points detected from an image using HSV color
-            space and morphological operations.
+            list: A collection of corner points detected from an image using Hough
+            transform.
 
         """
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -194,17 +187,16 @@ class Calibrator:
     def error_function(self, params):
         #print("params: ", params)
         """
-        Calculates the distance between real and virtual corners, checks if they
-        match, and computes the errors between them.
+        Computes the distance between real and virtual corners, calculates the
+        error, and returns the sum of errors.
 
         Args:
-            params (ndarray): 7-dimensional, containing the first 3 elements
-                representing real corners, the next 3 elements representing virtual
-                corners, and the last element representing the fov.
+            params (ndarray): 7-dimensional, containing the 3 real corners and 4
+                virtual corners of an object.
 
         Returns:
-            int: 1000 if there are fewer than 4 corners matched between the real
-            and virtual sets, otherwise it returns 0.
+            integernumber: 1000 times the distance between the real and virtual
+            corners of a rectangle.
 
         """
         self.com_p = params[:3]
@@ -268,19 +260,16 @@ class Calibrator:
 
     def error_function2(self, params):
         """
-        Within the Calibrator class, takes in parameters and performs various
-        operations related to calibration. It calculates offsets for position and
-        orientation from initial values, prints out some information, reads a
-        camera image, detects green corners, and compares them with real corners
-        to calculate errors.
+        In the Calibrator class calculates the distance between real and virtual
+        corners, checks for errors, and updates the errors array.
 
         Args:
-            params (ndarray): 7 elements long, containing 3 elements for com_p, 3
-                elements for com_o, and 1 element for fov.
+            params (ndarray): 7-dimensional, containing 3 real values, followed
+                by 4 integer indices.
 
         Returns:
-            int: 2000 when there are fewer than 3 real corners and more than 7
-            virtual corners, otherwise it returns 0.
+            int: The sum of the norms of the differences between the detected
+            virtual corners and the real corners.
 
         """
         self.com_p = params[:3]
@@ -330,15 +319,17 @@ class Calibrator:
 
     def error_function3(self, params):
         """
-        Calculates the error between real and virtual corners, detects green
-        corners, and returns the sum of errors.
+        Performs corner detection and matching between a set of real corners
+        detected by a previous step, and a set of virtual corners obtained from a
+        green-texture image processed by the `cvPose2BulletView` method. The
+        function calculates the errors between the real and virtual corners, and
+        returns the sum of these errors as an integer value.
 
         Args:
-            params (ndarray): Passed as an input to the function, containing the
-                camera translation values.
+            params (ndarray): Used to store the camera translation value.
 
         Returns:
-            2000: Not defined in the code snippet provided.
+            2000: Not a valid error value, indicating an error in the code.
 
         """
         camera_translation = params
@@ -392,13 +383,16 @@ class Calibrator:
 
     def calibrate(self, imageKinova, robot_id):
         """
-        Performs camera calibration for both PyBullet and Kinova cameras by detecting
-        rectangles in the images, computing offsets, and displaying the detected
-        rectangles on the original images.
+        Performs camera calibration for both Kinova and Pybullet cameras. It detects
+        rectangles in the images, computes offsets for the real corners, and updates
+        the position of the camera parameters.
 
         Args:
-            imageKinova (3D): Used to read the Kinova camera image during calibration.
-            robot_id (int): Used to identify the robot being calibrated.
+            imageKinova (3D): Used to represent the left-hand side (LHS) of the
+                calibration equation, which is the image of the object in the
+                robot's camera.
+            robot_id (integers): Used to identify the robot for which the calibration
+                is performed.
 
         """
         print("Calibrating...")
@@ -535,14 +529,14 @@ class Calibrator:
 
     def calibrate2(self, imageKinova, robot_id):
         """
-        Performs camera calibration for a Kinova robot by minimizing the error
-        between the real and predicted corners using the Nelder-Mead algorithm,
-        and updating the position and orientation of the camera based on the result.
+        Computes the optimal position and orientation of a robot based on image data.
+        It uses a minimization algorithm to find the solution that reduces an error
+        function.
 
         Args:
-            imageKinova (8bit): 4D array representing the input image for corner
-                detection and calibration.
-            robot_id (int): Used to identify a specific robot for calibration purposes.
+            imageKinova (8bit): 2D array that stores the raw image captured by the
+                Kinova camera.
+            robot_id (integers): Used to identify the robot being calibrated.
 
         """
         self.com_p, self.com_o, _, _, _, _ = p.getLinkState(robot_id, 9)
@@ -598,14 +592,17 @@ class Calibrator:
 
     def calibrate3(self, robot_id, imageKinova):
         """
-        Takes robot ID, image kinova and initial parameters as inputs. It calculates
-        the fixed projection matrix, minimizes the error function to find the
-        optimal camera translation, and detects green corners in the pybullet image.
+        Within the Calibrator class takes robot ID, an image from Kinova, and
+        initial camera parameters as inputs. It then computes the fixed projection
+        matrix using the green corners detection method and minimizes the error
+        function to find the optimal translation vector for the camera. Finally,
+        it displays the detected corners in both Kinova and Pybullet images.
 
         Args:
-            robot_id (int): Used to identify the robot being calibrated.
-            imageKinova (3D): 8-bit RGB colored, representing an image captured
-                by a Kinova camera.
+            robot_id (int): Used to retrieve link state data from the Kinova robot
+                controller.
+            imageKinova (8bit): A grayscale image representing the left side camera
+                view.
 
         """
         self.com_p, self.com_o, _, _, _, _ = p.getLinkState(robot_id, 9)
@@ -668,12 +665,12 @@ class Calibrator:
 
     def read_camera(self):
         """
-        Computes and retrieves an image from a camera using a view matrix and
-        projection matrix, and rotates the image based on the camera's orientation.
+        Computes the view matrix and projection matrix for a camera using a FOV,
+        aspect ratio, near plane, and far plane. It then rotates the image and
+        converts it to BGR format before returning it.
 
         Returns:
-            3D: A numpy array of shape (1, 3, 2) representing the RGB color values
-            of the camera image.
+            3D: A RGB image represented as a numpy array.
 
         """
         aspect, nearplane, farplane = 1.78, 0.01, 100
@@ -762,17 +759,16 @@ class Calibrator:
     def read_camera_fixed(self):
         # Define camera intrinsic parameters
         """
-        Generates a fixed camera matrix and view matrix based on the camera's
-        intrinsic and extrinsic parameters, and returns a color image captured by
-        the camera.
+        Computes and returns the fixed camera matrix and view matrix for a given
+        camera, based on its intrinsic and extrinsic parameters.
 
         Returns:
-            8bit: 3D-color image of size (1280, 720).
+            8bit: A grayscale image representing the scene captured by a camera.
 
         """
         width = 1280  # image width
         height = 720  # image height
-        f_in_pixels = 1298
+        f_in_pixels = 1298 #1298
         near = 0.01  # near clipping plane
         far = 100  # far clipping plane
 
@@ -836,14 +832,13 @@ class Calibrator:
 
     def cube_test(self, robot_id, imageKinova):
         """
-        Within the Calibrator class processes an image and green corners to detect
-        matches between real and virtual corners, calculating errors for each match.
+        Within the `Calibrator` class detects and matches green corners between
+        two images, calculating the distance between them using norms, and returns
+        the matched corners and errors in a matrix format.
 
         Args:
-            robot_id (int): Used to retrieve link state data from a robot with the
-                given ID.
-            imageKinova (8bit): An image that represents the green corners of the
-                robot's kinematics.
+            robot_id (int): Used to identify the robot to which the code is applied.
+            imageKinova (8bit): An image captured by a camera linked to a robot.
 
         """
         self.com_p, self.com_o, _, _, _, _ = p.getLinkState(robot_id, 9)
@@ -887,18 +882,16 @@ class Calibrator:
 
     def square_test(self, robot_id, imageKinova):
         """
-        Within the Calibrator class takes an image from a Kinova camera and a
-        PyBullet image as input, detects rectangles in both images using the Canny
-        edge detection algorithm and the contour area criterion, and matches the
-        detected rectangles between the two images. It also calculates the distance
-        between the corresponding corners of the matched rectangles and stores
-        them in a list called `errors`.
+        Within the Calibrator class performs rectangle detection on two images:
+        one from a Pybullert camera and another from a Kinova camera. It matches
+        virtual corners with real corners using a descriptor-based approach and
+        calculates errors between the two sets of corners.
 
         Args:
-            robot_id (integers): Used to identify the robot for which the image
-                is being analyzed.
-            imageKinova (npndarray): Passed as an input to the function, representing
-                the image from which the rectangle contours will be detected.
+            robot_id (int): Used to specify the robot ID for which the rectangle
+                detection should be performed.
+            imageKinova (image): Passed as an argument to the function for testing
+                purposes.
 
         """
         self.com_p, self.com_o, _, _, _, _ = p.getLinkState(robot_id, 9)
@@ -991,17 +984,15 @@ class Calibrator:
 
     def get_kinova_images(self, robot_id, kinova_proxy, camera_proxy):
         """
-        Within the Calibrator class takes robot ID, kinova proxy, and camera proxy
-        as inputs. It moves the joints of a Kinova arm to specific angles, captures
-        color images using a camera, and saves them in a specified format.
+        Within the Calibrator class retrieves images from a Kinova robot and a
+        camera, moves the robot's joints to specific angles, and saves the obtained
+        color images to a directory.
 
         Args:
-            robot_id (int): Used to identify the robot for which kinova images are
-                being generated.
-            kinova_proxy (ifacesRoboCompKinovaArmTJointAngles): Used to represent
-                a proxy for communicating with the Kinova arm.
-            camera_proxy (ifacesRoboCompKinovaArmCameraProxy): Used to get images
-                from a camera.
+            robot_id (int): Used to identify the specific robot being controlled.
+            kinova_proxy (ifacesRoboCompKinovaArm): Used to control the movement
+                of a kinova arm.
+            camera_proxy (CameraRGBDViewer): Used to get all images from the camera.
 
         """
         for i in range(len(self.observation_angles)):
@@ -1022,24 +1013,26 @@ class Calibrator:
     def error_function4_square(self, params):
         # Optical center in pixel coordinates
         """
-        Performs calibration on a kinova robot arm by detecting and tracking corners
-        in images captured by a camera mounted on the arm. It calculates the error
-        between predicted and actual corner positions and returns the total error.
+        Calculates the error between real and virtual corners in a 2D image, given
+        by a set of parameters. It returns the total error as a scalar value.
 
         Args:
-            params (2D): Passed as an array of two elements, representing the
-                optical center X pixels and Y pixels respectively.
+            params (ndarray): 3-dimensional, containing the following values:
+                optical center x pixels, optical center y pixels, and focal length
+                in pixels.
 
         Returns:
-            int: The sum of norms of differences between virtual and real corners.
+            int: The sum of the absolute differences between the virtual corners
+            and real corners found using SIFT feature detection and matching.
 
         """
         print("params: ", params)
         optical_center_x_pixels = params[0]  # example x-coordinate in pixels
         optical_center_y_pixels = params[1]  # example y-coordinate in pixels
+        f_in_pixels = params[2]
 
-        k = np.array([[self.f_in_pixels, 0, optical_center_x_pixels],
-                      [0, self.f_in_pixels, optical_center_y_pixels],
+        k = np.array([[f_in_pixels, 0, optical_center_x_pixels],
+                      [0, f_in_pixels, optical_center_y_pixels],
                       [0, 0, 1]])
 
         projection_matrix = self.cvK2BulletP(k, self.width, self.height, self.near, self.far)
@@ -1139,17 +1132,19 @@ class Calibrator:
     def error_function4_cube(self, params):
         # Optical center in pixel coordinates
         """
-        Within the Calibrator class is responsible for detecting and matching green
-        corners between a real-world image and a virtual cube, calculating the
-        error between them, and returning the error value.
+        Calculates the distance between real and virtual corners and returns the
+        error. It also detects green corners from an image and compares them with
+        the expected ones.
 
         Args:
-            params (ndarray): 2D, containing two elements: `optical_center_x_pixels`
-                and `optical_center_y_pixels`.
+            params (ndarray): Passed as a single argument to the function. It
+                contains two elements: `optical_center_x_pixels` and
+                `optical_center_y_pixels`, which are the coordinates of the optical
+                center in pixels.
 
         Returns:
-            int: The sum of the norm of the difference between the detected virtual
-            corners and the real corners.
+            int: 2000 if there are at least 1000 differences between the real and
+            virtual corners, otherwise it returns the number of differences.
 
         """
         print("//////////////////////////////////////////////////////////////////")
@@ -1231,23 +1226,22 @@ class Calibrator:
     def calibrate4(self, robot_id):
         # Define camera intrinsic parameters
         """
-        Optimizes parameters for a calibration process, determining an optimal
-        position for an optical center and computing an error value based on the
-        position.
+        Within the `Calibrator` class minimizes an error function to find the
+        optimal parameters for a calibration process using the Nelder-Mead method.
 
         Args:
-            robot_id (int): Used to assign a unique identifier for the robot being
-                calibrated.
+            robot_id (int): Assigned the value passed to the function as an argument,
+                serving as an identifier for the robot being calibrated.
 
         """
         self.robot_id = robot_id
         self.width = 1280  # image width
         self.height = 720  # image height
-        self.f_in_pixels = 1298
+        # self.f_in_pixels = 1298
         self.near = 0.01  # near clipping plane
         self.far = 100  # far clipping plane
 
-        initial_params = np.array([620, 238])  # Optical center in pixel coordinates
+        initial_params = np.array([620, 238, 1298])  # Optical center in pixel coordinates
 
         result_position = minimize(self.error_function4_square, initial_params, method='Nelder-Mead')
 
