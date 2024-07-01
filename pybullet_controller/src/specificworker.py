@@ -78,7 +78,8 @@ class SpecificWorker(GenericWorker):
             p.setGravity(0, 0, -9.81)
             #p.setGravity(0, 0, 0)
 
-            p.setRealTimeSimulation(10)
+            p.setRealTimeSimulation(1)
+            # p.setTimeStep(1 / 240)
 
             flags = p.URDF_USE_INERTIA_FROM_FILE
             p.resetDebugVisualizerCamera(cameraDistance=1.5, cameraYaw=50, cameraPitch=-35,
@@ -163,9 +164,6 @@ class SpecificWorker(GenericWorker):
             self.hilo_lectura = threading.Thread(target=self.readDataFromProxy)
             self.hilo_lectura.start()
 
-            self.hilo_camara = threading.Thread(target=self.readCamera)
-            # self.hilo_camara.start()
-
             # wait for half a second
             time.sleep(0.5)
 
@@ -213,7 +211,7 @@ class SpecificWorker(GenericWorker):
 
             self.timestamp = int(time.time()*1000)
 
-            # self.inicializar_toolbox()
+            self.initialize_toolbox()
 
             self.timer.timeout.connect(self.compute)
             self.timer.start(self.Period)
@@ -237,7 +235,7 @@ class SpecificWorker(GenericWorker):
 
             self.timer3 = QtCore.QTimer(self)
             self.timer3.timeout.connect(self.moveKinovaWithSpeeds)
-            #self.timer3.start(self.Period)
+            # self.timer3.start(self.Period)
 
             self.timer4 = QtCore.QTimer(self)
             self.timer4.timeout.connect(self.movePybulletWithToolbox)
@@ -393,6 +391,12 @@ class SpecificWorker(GenericWorker):
             case 4:
                 try:
                     self.toolbox_compute()
+                    # self.correctCupPosition()
+                    if self.arrived == True:
+                        print("Arrived")
+                        self.timer4.stop()
+                        self.timer3.stop()
+                        self.move_mode = 8
                 except Ice.Exception as e:
                     print(e)
 
@@ -414,64 +418,39 @@ class SpecificWorker(GenericWorker):
                     p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL,
                                             targetPosition=self.target_angles[i])  # Move the arm with phisics
 
-                if self.timestamp+10000 < int(time.time()*1000):
+                pybulletImage = self.read_camera_fixed()
+                cv2.imshow("Pybullet", pybulletImage)
+
+                print("/////////////////////////////////////////////////////////////////////////////")
+
+                # angles = []
+                # for i in range(7):
+                #     angles.append(p.getJointState(self.robot_id, i + 1)[0])
+                #
+                # print(angles, self.target_angles[:7])
+                # error = np.sum(np.abs(np.array(angles)-self.target_angles[:7]))
+
+                if self.timestamp+1000 < int(time.time()*1000):
+                # if error < 0.1:
                     self.move_mode = 6
             case 6:
                 # self.timer.stop()
-                # self.calibrator.calibrate(self.colorKinova, self.robot_id)
 
                 # self.calibrator.calibrate3(self.robot_id, self.colorKinova)
                 # self.calibrator.cube_test(self.robot_id, self.colorKinova.copy())
                 # self.calibrator.square_test(self.robot_id, self.colorKinova.copy())
 
-                # self.calibrator.prueba(self.robot_id)
-                # corners = self.calibrator.detect_green_corners(self.colorKinova)
-                # print(corners)
-                # for corner in corners:
-                #     cv2.circle(self.colorKinova, corner, 8, (255, 0, 0), -1)
-                #
-                # cv2.imshow("Color", self.colorKinova)
-                # self.calibrator.calibrate2(self.colorKinova, self.robot_id)
-
                 # yolodetector = YoloDetector.YoloDetector()
                 # results = yolodetector.detect(self.colorKinova)
                 # yolodetector.plot(results)
 
-                aamed = pyAAMED(1080, 1940)
-                aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
-                imgGKinova = cv2.cvtColor(self.colorKinova, cv2.COLOR_BGR2GRAY)
-                resKinova = aamed.run_AAMED(imgGKinova)
-                # print(res)
-                # aamed.drawAAMED(imgGKinova)
-
-                # for i in range(len(resKinova)):
-                #     cv2.circle(imgGKinova, (round(resKinova[i][1]), round(resKinova[i][0])), 8, (0, 0, 255), -1)
-                # cv2.imshow("test kinova", imgGKinova)
-
-                pybulletImage = self.read_camera_fixed()
-                imgGPybullet = cv2.cvtColor(pybulletImage, cv2.COLOR_BGR2GRAY)
-                resPybullet = aamed.run_AAMED(imgGPybullet)
-                # aamed.drawAAMED(imgGPybullet)
-
-                # for i in range(len(resPybullet)):
-                #     cv2.circle(imgGPybullet, (round(resPybullet[i][1]), round(resPybullet[i][0])), 8, (0, 0, 255), -1)
-                # cv2.imshow("test pybullet", imgGPybullet)
-
-                error = np.abs(resKinova[0][1] - resPybullet[0][1] + resKinova[0][0] - resPybullet[0][0])
-
-                if error > 5:
-                    print("x: ", resKinova[0][1]-resPybullet[0][1]," y: ", resKinova[0][0]-resPybullet[0][0])
-
-                    # i want to print the position of the base of the cup i load from the urdf
-                    position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
-                    position[0] = position[0] - 0.0001 * (resKinova[0][0] - resPybullet[0][0])
-                    position[1] = position[1] - 0.0001 * (resKinova[0][1] - resPybullet[0][1])
-                    p.resetBasePositionAndOrientation(self.pybullet_cup, tuple(position), p.getQuaternionFromEuler([0, 0, 0]))
+                if self.correctCupPosition() > 5:
+                    print("Correcting cup position")
 
                 else:
                     print("Calibration finished")
-                    print(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
-                    print("Suposed final position: 0.074, 0.20, 0.64")
+                    # print(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
+                    # print("Suposed final position: 0.074, 0.20, 0.64")
 
                     self.move_mode = 7
 
@@ -484,17 +463,23 @@ class SpecificWorker(GenericWorker):
                 # self.calibrator.calibrate4(self.robot_id)
                 # self.move_mode = -1
 
-                self.moveKinovaWithAngles(self.home_angles[:7])
+                # self.moveKinovaWithAngles(self.home_angles[:7])
+                #
+                # for i in range(7):
+                #     p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.home_angles[i])
 
-                for i in range(7):
-                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.home_angles[i])
-
-                self.inicializar_toolbox()
+                self.initialize_toolbox()
                 self.timer4.start(self.Period)
+                self.timer3.start(self.Period)
 
                 print("Moving to fixed cup")
                 self.move_mode = 4
                 self.timer.start(self.Period)
+
+            case 8:
+                self.moveKinovaWithAngles(self.home_angles[:7])
+                for i in range(7):
+                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.home_angles[i])
 
         #p.stepSimulation()
         # pass
@@ -518,7 +503,36 @@ class SpecificWorker(GenericWorker):
         test = ifaces.RoboCompJoystickAdapter.TData()
         QTimer.singleShot(200, QApplication.instance().quit)
 
-    def inicializar_toolbox(self):
+    def correctCupPosition(self):
+        aamed = pyAAMED(1080, 1940)
+        aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
+        imgGKinova = cv2.cvtColor(self.colorKinova, cv2.COLOR_BGR2GRAY)
+        resKinova = aamed.run_AAMED(imgGKinova)
+        # aamed.drawAAMED(imgGKinova)
+        # if len(resKinova) > 0:
+        #     cv2.circle(imgGKinova, (round(resKinova[0][1]), round(resKinova[0][0])), 8, (0, 0, 255), -1)
+        #     cv2.imshow("test kinova", imgGKinova)
+
+        pybulletImage = self.read_camera_fixed()
+        imgGPybullet = cv2.cvtColor(pybulletImage, cv2.COLOR_BGR2GRAY)
+        resPybullet = aamed.run_AAMED(imgGPybullet)
+        # aamed.drawAAMED(imgGPybullet)
+        # if len(resPybullet) > 0:
+        #     cv2.circle(imgGPybullet, (round(resPybullet[0][1]), round(resPybullet[0][0])), 8, (0, 0, 255), -1)
+        #     cv2.imshow("test pybullet", imgGPybullet)
+
+        error = np.abs(resKinova[0][1] - resPybullet[0][1] + resKinova[0][0] - resPybullet[0][0])
+
+        print("x: ", resKinova[0][1] - resPybullet[0][1], " y: ", resKinova[0][0] - resPybullet[0][0])
+
+        position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
+        position[0] = position[0] - 0.0005 * (resKinova[0][0] - resPybullet[0][0])
+        position[1] = position[1] - 0.0005 * (resKinova[0][1] - resPybullet[0][1])
+        p.resetBasePositionAndOrientation(self.pybullet_cup, tuple(position), p.getQuaternionFromEuler([0, 0, 0]))
+
+        return error
+
+    def initialize_toolbox(self):
         ## Launch the simulator Swift
         self.env = swift.Swift()
         self.env.launch(realtime=True)
@@ -561,8 +575,8 @@ class SpecificWorker(GenericWorker):
 
         # Set the desired end-effector pose
         self.rot = self.kinova.fkine(self.kinova.q).R
-        self.rot = sm.SO3.OA([-1, 0, 0], [0, 0, -1])
-        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.13])
+        self.rot = sm.SO3.OA([1, 0, 0], [0, 0, -1])
+        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.15])
         # self.Tep = sm.SE3.Rt(self.rot, [0.4, 0.4, 0.13])  # green = x-axis, red = y-axis, blue = z-axis
         self.goal_axes.T = self.Tep
 
@@ -637,9 +651,9 @@ class SpecificWorker(GenericWorker):
         for i in range(7):
             joints_angle.append(p.getJointState(self.robot_id, i + 1)[0])
             if i == 4:
-                joints_angle[i] = joints_angle[i] + np.pi
+                joints_angle[i] = joints_angle[i]
             if i == 5:
-                joints_angle[i] = joints_angle[i] + np.pi/2
+                joints_angle[i] = joints_angle[i]
 
         print("Error joints", self.kinova.q-joints_angle)
         print("/////////////////////////////////////////////////////////////////////////////////////////////////////")
@@ -649,28 +663,6 @@ class SpecificWorker(GenericWorker):
 
         # Step the simulator by 50 ms
         self.env.step(self.dt)
-
-    def readCamera(self):
-        while True:
-            fov, aspect, nearplane, farplane = 60, 1.78, 0.01, 100
-            projection_matrix = p.computeProjectionMatrixFOV(fov, aspect, nearplane, farplane)
-            com_p, com_o, _, _, _, _ = p.getLinkState(self.robot_id, 9)
-            rot_matrix = p.getMatrixFromQuaternion(com_o)
-            rot_matrix = np.array(rot_matrix).reshape(3, 3)
-            # Initial vectors
-            init_camera_vector = (0, 0, 1)  # z-axis
-            init_up_vector = (0, 1, 0)  # y-axis
-            # Rotated vectors
-            camera_vector = rot_matrix.dot(init_camera_vector)
-            up_vector = rot_matrix.dot(init_up_vector)
-            view_matrix = p.computeViewMatrix(com_p, com_p + 0.1 * camera_vector, up_vector)
-            img = p.getCameraImage(1280, 720, view_matrix, projection_matrix, renderer=p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX)
-            self.rgb = img[2]
-            self.rgb = cv2.rotate(self.rgb, cv2.ROTATE_180)   # Get the RGB image
-            #print(self.rgb.shape)
-            self.rgb = cv2.cvtColor(self.rgb, cv2.COLOR_RGB2BGR)
-            cv2.imshow('img', self.rgb)
-            time.sleep(0.5)
 
     def cvK2BulletP(self, K, w, h, near, far):
         """
@@ -728,7 +720,9 @@ class SpecificWorker(GenericWorker):
         viewMatrix = T.T.reshape(16)
         return viewMatrix
     def read_camera_fixed(self):
+        # print("Getting the pose", time.time()*1000-self.timestamp)
         com_p, com_o, _, _, _, _ = p.getLinkState(self.robot_id, 9)
+        # print("Pose obtained", time.time()*1000-self.timestamp)
         # Define camera intrinsic parameters
         width = 1280  # image width
         height = 720  # image height
@@ -748,6 +742,7 @@ class SpecificWorker(GenericWorker):
 
         projection_matrix = self.cvK2BulletP(k, width, height, near, far)
 
+        # print("Projection matrix obtained", time.time() * 1000 - self.timestamp)
         # print("fixed proyection matrix", projection_matrix)
 
         # Define camera extrinsic parameters
@@ -765,13 +760,18 @@ class SpecificWorker(GenericWorker):
 
         view_matrix = self.cvPose2BulletView(com_o, camera_translation)
 
+        # print("View matrix obtained", time.time() * 1000 - self.timestamp)
         # print("fixed view matrix", np.matrix(view_matrix))
         # print("//////////////////////////////////////////////////////////////////")
 
         # Get the camera image
-        img = p.getCameraImage(width, height, view_matrix, projection_matrix)
+        img = p.getCameraImage(width, height, view_matrix, projection_matrix, renderer=p.ER_BULLET_HARDWARE_OPENGL)
+
+        # print("Camera image obtained", time.time() * 1000 - self.timestamp)
         rgb = img[2]
         rgb = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+        # print("Returning the image", time.time() * 1000 - self.timestamp)
 
         return rgb
 
@@ -806,129 +806,6 @@ class SpecificWorker(GenericWorker):
         # for i in range(7):
         #     angles.append(p.getJointState(self.robot_id, i+1)[0])
         # print(np.rad2deg(angles)%360)
-
-    def get_kinova_instrinsic(self):
-        try:
-            # Parameters
-            # TODO : Read from file
-            n_row = 5
-            n_col = 7
-            n_min_img = 10  # img needed for calibration
-            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)  # termination criteria
-            corner_accuracy = (11, 11)
-            result_file = "./calibration.yaml"
-
-            # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(n_row-1,n_col-1,0)
-            objp = np.zeros((n_row * n_col, 3), np.float32)
-            objp[:, :2] = np.mgrid[0:n_row, 0:n_col].T.reshape(-1, 2)
-
-            # Intialize camera and window
-            # camera = cv2.VideoCapture(0)  # Supposed to be the only camera
-            # if not camera.isOpened():
-            #     print("Camera not found!")
-            #     quit()
-            # width = int(camera.get(cv2.CAP_PROP_FRAME_WIDTH))
-            # height = int(camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-            width = self.colorKinova.shape[1]
-            height = self.colorKinova.shape[0]
-            cv2.namedWindow("Calibration")
-
-            # Usage
-            def usage():
-                print("Press on displayed window : \n")
-                print("[space]     : take picture")
-                print("[c]         : compute calibration")
-                print("[r]         : reset program")
-                print("[ESC]    : quit")
-
-            usage()
-            initialization = True
-
-            while True:
-                if initialization:
-                    print("Initialize data structures ..")
-                    objpoints = []  # 3d point in real world space
-                    imgpoints = []  # 2d points in image plane.
-                    n_img = 0
-                    initialization = False
-                    tot_error = 0
-
-                # Read from camera and display on windows
-                img = self.colorKinova
-                cv2.imshow("Calibration", img)
-
-                # Wait for instruction
-                k = cv2.waitKey(50)
-
-                # SPACE pressed to take picture
-                if k % 256 == 32:
-                    print("Adding image for calibration...")
-                    imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-                    # Find the chess board corners
-                    ret, corners = cv2.findChessboardCorners(imgGray, (n_row, n_col), None)
-
-                    # If found, add object points, image points (after refining them)
-                    if not ret:
-                        print("Cannot found Chessboard corners!")
-
-                    else:
-                        print("Chessboard corners successfully found.")
-                        objpoints.append(objp)
-                        n_img += 1
-                        corners2 = cv2.cornerSubPix(imgGray, corners, corner_accuracy, (-1, -1), criteria)
-                        imgpoints.append(corners2)
-
-                        # Draw and display the corners
-                        imgAugmnt = cv2.drawChessboardCorners(img, (n_row, n_col), corners2, ret)
-                        cv2.imshow('Calibration', imgAugmnt)
-                        cv2.waitKey(500)
-
-                        # "c" pressed to compute calibration
-                elif k % 256 == 99:
-                    if n_img <= n_min_img:
-                        print("Only ", n_img, " captured, ", " at least ", n_min_img, " images are needed")
-
-                    else:
-                        print("Computing calibration ...")
-                        ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, (width, height), None,
-                                                                           None)
-
-                        if not ret:
-                            print("Cannot compute calibration!")
-
-                        else:
-                            print("Camera calibration successfully computed")
-                            # Compute reprojection errors
-                            for i in range(len(objpoints)):
-                                imgpoints2, _ = cv2.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
-                                error = cv2.norm(imgpoints[i], imgpoints2, cv2.NORM_L2) / len(imgpoints2)
-                                tot_error += error
-                            print("Camera matrix: ", mtx)
-                            print("Distortion coeffs: ", dist)
-                            print("Total error: ", tot_error)
-                            print("Mean error: ", np.mean(error))
-
-                            # Saving calibration matrix
-                            print("Saving camera matrix .. in ", result_file)
-                            data = {"camera_matrix": mtx.tolist(), "dist_coeff": dist.tolist()}
-                            with open(result_file, "w") as f:
-                                yaml.dump(data, f, default_flow_style=False)
-
-                # ESC pressed to quit
-                elif k % 256 == 27:
-                    print("Escape hit, closing...")
-                    cv2.destroyAllWindows()
-                    break
-                # "r" pressed to reset
-                elif k % 256 == 114:
-                    print("Reset program...")
-                    initialization = True
-
-        except Ice.Exception as e:
-            print(e)
-        return True
 
     def movePybulletWithExternalVel(self):
         for i in range(len(self.ext_joints.joints)):
@@ -1110,42 +987,3 @@ class SpecificWorker(GenericWorker):
                             self.move_mode = (self.move_mode + button.step) % 5
                         case "home":
                             pass
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- #self.set_joints_positions([x for x in range(22)], np.zeros(22).tolist())
-        #self.print_joints_positions()
-
-        # Get the state of the link, including its orientation
-        #end_effector_link_state = p.getLinkState(self.robot_id, self.end_effector_link_index)
-        #link_world_position = end_effector_link_state[0]  # World position of the link's frame
-        #link_world_orientation = end_effector_link_state[1]  # World orientation of the link's frame (quaternion)
-
-        # Calculate the inverse kinematics solution (joint positions)
-        #target_position = link_world_position + np.array([0.0, -0.1, -0.1])  # Target position 10 cm above the current position
-        #target_position[0] = 0.3
-
-        #target_position = [0, -0.3, 1]
-        #joint_positions = p.calculateInverseKinematics(self.robot_id,
-        #                                               self.end_effector_link_index,
-        #                                               target_position)
-        # for joint_index, joint_position in enumerate(joint_positions):
-        #     p.setJointMotorControl2(self.robot_id, joint_index, p.POSITION_CONTROL, targetPosition=joint_position,
-        #                             force=1000)
-        #
-        # self.print_joints_positions([x for x in range(7)])
-        #time.sleep(0.01)
