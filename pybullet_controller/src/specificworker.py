@@ -211,7 +211,7 @@ class SpecificWorker(GenericWorker):
 
             self.timestamp = int(time.time()*1000)
 
-            self.initialize_toolbox()
+            # self.initialize_toolbox()
 
             self.timer.timeout.connect(self.compute)
             self.timer.start(self.Period)
@@ -241,8 +241,8 @@ class SpecificWorker(GenericWorker):
             self.timer4.timeout.connect(self.movePybulletWithToolbox)
             # self.timer4.start(50)
 
-            self.colorKinova = []
-            self.depthKinova = []
+            self.colorKinova = collections.deque(maxlen=5)
+            self.depthKinova = collections.deque(maxlen=5)
             self.calibrator = calibrator.Calibrator()
 
             self.timer5 = QtCore.QTimer(self)
@@ -394,9 +394,11 @@ class SpecificWorker(GenericWorker):
                     # self.correctCupPosition()
                     if self.arrived == True:
                         print("Arrived")
-                        self.timer4.stop()
-                        self.timer3.stop()
+                        # self.timer4.stop()
+                        # self.timer3.stop()
+                        self.target_velocities = [0.0] * 7
                         self.move_mode = 8
+                        # self.move_mode = -1
                 except Ice.Exception as e:
                     print(e)
 
@@ -417,9 +419,6 @@ class SpecificWorker(GenericWorker):
                 for i in range(8, len(self.target_angles)):
                     p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL,
                                             targetPosition=self.target_angles[i])  # Move the arm with phisics
-
-                pybulletImage = self.read_camera_fixed()
-                cv2.imshow("Pybullet", pybulletImage)
 
                 print("/////////////////////////////////////////////////////////////////////////////")
 
@@ -477,9 +476,16 @@ class SpecificWorker(GenericWorker):
                 self.timer.start(self.Period)
 
             case 8:
-                self.moveKinovaWithAngles(self.home_angles[:7])
-                for i in range(7):
-                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.home_angles[i])
+                pybulletImage = self.read_camera_fixed()
+                cv2.imshow("Pybullet", pybulletImage)
+                cv2.waitKey(1)
+                print("/////////////////////////////////////////////////////////////////////7")
+                for i in range(len(self.colorKinova)):
+                    print("Kinovas timestamps:", self.colorKinova[i][1])
+
+                # self.moveKinovaWithAngles(self.home_angles[:7])
+                # for i in range(7):
+                #     p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.home_angles[i])
 
         #p.stepSimulation()
         # pass
@@ -506,20 +512,32 @@ class SpecificWorker(GenericWorker):
     def correctCupPosition(self):
         aamed = pyAAMED(1080, 1940)
         aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
-        imgGKinova = cv2.cvtColor(self.colorKinova, cv2.COLOR_BGR2GRAY)
-        resKinova = aamed.run_AAMED(imgGKinova)
-        # aamed.drawAAMED(imgGKinova)
-        # if len(resKinova) > 0:
-        #     cv2.circle(imgGKinova, (round(resKinova[0][1]), round(resKinova[0][0])), 8, (0, 0, 255), -1)
-        #     cv2.imshow("test kinova", imgGKinova)
 
-        pybulletImage = self.read_camera_fixed()
+        pybulletImage, imageTime = self.read_camera_fixed()
         imgGPybullet = cv2.cvtColor(pybulletImage, cv2.COLOR_BGR2GRAY)
         resPybullet = aamed.run_AAMED(imgGPybullet)
         # aamed.drawAAMED(imgGPybullet)
         # if len(resPybullet) > 0:
         #     cv2.circle(imgGPybullet, (round(resPybullet[0][1]), round(resPybullet[0][0])), 8, (0, 0, 255), -1)
         #     cv2.imshow("test pybullet", imgGPybullet)
+
+        diff = 500
+        for i in range(len(self.colorKinova)):
+            if abs(imageTime - self.colorKinova[i][1]) < diff:
+                diff = self.colorKinova[i][1] - imageTime
+                index = i
+
+        print("Diff: ", diff)
+
+        imgGKinova = cv2.cvtColor(self.colorKinova[index][0], cv2.COLOR_BGR2GRAY)
+        # imgGKinova = cv2.cvtColor(self.colorKinova[0][0], cv2.COLOR_BGR2GRAY)
+        resKinova = aamed.run_AAMED(imgGKinova)
+        # aamed.drawAAMED(imgGKinova)
+        # if len(resKinova) > 0:
+        #     cv2.circle(imgGKinova, (round(resKinova[0][1]), round(resKinova[0][0])), 8, (0, 0, 255), -1)
+        #     cv2.imshow("test kinova", imgGKinova)
+
+
 
         error = np.abs(resKinova[0][1] - resPybullet[0][1] + resKinova[0][0] - resPybullet[0][0])
 
@@ -576,7 +594,7 @@ class SpecificWorker(GenericWorker):
         # Set the desired end-effector pose
         self.rot = self.kinova.fkine(self.kinova.q).R
         self.rot = sm.SO3.OA([1, 0, 0], [0, 0, -1])
-        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.15])
+        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.23])
         # self.Tep = sm.SE3.Rt(self.rot, [0.4, 0.4, 0.13])  # green = x-axis, red = y-axis, blue = z-axis
         self.goal_axes.T = self.Tep
 
@@ -773,25 +791,29 @@ class SpecificWorker(GenericWorker):
 
         # print("Returning the image", time.time() * 1000 - self.timestamp)
 
-        return rgb
+        return rgb, time.time()*1000
 
     def readKinovaCamera(self):
         try:
             both = self.camerargbdsimple_proxy.getAll("CameraRGBDViewer")
-            self.colorKinova = both.image
-            self.depthKinova = both.depth
+            # self.colorKinova.append(both.image)
+            # self.depthKinova.append(both.depth)
+            # print(both.image.alivetime)
 
-            self.depthKinova = (np.frombuffer(self.depthKinova.depth, dtype=np.int16)
-                                .reshape(self.depthKinova.height, self.depthKinova.width))
-
-            self.depthKinova = cv2.normalize(src=self.depthKinova, dst=None, alpha=0, beta=255,
+            depthImage = (np.frombuffer(both.depth.depth, dtype=np.int16)
+                                .reshape(both.depth.height, both.depth.width))
+            depthImage = cv2.normalize(src=depthImage, dst=None, alpha=0, beta=255,
                                              norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-            self.colorKinova = (np.frombuffer(self.colorKinova.image, np.uint8)
-                                .reshape(self.colorKinova.height, self.colorKinova.width, self.colorKinova.depth))
+            self.depthKinova.append([depthImage, both.depth.alivetime])
 
-            # cv2.imshow("ColorKinova", self.colorKinova)
+            kinovaImage = (np.frombuffer(both.image.image, np.uint8)
+                                .reshape(both.image.height, both.image.width, both.image.depth))
+
+            self.colorKinova.append([kinovaImage, both.image.alivetime])
+
+            cv2.imshow("ColorKinova", self.colorKinova[0][0])
             # cv2.imshow("DepthKinova", self.depthKinova)
-            # cv2.waitKey(self.Period)
+            cv2.waitKey(self.Period)
         except Ice.Exception as e:
             print(e)
         return True

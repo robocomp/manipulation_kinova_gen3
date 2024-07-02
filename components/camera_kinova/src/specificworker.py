@@ -165,9 +165,12 @@ class SpecificWorker(GenericWorker):
             #ret.depth.depth = cv2.resize(self.depth_queue.get(), (480, 270))
             ret.depth.depth = self.depth_queue.get_nowait()
             ret.depth.height, ret.depth.width = ret.depth.depth.shape
+            ret.depth.alivetime = int(time.time()*1000)
             #ret.image.image = cv2.resize(self.color_queue.get(), (480, 270))
             ret.image.image = self.color_queue.get_nowait()
             ret.image.height, ret.image.width, ret.image.depth = ret.image.image.shape
+            ret.image.alivetime = int(time.time()*1000)
+            print(ret.image.alivetime)
             return ret
         except queue.Empty:
             return None
