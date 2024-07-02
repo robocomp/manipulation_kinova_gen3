@@ -584,267 +584,262 @@
     "path": "pybullet_controller/src/specificworker.py",
     "content": {
       "structured": {
-        "description": "a robot control system that takes in joystick data and sends motor commands to a robot arm based on user input. The code uses the `robot2` package for robot arm movements and the `math` module for calculations. It handles different modes of operation (move, home, and test) and axis-specific movements (X, Y, Z, and gripper). The code also includes buttons that can move the robot to different positions or modes.\n\nIn summary, this code is a robot control system that takes user input from a joystick and sends motor commands to a robot arm based on the input, with various modes of operation and axis-specific movements.",
+        "description": "an object of the class `Robot` from the `pybullet` library, which is a Python interface to the Bullet physics engine. The code subscribes to data updates from a `JoystickAdapter` interface and uses the received data to update the position and orientation of the robot's end effector (gripper). The code also handles button presses and moves the robot's gripper based on the button presses.\n\nThe code defines several methods for handling the data updates, including `JoystickAdapter_sendData`, which is called whenever new data is received from the joystick adapter, and `move_mode`, `home`, `X_axis`, `Y_axis`, `Z_axis`, and `gripper` buttons, which are handled based on their respective names.\n\nOverall, the code provides a simple example of how to use the `pybullet` library to control a robot's end effector using data from a joystick adapter.",
         "items": [
           {
-            "id": "60c072c9-e07d-cd87-7e41-4fa24219bacc",
+            "id": "927763d1-135b-f3b5-a241-a47063179cfa",
             "ancestors": [],
-            "description": "Manages a robot's movements based on user inputs, controlling the robot's position and orientation using quaternions. It also implements move modes and homes for different axes.",
+            "description": "Manages a robot's movements and actions based on a set of instructions received from an external device. It updates the robot's position, orientation, and gripper state according to the instructions and handles buttons presses and axis inputs.",
             "attributes": [
               {
                 "name": "Period",
                 "type_name": "int",
-                "description": "4 by default, indicating that the worker will move in 4 modes (up, down, left, right) before returning to its home position."
+                "description": "3, indicating that the worker has a period of 3 seconds between movements."
               },
               {
                 "name": "rgb",
-                "type_name": "ndarray",
-                "description": "3D, containing the red, green, and blue values of the robot's target position as a tuple of floats."
+                "type_name": "tuple",
+                "description": "3-element tuple containing red, green, and blue color values for the worker's color representation."
               },
               {
                 "name": "startup_check",
                 "type_name": "int",
-                "description": "4 by default, indicating that the worker will check for startup commands every 4 seconds."
+                "description": "4 by default, indicating that it checks for 4 specific cases when starting up the worker."
               },
               {
                 "name": "physicsClient",
-                "type_name": "instance",
-                "description": "A Python `physics.client` client object, which provides an interface to interact with the physical world, such as moving robots or simulating physics simulations."
+                "type_name": "object",
+                "description": "Used to interact with the PyRobot2 physics engine to control the robot's movement and orientation. It allows for reading and setting of joint angles, axis positions, and button inputs."
               },
               {
                 "name": "plane",
-                "type_name": "str",
-                "description": "Used to store the position of the robot's end effector relative to a reference plane, which can be set using the `set_plane()` method."
+                "type_name": "list",
+                "description": "Used to store the target position of the robot's end effector in 3D space, represented as a list of 3 elements (x, y, z) representing the position of the end effector in the world coordinate system."
               },
               {
                 "name": "table_id",
                 "type_name": "int",
-                "description": "Used to identify a specific worker within a group of workers, each assigned to a specific table in a work cell."
+                "description": "4 in this specific implementation, indicating that the worker is specifically designed for table-based manipulation tasks."
               },
               {
                 "name": "robot_urdf",
                 "type_name": "obb",
-                "description": "3D object representation definition file that defines the robot's geometry, joints, and constraints."
+                "description": "3D robot model represented as a UrDF (Universal Robot Description Format) file, which defines the geometry and kinematics of the robot."
               },
               {
                 "name": "robot_launch_pos",
-                "type_name": "3element",
-                "description": "Used to store the launch position of the robot's gripper."
+                "type_name": "tuple",
+                "description": "Used to store the position of the robot's end effector after a successful launch."
               },
               {
                 "name": "robot_launch_orien",
-                "type_name": "str",
-                "description": "A reference to the current orientation of the robot in Euler angles format."
+                "type_name": "numpymatrix",
+                "description": "Used to store the orientation of the robot's end effector relative to its base frame. It is updated based on user inputs from the joy controller and button presses."
               },
               {
                 "name": "end_effector_link_index",
                 "type_name": "int",
-                "description": "0-based indexing for the end effector link of a robot, indicating which link of the robot's end effector it belongs to."
+                "description": "0-based indexing for the end effector joints of the robot, indicating which joint the end effector is attached to."
               },
               {
                 "name": "home_angles",
-                "type_name": "Tuple",
-                "description": "Defined as `(pitch, roll, yaw)` representing the home angles of the robot's end effector."
+                "type_name": "ndarray",
+                "description": "4D, with shape `(7,)` where each row represents a joint angle for the robot's end effector, and each column represents the corresponding joint angle for the gripper. It stores the initial angles for the robot and gripper when `home` mode is selected."
               },
               {
                 "name": "observation_angles",
                 "type_name": "8element",
-                "description": "Used to store the angles observed during the robot's movement."
+                "description": "Used to store the target angles for each joint of the robot, which are calculated based on the user input from the joy controller."
               },
               {
                 "name": "observation_angles_2",
-                "type_name": "3D",
-                "description": "Used to store the orientation angles of the robot's end effector as observed by the worker."
+                "type_name": "ndarray",
+                "description": "4D, representing the angles of the robot's joints for observation 2. It stores the angles of the robot's joints based on the data from the IMU sensors."
               },
               {
                 "name": "observation_angles_3",
-                "type_name": "3element",
-                "description": "Used to store the angles of observation for the robot arm's end effector."
+                "type_name": "ndarray",
+                "description": "3-dimensional, representing the angles for joints 1 to 7 in the robot's end effector."
               },
               {
                 "name": "observation_angles_cube",
-                "type_name": "3D",
-                "description": "Used to store the angles of the cube in the observation space. It contains the angles of the cube's faces relative to the base frame."
+                "type_name": "8element",
+                "description": "Used to store the angles of the cube's joints based on the observation of the user's input."
               },
               {
                 "name": "robot_id",
                 "type_name": "int",
-                "description": "4 by default, representing the ID of the robot being controlled."
+                "description": "4 by default, which corresponds to the ID of the robot being controlled by the worker."
               },
               {
                 "name": "pybullet_cup",
-                "type_name": "instance",
-                "description": "4D vector representing the cup position in the robot's workspace."
+                "type_name": "str",
+                "description": "A reference to the path of the cup file of the worker in PyBullet environment."
               },
               {
                 "name": "square",
-                "type_name": "str",
-                "description": "4-characters long, representing a square shape for the worker's workspace."
+                "type_name": "float",
+                "description": "1 by default, which represents the square of the joint angle movement range for each axis."
               },
               {
                 "name": "hilo_lectura",
                 "type_name": "str",
-                "description": "20 characters long. It contains the name of a specific worker, such as \"Hilo\"."
+                "description": "126 characters long. It contains a Python code snippet that runs when the `SpecificWorker` is created, setting up the robot's joint angles and button states based on user input."
               },
               {
                 "name": "readDataFromProxy",
                 "type_name": "async",
-                "description": "Used to read data from a robot's proxy server through its API, which contains information such as the robot's current position, orientation, and buttons states."
+                "description": "Used to read data from a proxy server, which receives data from the real robot. The attribute reads the data from the proxy server and passes it to the worker's internal state for processing."
               },
               {
                 "name": "target_angles",
-                "type_name": "tuple",
-                "description": "3D angles (in radians) representing the target orientation of the robot's end effector for each axis (X, Y, Z, and gripper)."
+                "type_name": "8element",
+                "description": "Used to store the target angles for each joint of the robot in a specific mode."
               },
               {
                 "name": "target_position",
-                "type_name": "list",
-                "description": "A list of tuples containing the desired position of the robot's end effector for each axis (X, Y, Z) and gripper. It stores the target positions for each mode."
+                "type_name": "8element",
+                "description": "Used to store the target position of the robot's end effector, which represents the desired position of the robot's arm to reach in the workspace."
               },
               {
                 "name": "target_orientation",
                 "type_name": "3D",
-                "description": "Used to store the target orientation of the robot's end effector, which is calculated based on the position and orientation of the robot's joints."
+                "description": "Used to store the target orientation of the robot, which is updated based on the input from the joystick and other sensors."
               },
               {
                 "name": "target_velocities",
-                "type_name": "list",
-                "description": "Defined as `self.target_velocities = [(0, 0, 0)]`. It stores the target velocities for each joint in the robot's end effector."
+                "type_name": "ndarray",
+                "description": "4D, with shape `(3, 3, 2, 2)`, representing the target velocities for each joint in the robot's end effector in the two orientations."
               },
               {
                 "name": "joy_selected_joint",
-                "type_name": "str",
-                "description": "0-based indexed, representing the selected joint in the robot's arm, as determined by the user input from the joystick."
+                "type_name": "int",
+                "description": "0-based indexing of a joint in the robot's arm, indicating which joint the user has selected using the joystick."
               },
               {
                 "name": "move_mode",
                 "type_name": "int",
-                "description": "0-based index of a mode, which can be \"home\", \"move\", or \"gripper\". It indicates the current mode of the robot."
+                "description": "0-based indexing for different move modes, such as \"home\", \"pick\", or \"delivery\". It keeps track of the current move mode."
               },
               {
                 "name": "n_rotations",
                 "type_name": "int",
-                "description": "4, indicating that there are 4 possible states or modes for the robot (move, home, etc.)."
+                "description": "4 in this example, indicating that the worker has 4 rotational degrees of freedom (i.e., 3 rotations around the x, y, and z axes)."
               },
               {
                 "name": "ext_joints",
-                "type_name": "list",
-                "description": "A list of joints that are extended outside of their typical range of motion, allowing for greater freedom of movement."
+                "type_name": "8element",
+                "description": "Used to store the selected joint values for the external joystick. It contains the joint values selected by the user through the external joystick, which are used to control the robot's movement and orientation."
               },
               {
                 "name": "kinovaarm_proxy",
                 "type_name": "object",
-                "description": "Used to represent the proxy for communication with the Kinova arm controller."
+                "description": "Used to handle the robot's kinematic movements by translating the joint angles into real-world robot movements."
               },
               {
                 "name": "ext_gripper",
-                "type_name": "str",
-                "description": "16 characters long, representing the external gripper position in degrees. It is used to control the movement of the robot's gripper arm."
+                "type_name": "Optionalfloat",
+                "description": "0 by default, which means that the gripper does not have any external force feedback."
               },
               {
                 "name": "posesTimes",
-                "type_name": "8element",
-                "description": "A list of tuples containing the pose (position and orientation) of the robot at different times, along with the time elapsed since the last call to `do_work()`."
+                "type_name": "ndarray",
+                "description": "4D, representing the robot's position and orientation in a list format, where each element represents one dimension (position or orientation) over time."
               },
               {
                 "name": "poses",
-                "type_name": "list",
-                "description": "A collection of dictionaries, where each dictionary represents a pose (position and orientation) of the robot's end effector."
+                "type_name": "numpyarray",
+                "description": "3D position and orientation vectors for the robot's end effector, which are used to define the robot's position and orientation in space."
               },
               {
                 "name": "timestamp",
-                "type_name": "int",
-                "description": "Representing the timestamp of when the worker was created, which can be used to track the lifetime of the worker."
-              },
-              {
-                "name": "initialize_toolbox",
-                "type_name": "instance",
-                "description": "Used to initialize the toolbox of the worker with a specific set of tools."
+                "type_name": "float",
+                "description": "Used to represent the timestamp (in seconds) when the worker was created."
               },
               {
                 "name": "timer",
-                "type_name": "int",
-                "description": "0 by default, indicating that the worker has not been running for any significant amount of time."
+                "type_name": "float",
+                "description": "0 by default, representing the time it takes for the worker to complete its task."
               },
               {
                 "name": "compute",
                 "type_name": "instance",
-                "description": "A method that takes no arguments and returns itself, which is used to compute new positions for the robot's end effector based on the received data."
+                "description": "4-dimensional tensor that holds the result of the computation of the worker's actions based on the input data from the robot and the environment."
               },
               {
                 "name": "timer2",
                 "type_name": "float",
-                "description": "0 by default, which represents the duration of a single move command in seconds. It is used to control the speed of movement of the robot."
+                "description": "4 seconds by default, indicating how long the worker will wait before polling for new data from the robot again."
               },
               {
                 "name": "movePybulletWithExternalVel",
-                "type_name": "OptionalCallable",
-                "description": "Used to move the robot using PyBullet's `external_velocity` function, which allows for more precise control over the robot's movement."
+                "type_name": "Callable",
+                "description": "Defined as a function that moves the robot using PyBullet and external velocity inputs."
               },
               {
                 "name": "joint_speeds",
-                "type_name": "ndarray",
-                "description": "5-dimensional, representing the joint speeds for each axis in the robot's end effector frame."
+                "type_name": "8element",
+                "description": "Used to store the joint speeds for the robot's end effector in a specific mode."
               },
               {
                 "name": "gains",
-                "type_name": "float",
-                "description": "Used to control the speed and positioning accuracy of the robot's joints during movement."
+                "type_name": "ndarray",
+                "description": "A set of gains for each axis, representing the amount of movement per step in each direction."
               },
               {
                 "name": "speeds",
-                "type_name": "list",
-                "description": "Used to store the speed values for each axis of movement, with a maximum value of 10."
+                "type_name": "ndarray",
+                "description": "4D, with shape (7,) representing the speed values for each joint of a 7-axis robotic arm in the format of a 4D array."
               },
               {
                 "name": "angles",
-                "type_name": "list",
-                "description": "Used to store the angles (in degrees) for each axis of movement, home position, and gripper orientation."
+                "type_name": "7element",
+                "description": "Used to store the target angles for each joint of the robot, with values ranging from -0.5 to 0.5."
               },
               {
                 "name": "timer3",
-                "type_name": "float",
-                "description": "0 by default, which represents the time taken to complete the task in the third mode (mode 3) of the robot."
+                "type_name": "int",
+                "description": "4, indicating that the worker has been running for 4 seconds."
               },
               {
                 "name": "moveKinovaWithSpeeds",
-                "type_name": "callable",
-                "description": "Used to move the Kinova robot with specified speeds for each axis, allowing for precise control over the robot's movements."
+                "type_name": "int",
+                "description": "3- indexed, representing the speed of movement for the Kinova robot's joints when the `move_mode` is set to 4. It takes into account the axis values from the `data` dictionary and moves the robot accordingly."
               },
               {
                 "name": "timer4",
                 "type_name": "int",
-                "description": "4, indicating that the worker has a timer with a resolution of 1 second and a maximum value of 4."
+                "description": "4, indicating that the worker is a specific one with 4 possible states."
               },
               {
                 "name": "movePybulletWithToolbox",
                 "type_name": "Callable",
-                "description": "Used to move the robot using PyBullet and Toolbox. It takes no arguments and returns a tuple containing the new position and orientation of the robot's end effector."
+                "description": "Used to move the end effector of a robot based on the data from the pybullet library, specifically the joint angles and button presses."
               },
               {
                 "name": "colorKinova",
-                "type_name": "str",
-                "description": "32-bit floating point color values, used to represent the color of the robot's body."
+                "type_name": "8element",
+                "description": "Used to represent the color of the robot's gripper or end effector."
               },
               {
                 "name": "depthKinova",
-                "type_name": "int",
-                "description": "0-based index of the worker's depth kinematic chain, used for calculating joint angles."
+                "type_name": "float",
+                "description": "0 by default, representing the depth of the robot's end effector in Kinova units (where 1 unit = 0.05 meters)."
               },
               {
                 "name": "calibrator",
                 "type_name": "instance",
-                "description": "A method for calibrating the robot's joint angles to match the desired positions and orientations of the end effector."
+                "description": "Used to store a reference to a calibration function that can be used to adjust the worker's joint angles based on sensor readings."
               },
               {
                 "name": "timer5",
                 "type_name": "int",
-                "description": "5 by default, which represents the timer value for move mode 5."
+                "description": "5 by default, which represents the number of milliseconds to wait before checking if the worker should move to the next state based on the sensor data."
               },
               {
                 "name": "readKinovaCamera",
-                "type_name": "Callable",
-                "description": "A method that reads the camera data from the Kinova robot's sensors."
+                "type_name": "method",
+                "description": "Used to read camera data from a Kinova camera. It returns a list of dictionaries containing camera data, including position, orientation, and buttons."
               }
             ],
             "name": "SpecificWorker",
@@ -856,25 +851,25 @@
               "comment": null
             },
             "item_type": "class",
-            "length": 745,
+            "length": 760,
             "docLength": null
           },
           {
-            "id": "2884b5f5-694c-32b7-c446-da21b4e6ea35",
+            "id": "2a92e057-2aeb-71b0-294f-d58cfeeb4ee8",
             "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
+              "927763d1-135b-f3b5-a241-a47063179cfa"
             ],
-            "description": "Of the SpecificWorker class initializes the necessary kinematic and dynamic variables for the Kinova arm, including joint angles, velocities, accelerations, and time stamps. It also sets up timers for moving the pybullet end effector and the Kinova arm with external velocities and toolbox speeds, respectively.",
+            "description": "Sets up the PyBullet and Kinova arm environments, initializes joint angles and velocities, and starts timers for computing and moving the robot.",
             "params": [
               {
                 "name": "proxy_map",
                 "type_name": "dict",
-                "description": "Used to map the PyBullet joint names to the Kinova arm joint names. It allows the user to define a mapping between the two joint systems, which can be useful when working with different robotic arms."
+                "description": "Used to map the PyBullet joint angles to the corresponding Kinova arm joint angles. It allows for customization of the mapping between the two systems, which can be useful in certain scenarios where the exact mapping is not known or desired."
               },
               {
                 "name": "startup_check",
                 "type_name": "int",
-                "description": "0 by default, which means that the `RoboCompKinovaArm` class will initialize itself with the default values for the Kinova arm. If you want to customize the initialization process, you can pass a non-zero value as the `startup_check` parameter to override the default behavior."
+                "description": "Used to check if the kinova arm is properly initialized or not, if it's not properly initialized it will run the initialization code."
               }
             ],
             "returns": null,
@@ -887,25 +882,25 @@
               "comment": null
             },
             "item_type": "method",
-            "length": 153,
+            "length": 151,
             "docLength": null
           },
           {
-            "id": "f947f6d4-cda2-228d-0044-c1a40a39e3a6",
+            "id": "85070e01-3fbb-c689-1842-ae9606541c3d",
             "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
+              "927763d1-135b-f3b5-a241-a47063179cfa"
             ],
-            "description": "Sets parameters for an instance of the `SpecificWorker` class, which inherits from `GenericWorker`. The function returns `True` without providing any additional information or exceptions.",
+            "description": "Sets parameters for an instance of the `SpecificWorker` class, which inherits from `GenericWorker`. The function returns `True` indicating successful parameter setting.",
             "params": [
               {
                 "name": "params",
                 "type_name": "object",
-                "description": "Used to set parameters for an instance of a class."
+                "description": "Passed to the method for modification or manipulation."
               }
             ],
             "returns": {
-              "type_name": "True",
-              "description": "The default return value for a function with no specified return statement."
+              "type_name": "Boolean",
+              "description": "True when successful and an exception otherwise."
             },
             "name": "setParams",
             "location": {
@@ -920,11 +915,11 @@
             "docLength": null
           },
           {
-            "id": "d34bf409-ca61-7e88-3a47-fc55a5614228",
+            "id": "5cb4ea3c-bca3-1a82-c348-8329b52fa5c8",
             "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
+              "927763d1-135b-f3b5-a241-a47063179cfa"
             ],
-            "description": "Computes the desired joint angles for the robot to move the cup to the correct position based on the observation angles, and moves the robot using the `moveKinovaWithAngles` method.",
+            "description": "Performs kinematic computations to move the robotic arm to observe specific angles, compute the toolbox, and calibrate the robot's end effector to a fixed cup position. It also reads camera images and displays them using OpenCV.",
             "params": [],
             "returns": null,
             "name": "compute",
@@ -936,21 +931,21 @@
               "comment": null
             },
             "item_type": "method",
-            "length": 175,
+            "length": 177,
             "docLength": null
           },
           {
-            "id": "1fb52ed2-df97-efbc-7742-fac15c61b45d",
+            "id": "46ca5827-34d8-7981-a34c-7ebe4c3f5c4d",
             "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
+              "927763d1-135b-f3b5-a241-a47063179cfa"
             ],
-            "description": "Performs various checks related to the RoboCompKinovaArm and its components, including testing their properties and functionality, and scheduling the QApplication to quit after a 200ms delay.",
+            "description": "Tests various aspects of the RoboCompKinovaArm, including its pose, gripper, joints, and joystick adapter. It also sets a timer to quit the application after 200 milliseconds.",
             "params": [],
             "returns": null,
             "name": "startup_check",
             "location": {
-              "start": 489,
-              "insert": 490,
+              "start": 495,
+              "insert": 496,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -960,83 +955,20 @@
             "docLength": null
           },
           {
-            "id": "25a01e93-9d4f-cea1-4241-2ad8b362c341",
+            "id": "1c477309-0b2a-898a-6a40-e6e468ee9a56",
             "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
+              "927763d1-135b-f3b5-a241-a47063179cfa"
             ],
-            "description": "Compares the positions and orientations of a kinova robot and a pybullet robot, using the AAMED algorithm to determine the difference between them. It then adjusts the position of the pybullet cup based on the error found.",
+            "description": "Computes the difference between the position and orientation of a cup estimated using the AAMED algorithm and the actual position and orientation of the cup, then adjusts the cup's position and orientation to minimize the difference.",
             "params": [],
             "returns": {
               "type_name": "float",
-              "description": "The magnitude of the difference between the predicted position of the cup and the actual position obtained from both kinova and pybullet images."
+              "description": "The absolute difference between the predicted position of the cup and the actual position obtained from the kinova API."
             },
             "name": "correctCupPosition",
             "location": {
-              "start": 506,
-              "insert": 507,
-              "offset": " ",
-              "indent": 8,
-              "comment": null
-            },
-            "item_type": "method",
-            "length": 24,
-            "docLength": null
-          },
-          {
-            "id": "330e1753-6356-aea7-1e42-c1295694d2cc",
-            "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
-            ],
-            "description": "Sets up a simulation environment, defines a kinematic worker and a cylindrical object, and defines the desired end-effector pose for the worker to reach.",
-            "params": [],
-            "returns": null,
-            "name": "initialize_toolbox",
-            "location": {
-              "start": 535,
-              "insert": 537,
-              "offset": " ",
-              "indent": 8,
-              "comment": null
-            },
-            "item_type": "method",
-            "length": 37,
-            "docLength": null
-          },
-          {
-            "id": "ffbfd80f-9e9a-43bb-6b40-2ea8b6033337",
-            "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
-            ],
-            "description": "Computes the joint velocities for a robot based on its current state and desired end-effector pose, using a feedback control strategy. It updates the joint angles and computes an error signal to be used in the control loop.",
-            "params": [],
-            "returns": null,
-            "name": "toolbox_compute",
-            "location": {
-              "start": 589,
-              "insert": 591,
-              "offset": " ",
-              "indent": 8,
-              "comment": null
-            },
-            "item_type": "method",
-            "length": 57,
-            "docLength": null
-          },
-          {
-            "id": "d0e0acdd-0d35-4ea8-c247-18ebc575b3dc",
-            "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
-            ],
-            "description": "Defines camera intrinsic parameters, computes a projection matrix and a view matrix using the quaternion representation of the camera orientation, and then retrieves a camera image from the simulation environment.",
-            "params": [],
-            "returns": {
-              "type_name": "3D",
-              "description": "A numpy array with shape (height, width, 4)."
-            },
-            "name": "read_camera_fixed",
-            "location": {
-              "start": 722,
-              "insert": 724,
+              "start": 512,
+              "insert": 513,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1046,40 +978,103 @@
             "docLength": null
           },
           {
-            "id": "21e64822-ca19-f3a5-6845-d9e36831ee7c",
+            "id": "6a32c2fa-9a52-5083-b849-63ba706c641e",
             "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
+              "927763d1-135b-f3b5-a241-a47063179cfa"
             ],
-            "description": "Retrieves RGB and depth images from a Kinova camera, normalizes the depth image, and assigns it to instance variables `colorKinova` and `depthKinova`. It also catches and prints any exceptions raised by the Ice.Exception module.",
+            "description": "Initializes the toolbox of a SpecificWorker class by setting up the environment, kinematic chain, and end-effector pose, and defining the desired end-effector pose for manipulation tasks.",
             "params": [],
-            "returns": {
-              "type_name": "True",
-              "description": "1-dimensional numpy array containing the depth and color images captured by the Kinova camera."
-            },
-            "name": "readKinovaCamera",
+            "returns": null,
+            "name": "initialize_toolbox",
             "location": {
-              "start": 778,
-              "insert": 779,
+              "start": 553,
+              "insert": 555,
               "offset": " ",
               "indent": 8,
               "comment": null
             },
             "item_type": "method",
-            "length": 18,
+            "length": 37,
             "docLength": null
           },
           {
-            "id": "cd6a1c7d-b21c-0fae-6748-c26c1e2fe819",
+            "id": "b0a1fc00-8a53-55b6-1041-902812ea0445",
             "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
+              "927763d1-135b-f3b5-a241-a47063179cfa"
             ],
-            "description": "Computes and prints the angles of the kinova joints in radians and degrees, using the `np.deg2rad()` and `np.rad2deg()` functions.",
+            "description": "Computes the joint velocities for a specific robot using a kinematic model and a servo controller. It updates the joint angles and the error between the desired and actual joint positions.",
+            "params": [],
+            "returns": null,
+            "name": "toolbox_compute",
+            "location": {
+              "start": 607,
+              "insert": 609,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 57,
+            "docLength": null
+          },
+          {
+            "id": "f4dd18a0-bbc9-4891-9143-59268c2a1ca5",
+            "ancestors": [
+              "927763d1-135b-f3b5-a241-a47063179cfa"
+            ],
+            "description": "Defines camera intrinsic parameters and computes a view matrix using quaternion multiplication, then retrieves an image from the camera sensor.",
+            "params": [],
+            "returns": {
+              "type_name": "3D",
+              "description": "2D image with a timestamp."
+            },
+            "name": "read_camera_fixed",
+            "location": {
+              "start": 740,
+              "insert": 742,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 35,
+            "docLength": null
+          },
+          {
+            "id": "56098f6b-ba2b-c7b2-da44-0c68badda5e0",
+            "ancestors": [
+              "927763d1-135b-f3b5-a241-a47063179cfa"
+            ],
+            "description": "Retrieves camera data from Kinova and processes it to extract depth and color images, storing them in instance variables for later use.",
+            "params": [],
+            "returns": {
+              "type_name": "True",
+              "description": "1-dimensional numpy array containing a tuple of two elements: the first element is a 3D numpy array representing the depth image, and the second element is a float vector representing the alive time of the depth image."
+            },
+            "name": "readKinovaCamera",
+            "location": {
+              "start": 796,
+              "insert": 797,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 20,
+            "docLength": null
+          },
+          {
+            "id": "4a6f05db-7ed2-d38c-d344-3d05e7fc1417",
+            "ancestors": [
+              "927763d1-135b-f3b5-a241-a47063179cfa"
+            ],
+            "description": "Computes and prints the angles of the kinova joints of an instance of `SpecificWorker`, which is a subclass of `GenericWorker`.",
             "params": [],
             "returns": null,
             "name": "showKinovaAngles",
             "location": {
-              "start": 799,
-              "insert": 800,
+              "start": 821,
+              "insert": 822,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1089,17 +1084,17 @@
             "docLength": null
           },
           {
-            "id": "287d449d-b9a7-5795-b842-37c409dfd65f",
+            "id": "4f8a09ac-4299-15a7-6e4a-2501faa232f4",
             "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
+              "927763d1-135b-f3b5-a241-a47063179cfa"
             ],
-            "description": "Controls the velocity of joints in a robot using external velocities provided by an external library, PyBullet.",
+            "description": "Within the `SpecificWorker` class modifies the target velocities for joints specified by an external library, then applies motor control to move the robot at those velocities.",
             "params": [],
             "returns": null,
             "name": "movePybulletWithExternalVel",
             "location": {
-              "start": 810,
-              "insert": 811,
+              "start": 832,
+              "insert": 833,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1109,17 +1104,17 @@
             "docLength": null
           },
           {
-            "id": "aaa27bbc-11e4-0593-4145-fa5ee0176373",
+            "id": "5df77125-59ca-1b9f-7b40-12cd9f99b0b2",
             "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
+              "927763d1-135b-f3b5-a241-a47063179cfa"
             ],
-            "description": "Sets joint motor control targets for a robot with index `robot_id` based on the target velocities provided in a list.",
+            "description": "Controls the velocity of a robot using PyBullet, setting joint motor control parameters to reach target velocities.",
             "params": [],
             "returns": null,
             "name": "movePybulletWithToolbox",
             "location": {
-              "start": 820,
-              "insert": 821,
+              "start": 842,
+              "insert": 843,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1129,17 +1124,17 @@
             "docLength": null
           },
           {
-            "id": "0cd9df95-4470-6abf-ef47-6acc6aaac073",
+            "id": "106d1212-1742-a382-3a40-32827db9a17e",
             "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
+              "927763d1-135b-f3b5-a241-a47063179cfa"
             ],
-            "description": "Reads data from a proxy object, specifically the joints state and gripper state, and modifies the gripper distance by multiplying it by 0.8. It also sleeps for 0.05 seconds before continuing to read data.",
+            "description": "Continuously retrieves joint and gripper states from an external device, scales the gripper distance by 80%, and sleeps for 0.05 seconds before repeating the process.",
             "params": [],
             "returns": null,
             "name": "readDataFromProxy",
             "location": {
-              "start": 825,
-              "insert": 826,
+              "start": 847,
+              "insert": 848,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1149,23 +1144,23 @@
             "docLength": null
           },
           {
-            "id": "3b894ef8-e092-3dbc-2b45-beeab6c5a50f",
+            "id": "b7105de3-a391-6682-b547-b0c24550d31d",
             "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
+              "927763d1-135b-f3b5-a241-a47063179cfa"
             ],
-            "description": "Converts angles into degrees, rounds them to the nearest degree, and passes them to the `moveJointsWithAngle` method of the `kinovaarm_proxy` object.",
+            "description": "Moves the `kinovaarm_proxy` with angles calculated from angles inputted by user, and stores them into `self.angles.jointAngles`.",
             "params": [
               {
                 "name": "angles",
                 "type_name": "ndarray",
-                "description": "2D, containing angles in radians for each joint of the kinova arm."
+                "description": "2D, representing the joint angles of the Kinova arm in degrees."
               }
             ],
             "returns": null,
             "name": "moveKinovaWithAngles",
             "location": {
-              "start": 834,
-              "insert": 835,
+              "start": 856,
+              "insert": 857,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1175,17 +1170,17 @@
             "docLength": null
           },
           {
-            "id": "9c902a4c-3359-b4b4-1d4e-bb7050af87e9",
+            "id": "6d7d962f-dc8e-1cb4-2344-3f23442e3224",
             "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
+              "927763d1-135b-f3b5-a241-a47063179cfa"
             ],
-            "description": "Computes joint speeds for a Kinova arm based on user-defined gains and moves the joints with those speeds using the `kinovaarm_proxy` object.",
+            "description": "Calculates joint speeds for a Kinova arm based on input gains and applies them to the arm using the `moveJointsWithSpeed` method of the `kinovaarm_proxy` class.",
             "params": [],
             "returns": null,
             "name": "moveKinovaWithSpeeds",
             "location": {
-              "start": 839,
-              "insert": 840,
+              "start": 861,
+              "insert": 862,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1195,17 +1190,17 @@
             "docLength": null
           },
           {
-            "id": "94e4bc14-66ff-c5a3-6f4d-2f2ac2e629e9",
+            "id": "d7651b13-c879-5ba6-3a42-8626c0659a9e",
             "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
+              "927763d1-135b-f3b5-a241-a47063179cfa"
             ],
-            "description": "Updates the gains of a robot's joints based on the current pose and timestamp, and prints the current gains and error values to console.",
+            "description": "Updates the gains for each joint in the robot based on the difference between the desired angle and the actual angle measured by the PyBullet simulator, and resets the `posesTimes` array to the current timestamp.",
             "params": [],
             "returns": null,
             "name": "updateGains",
             "location": {
-              "start": 849,
-              "insert": 850,
+              "start": 871,
+              "insert": 872,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1215,29 +1210,343 @@
             "docLength": null
           },
           {
-            "id": "4dd73c9b-521a-bd9e-f142-05221d0ccfd2",
+            "id": "7d59b7cc-917c-a681-774d-17e04041bf9f",
             "ancestors": [
-              "60c072c9-e07d-cd87-7e41-4fa24219bacc"
+              "927763d1-135b-f3b5-a241-a47063179cfa"
             ],
-            "description": "Receives data from a joystick and updates the position and orientation of a robot based on the axis values and button presses. It also sends the current move mode and target positions and orientations to the robot's controller.",
+            "description": "Receives data from a joystick and updates the position and orientation of a robot based on the input values from the axes and buttons. It also updates the move mode and home positions of the robot.",
             "params": [
               {
                 "name": "data",
                 "type_name": "dict",
-                "description": "Passed with the joystick data from the input device, which contains axis values for different joints and buttons."
+                "description": "Passed as an argument to the function, containing the data from the joystick inputs."
               }
             ],
             "returns": null,
             "name": "JoystickAdapter_sendData",
             "location": {
-              "start": 878,
-              "insert": 879,
+              "start": 900,
+              "insert": 901,
               "offset": " ",
               "indent": 8,
               "comment": null
             },
             "item_type": "method",
             "length": 112,
+            "docLength": null
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "specificworker.py",
+    "path": "components/camera_kinova/src/specificworker.py",
+    "content": {
+      "structured": {
+        "description": "A custom QT class called RoboCompCameraRGBDSimple, which implements the CameraRGBDSimple interface from the ifaces module. The class provides three methods: getAll, getDepth, and getImage, which fetch and return depth, color, or both images and depth information from a camera stream. The code also defines several threading functions to handle the image and depth processing tasks.",
+        "items": [
+          {
+            "id": "531b8d2e-7a2b-29ad-0949-771e38229b9e",
+            "ancestors": [],
+            "description": "Manages and processes video data from two sources, color and depth, using separate threads. It provides methods for getting images or depth information from the queues and returning them as iface objects.",
+            "attributes": [
+              {
+                "name": "Period",
+                "type_name": "int",
+                "description": "100 by default, which represents the time interval between video frames captured by the camera."
+              },
+              {
+                "name": "hide",
+                "type_name": "instance",
+                "description": "Used to hide the worker object from the Python interpreter, preventing it from being garbage collected."
+              },
+              {
+                "name": "depth_queue",
+                "type_name": "queueQueue",
+                "description": "Used to store depth images from the camera stream."
+              },
+              {
+                "name": "color_queue",
+                "type_name": "queueQueue",
+                "description": "Used to store the color frames captured by the camera. It is used to feed the color frames to the video display thread."
+              },
+              {
+                "name": "color_stream",
+                "type_name": "cv2VideoCapture",
+                "description": "A video capture object for capturing color images."
+              },
+              {
+                "name": "depth_stream",
+                "type_name": "cv2VideoCapture",
+                "description": "Used to capture depth images from a RTSP stream."
+              },
+              {
+                "name": "color_thread",
+                "type_name": "Thread",
+                "description": "Used to represent a thread that runs in parallel to the main thread, handling the color stream of the camera."
+              },
+              {
+                "name": "video_color_thread",
+                "type_name": "threadingThread",
+                "description": "Responsible for reading color frames from the video capture and adding them to a queue for processing."
+              },
+              {
+                "name": "depth_thread",
+                "type_name": "QtCoreQRunnable",
+                "description": "Used to manage a separate thread for processing depth images."
+              },
+              {
+                "name": "video_depth_thread",
+                "type_name": "threadingThread",
+                "description": "Responsible for reading depth frames from a video capture device and storing them in a queue for processing."
+              },
+              {
+                "name": "startup_check",
+                "type_name": "Python",
+                "description": "A method that checks if the RoboCompCameraRGBDSimple interface is available and functions correctly."
+              },
+              {
+                "name": "timer",
+                "type_name": "QTimer",
+                "description": "Used to schedule a function call at a specific interval (in this case, every 100 milliseconds)."
+              },
+              {
+                "name": "compute",
+                "type_name": "Python",
+                "description": "Defined as a slot that will be called at regular intervals, as determined by the `Timer` object passed to its constructor. It has no effect on the code's behavior."
+              }
+            ],
+            "name": "SpecificWorker",
+            "location": {
+              "start": 39,
+              "insert": 40,
+              "offset": " ",
+              "indent": 4,
+              "comment": null
+            },
+            "item_type": "class",
+            "length": 137,
+            "docLength": null
+          },
+          {
+            "id": "50a15cfc-4e32-9e89-7c44-647ec244f5cf",
+            "ancestors": [
+              "531b8d2e-7a2b-29ad-0949-771e38229b9e"
+            ],
+            "description": "Initializes an instance of the SpecificWorker class by setting up video capture streams for color and depth, creating threads to process the streams, and starting a timer for computing depth values.",
+            "params": [
+              {
+                "name": "proxy_map",
+                "type_name": "dict",
+                "description": "Used to store the proxy map for the SpecificWorker class."
+              },
+              {
+                "name": "startup_check",
+                "type_name": "bool",
+                "description": "Used to check if the thread-based video reader has already been started."
+              }
+            ],
+            "returns": null,
+            "name": "__init__",
+            "location": {
+              "start": 40,
+              "insert": 41,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 32,
+            "docLength": null
+          },
+          {
+            "id": "864cda30-f426-3a82-2f4b-d194d7f2fcf3",
+            "ancestors": [
+              "531b8d2e-7a2b-29ad-0949-771e38229b9e"
+            ],
+            "description": "Computes and returns a boolean value based on the visibility of an object.",
+            "params": [],
+            "returns": null,
+            "name": "compute",
+            "location": {
+              "start": 86,
+              "insert": 105,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 10,
+            "docLength": null
+          },
+          {
+            "id": "25971a00-2455-9e87-8146-796594cb31e9",
+            "ancestors": [
+              "531b8d2e-7a2b-29ad-0949-771e38229b9e"
+            ],
+            "description": "Reads frames from a video capture object `cap` and puts them into a queue `inqueue`. It continuously reads frames until the video is closed or an interrupt is encountered, at which point it prints \"hilo finish\" and releases the capture.",
+            "params": [
+              {
+                "name": "cap",
+                "type_name": "OpenCVVideoCapture",
+                "description": "Used to capture video frames from a video file or device."
+              },
+              {
+                "name": "inqueue",
+                "type_name": "queue",
+                "description": "Used to store images read from the camera in a non-blocking manner."
+              }
+            ],
+            "returns": null,
+            "name": "video_color_thread",
+            "location": {
+              "start": 108,
+              "insert": 109,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 13,
+            "docLength": null
+          },
+          {
+            "id": "59c4b1ef-53f5-71bd-d84e-39b9e58a5de0",
+            "ancestors": [
+              "531b8d2e-7a2b-29ad-0949-771e38229b9e"
+            ],
+            "description": "Reads frames from an opened Capture object `cap` and puts them into a queue `inqueue` until the queue is full, then it waits for the thread to retrieve the frame from the queue and repeats the process.",
+            "params": [
+              {
+                "name": "cap",
+                "type_name": "OpenCVVideoCapture",
+                "description": "Used to capture video frames from a video source."
+              },
+              {
+                "name": "inqueue",
+                "type_name": "queue",
+                "description": "Used for putting frames from the camera into the queue for processing."
+              }
+            ],
+            "returns": null,
+            "name": "video_depth_thread",
+            "location": {
+              "start": 126,
+              "insert": 128,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 13,
+            "docLength": null
+          },
+          {
+            "id": "439958c9-5e27-c2a8-0749-81192de5feb8",
+            "ancestors": [
+              "531b8d2e-7a2b-29ad-0949-771e38229b9e"
+            ],
+            "description": "Performs startup checks for a RoboCompCameraRGBDSimple instance by printing the class name and creating instances of its child classes (TImage, TDepth, TRGBD). It also schedules the application to quit after 200 milliseconds.",
+            "params": [],
+            "returns": null,
+            "name": "startup_check",
+            "location": {
+              "start": 145,
+              "insert": 146,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 8,
+            "docLength": null
+          },
+          {
+            "id": "9628d098-bcfc-e682-1344-3eb9ed413ae9",
+            "ancestors": [
+              "531b8d2e-7a2b-29ad-0949-771e38229b9e"
+            ],
+            "description": "Retrieves and combines depth and color information from queues within the `SpecificWorker` class, returning a complete RGB-D image with alivetime metadata.",
+            "params": [
+              {
+                "name": "camera",
+                "type_name": "ifacesRoboCompCameraRGBDSimple",
+                "description": "Used to represent a RoboComp camera object."
+              }
+            ],
+            "returns": {
+              "type_name": "RoboCompCameraRGBDSimple",
+              "description": "A RGBD image with depth and color information."
+            },
+            "name": "CameraRGBDSimple_getAll",
+            "location": {
+              "start": 162,
+              "insert": 163,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 13,
+            "docLength": null
+          },
+          {
+            "id": "f70463a8-f561-b8b2-ee43-e8378c1e9653",
+            "ancestors": [
+              "531b8d2e-7a2b-29ad-0949-771e38229b9e"
+            ],
+            "description": "Retrieves an RGB-D image from a depth queue and returns the corresponding depth value.",
+            "params": [
+              {
+                "name": "camera",
+                "type_name": "ifacesRoboCompCameraRGBDSimple",
+                "description": "A reference to a camera object."
+              }
+            ],
+            "returns": {
+              "type_name": "ifacesRoboCompCameraRGBDSimpleTDepth",
+              "description": "A struct containing height, width, and depth values of a image."
+            },
+            "name": "CameraRGBDSimple_getDepth",
+            "location": {
+              "start": 180,
+              "insert": 181,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 10,
+            "docLength": null
+          },
+          {
+            "id": "0f251c36-7f97-d392-764a-4398ff430695",
+            "ancestors": [
+              "531b8d2e-7a2b-29ad-0949-771e38229b9e"
+            ],
+            "description": "Retrieves an image from a color queue and returns a `TImage` object with height, width, and depth properties set to the image's dimensions, as well as the actual image data.",
+            "params": [
+              {
+                "name": "camera",
+                "type_name": "ifacesRoboCompCameraRGBDSimple",
+                "description": "Passed as an instance of RoboCompCameraRGBDSimple."
+              }
+            ],
+            "returns": {
+              "type_name": "ifacesRoboCompCameraRGBDSimpleTImage",
+              "description": "A struct containing height, width and depth of an image along with the image itself."
+            },
+            "name": "CameraRGBDSimple_getImage",
+            "location": {
+              "start": 194,
+              "insert": 195,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 10,
             "docLength": null
           }
         ]
