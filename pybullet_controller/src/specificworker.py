@@ -107,9 +107,6 @@ class SpecificWorker(GenericWorker):
             self.home_angles = [0, -0.34, np.pi, -2.54, -6.28, -0.87, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                 0.0,
                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-            # self.home_angles = [0, 5.93, 3.14, 3.73, -6.28, 5.41, 1.57, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-            #                     0.0,
-            #                     0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
             self.observation_angles = [0, 0, np.pi, -0.96, -6.28, -2.1, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                 0.0,
@@ -179,16 +176,6 @@ class SpecificWorker(GenericWorker):
 
                 print("Kinova", i, p.getDynamicsInfo(self.robot_id, i))
 
-            for i in range(7):
-                # if i % 2 == 0:
-                #     p.changeDynamics(self.robot_id, i, localInertiaDiagonal=[val, val, val/2])
-                # else:
-                #     p.changeDynamics(self.robot_id, i, localInertiaDiagonal=[val, val/4, val])
-                #
-                # print("Kinova",i,p.getDynamicsInfo(self.robot_id, i))
-                # print("Guille",i,p.getDynamicsInfo(self.robot2, i))
-                pass
-
             self.target_angles = self.home_angles
             self.target_position = p.getLinkState(self.robot_id, self.end_effector_link_index)[0]
             self.target_orientation = p.getLinkState(self.robot_id, self.end_effector_link_index)[1]
@@ -199,7 +186,6 @@ class SpecificWorker(GenericWorker):
             self.n_rotations = [0, -1, 0, -1, -1, -1, 0]
             self.ext_joints = self.kinovaarm_proxy.getJointsState()
             self.ext_gripper = self.kinovaarm_proxy.getGripperState()
-
 
             self.posesTimes = np.array([int(time.time()*1000)])
             self.poses = []
@@ -249,6 +235,14 @@ class SpecificWorker(GenericWorker):
             self.timer5.timeout.connect(self.readKinovaCamera)
             self.timer5.start(self.Period)
 
+            self.timer6 = QtCore.QTimer(self)
+            self.timer6.timeout.connect(self.correctCupPosition)
+            # self.timer6.start(500)
+
+            # Initialize the AAMED algorithm for the cup position correction
+            self.aamed = pyAAMED(1080, 1940)
+            self.aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
+
             print("SpecificWorker started")
 
 
@@ -266,22 +260,6 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
-
-        # print("Errors:",
-        #       [round(x - y, 2) for x, y in
-        #        zip(self.robot.get_actual_control_joints_velocity(), self.target_velocities[:7])], self.target_velocities)
-
-        # print("Errors:",
-        #       [round(x - y, 2) for x, y in
-        #        zip(self.robot.get_actual_control_joints_angle(), self.target_angles[:7])],
-        #       self.target_angles[:7])
-
-        # self.robot.move_joints_control_vel( joint_param_value=self.target_velocities,
-        #                                     desired_force_per_one_list=[1],
-        #                                     desired_vel_per_one_list=[1],
-        #                                     wait=True,
-        #                                     counter_max=10 ** 2,
-        #                                     error_threshold=0.005)
 
         match self.move_mode:
             #Move joints
@@ -390,23 +368,24 @@ class SpecificWorker(GenericWorker):
 
             case 4:
                 try:
+                    print("Toolbox compute init", time.time()*1000 - self.timestamp)
                     self.toolbox_compute()
-                    # self.correctCupPosition()
-                    if self.arrived == True:
-                        print("Arrived")
-                        # self.timer4.stop()
-                        # self.timer3.stop()
-                        self.target_velocities = [0.0] * 7
-                        self.move_mode = 8
+                    print("Toolbox compute end", time.time()*1000 - self.timestamp)
+                    # if self.arrived == True:
+                    #     print("Arrived")
+                    #     self.timer4.stop()
+                    #     self.timer3.stop()
+                        # self.target_velocities = [0.0] * 7
+                        # self.move_mode = 8
                         # self.move_mode = -1
                 except Ice.Exception as e:
                     print(e)
 
             case 5:    #Move to observation angles
-                print("Moving to observation angles")
+                print("Moving to observation angles", int(time.time()*1000) - self.timestamp)
                 self.moveKinovaWithAngles(self.observation_angles[:7])
                 for i in range(7):
-                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.observation_angles[i])
+                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.observation_angles[i], maxVelocity=np.deg2rad(25))
 
                 self.target_angles[13] = self.ext_gripper.distance
                 self.target_angles[15] = - self.ext_gripper.distance
@@ -420,21 +399,16 @@ class SpecificWorker(GenericWorker):
                     p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL,
                                             targetPosition=self.target_angles[i])  # Move the arm with phisics
 
-                print("/////////////////////////////////////////////////////////////////////////////")
+                angles = []
+                for i in range(7):
+                    angles.append(p.getJointState(self.robot_id, i + 1)[0])
 
-                # angles = []
-                # for i in range(7):
-                #     angles.append(p.getJointState(self.robot_id, i + 1)[0])
-                #
-                # print(angles, self.target_angles[:7])
-                # error = np.sum(np.abs(np.array(angles)-self.target_angles[:7]))
+                error = np.sum(np.abs(np.array(angles) - np.array(self.observation_angles[:7])))
 
-                if self.timestamp+1000 < int(time.time()*1000):
-                # if error < 0.1:
+                if error < 0.05:
+                    print("Observation angles reached", int(time.time()*1000) - self.timestamp)
                     self.move_mode = 6
             case 6:
-                # self.timer.stop()
-
                 # self.calibrator.calibrate3(self.robot_id, self.colorKinova)
                 # self.calibrator.cube_test(self.robot_id, self.colorKinova.copy())
                 # self.calibrator.square_test(self.robot_id, self.colorKinova.copy())
@@ -448,12 +422,7 @@ class SpecificWorker(GenericWorker):
 
                 else:
                     print("Calibration finished")
-                    # print(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
-                    # print("Suposed final position: 0.074, 0.20, 0.64")
-
                     self.move_mode = 7
-
-                    # self.timer.start(self.Period)
 
             case 7:
                 # self.showKinovaAngles()
@@ -469,14 +438,15 @@ class SpecificWorker(GenericWorker):
 
                 self.initialize_toolbox()
                 self.timer4.start(self.Period)
-                self.timer3.start(self.Period)
+                # self.timer3.start(self.Period)
+                self.timer6.start(500)
 
                 print("Moving to fixed cup")
                 self.move_mode = 4
                 self.timer.start(self.Period)
 
             case 8:
-                pybulletImage = self.read_camera_fixed()
+                pybulletImage, _ = self.read_camera_fixed()
                 cv2.imshow("Pybullet", pybulletImage)
                 cv2.waitKey(1)
                 print("/////////////////////////////////////////////////////////////////////7")
@@ -510,34 +480,43 @@ class SpecificWorker(GenericWorker):
         QTimer.singleShot(200, QApplication.instance().quit)
 
     def correctCupPosition(self):
-        aamed = pyAAMED(1080, 1940)
-        aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
+        print("Init time", time.time()*1000 - self.timestamp)
+        # aamed = pyAAMED(1080, 1940)
+        # aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
 
+        print("processing first image", time.time()*1000 - self.timestamp)
         pybulletImage, imageTime = self.read_camera_fixed()
         imgGPybullet = cv2.cvtColor(pybulletImage, cv2.COLOR_BGR2GRAY)
-        resPybullet = aamed.run_AAMED(imgGPybullet)
+        resPybullet = self.aamed.run_AAMED(imgGPybullet)
         # aamed.drawAAMED(imgGPybullet)
         # if len(resPybullet) > 0:
         #     cv2.circle(imgGPybullet, (round(resPybullet[0][1]), round(resPybullet[0][0])), 8, (0, 0, 255), -1)
         #     cv2.imshow("test pybullet", imgGPybullet)
 
-        diff = 500
+        print("select second image", time.time()*1000 - self.timestamp)
+
+        diff = 5000
+        index = 0
         for i in range(len(self.colorKinova)):
+            print("Index: ", i)
+            print("Kinova timestamps :", self.colorKinova[i][1])
+            print("Pybullet timestamp:", imageTime)
             if abs(imageTime - self.colorKinova[i][1]) < diff:
-                diff = self.colorKinova[i][1] - imageTime
+                diff = abs(self.colorKinova[i][1] - imageTime)
                 index = i
 
         print("Diff: ", diff)
 
+        print("processing second image", time.time()*1000 - self.timestamp)
+
         imgGKinova = cv2.cvtColor(self.colorKinova[index][0], cv2.COLOR_BGR2GRAY)
-        # imgGKinova = cv2.cvtColor(self.colorKinova[0][0], cv2.COLOR_BGR2GRAY)
-        resKinova = aamed.run_AAMED(imgGKinova)
+        resKinova = self.aamed.run_AAMED(imgGKinova)
         # aamed.drawAAMED(imgGKinova)
         # if len(resKinova) > 0:
         #     cv2.circle(imgGKinova, (round(resKinova[0][1]), round(resKinova[0][0])), 8, (0, 0, 255), -1)
         #     cv2.imshow("test kinova", imgGKinova)
 
-
+        print("second image processed", time.time()*1000 - self.timestamp)
 
         error = np.abs(resKinova[0][1] - resPybullet[0][1] + resKinova[0][0] - resPybullet[0][0])
 
@@ -548,6 +527,7 @@ class SpecificWorker(GenericWorker):
         position[1] = position[1] - 0.0005 * (resKinova[0][1] - resPybullet[0][1])
         p.resetBasePositionAndOrientation(self.pybullet_cup, tuple(position), p.getQuaternionFromEuler([0, 0, 0]))
 
+        print("Finish time", time.time()*1000 - self.timestamp)
         return error
 
     def initialize_toolbox(self):
@@ -594,7 +574,8 @@ class SpecificWorker(GenericWorker):
         # Set the desired end-effector pose
         self.rot = self.kinova.fkine(self.kinova.q).R
         self.rot = sm.SO3.OA([1, 0, 0], [0, 0, -1])
-        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.23])
+        # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.23])
+        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])
         # self.Tep = sm.SE3.Rt(self.rot, [0.4, 0.4, 0.13])  # green = x-axis, red = y-axis, blue = z-axis
         self.goal_axes.T = self.Tep
 
@@ -608,6 +589,10 @@ class SpecificWorker(GenericWorker):
         # The current pose of the kinova's end-effector
         self.Te = self.kinova.fkine(self.kinova.q)
 
+        cup_position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
+        cup_position[0] = cup_position[0] + 0.3  # Added the robot base offset in pybullet
+
+        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])  # green = x-axis, red = y-axis, blue = z-axis
         # Transform from the end-effector to desired pose
         self.eTep = self.Te.inv() * self.Tep
 
@@ -813,7 +798,7 @@ class SpecificWorker(GenericWorker):
 
             cv2.imshow("ColorKinova", self.colorKinova[0][0])
             # cv2.imshow("DepthKinova", self.depthKinova)
-            cv2.waitKey(self.Period)
+            cv2.waitKey(1)
         except Ice.Exception as e:
             print(e)
         return True

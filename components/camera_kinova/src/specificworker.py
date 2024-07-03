@@ -170,7 +170,6 @@ class SpecificWorker(GenericWorker):
             ret.image.image = self.color_queue.get_nowait()
             ret.image.height, ret.image.width, ret.image.depth = ret.image.image.shape
             ret.image.alivetime = int(time.time()*1000)
-            print(ret.image.alivetime)
             return ret
         except queue.Empty:
             return None
