@@ -1,0 +1,16 @@
+{
+  "meta": {
+    "version": "1",
+    "updated_at": "2024-07-03T12:07:43.367Z",
+    "created_at": "2024-07-03T12:07:43.789Z",
+    "pipelines": [
+      "1e4ffa95-bdaf-4704-9e22-a4e72cbd5dbe"
+    ]
+  },
+  "lookup": [
+    [
+      "components/camera_kinova/src/specificworker.py",
+      "pybullet_controller/src/specificworker.py"
+    ]
+  ]
+}
