@@ -37,7 +37,54 @@ import numpy as np
 console = Console(highlight=False)
 
 class SpecificWorker(GenericWorker):
+    """
+    Manages two video streams (color and depth) from a robotic camera, queues the
+    frames for processing, and provides methods to retrieve the frames as `TImage`
+    or `TDepth` objects.
+
+    Attributes:
+        Period (int): 100, which represents the interval between consecutive updates
+            of the worker's internal state.
+        hide (instance): Used to hide or show the worker's GUI element when it is
+            not needed, which helps improve performance by reducing flickering and
+            minimizing CPU usage.
+        depth_queue (queueQueue): Used to store depth images read from a video
+            capture device.
+        color_queue (queueQueue): Used to store the color frames read from the
+            video capture devices.
+        color_stream (cv2VideoCapture): Used to capture color video streams.
+        depth_stream (cv2VideoCapture): Used to capture depth stream from a RTSP
+            source.
+        color_thread (threadingThread): Used to represent a thread that runs in
+            parallel with the main thread of the program, handling the color stream
+            of the camera.
+        video_color_thread (threadingThread): Responsible for processing the color
+            stream of the camera in a separate thread.
+        depth_thread (threadingThread): Used to start a separate thread for
+            processing depth images.
+        video_depth_thread (threadingThread): Used to run a separate thread for
+            reading depth frames from the camera.
+        startup_check (algorithm): Called when the object is initialized. It tests
+            if the RoboCompCameraRGBDSimple interfaces are available.
+        timer (QTimer): Used to schedule a function call every `Period` milliseconds
+            to update the worker's state.
+        compute (Python): Defined as a slot function that is called by the timer.
+            It performs no operation for now.
+
+    """
     def __init__(self, proxy_map, startup_check=False):
+        """
+        Initializes member variables and starts two threads to handle video streams
+        for color and depth sensors, respectively.
+
+        Args:
+            proxy_map (dict): Used to store a mapping of proxy servers for each
+                worker instance, allowing for flexible configuration of proxy
+                servers for different workers.
+            startup_check (bool): Used to check if the worker has started correctly
+                or not.
+
+        """
         super(SpecificWorker, self).__init__(proxy_map)
         self.Period = 100
         self.hide()
@@ -102,10 +149,26 @@ class SpecificWorker(GenericWorker):
         # if self.isHidden():
         #     sys.exit()
         #return True
+        """
+        Processes two image-like objects, `pix_color` and `pix_depth`, scaling
+        them to the size of the widgets `ui.color` and `ui.depth`. If the object
+        is hidden, it returns `True`.
+
+        """
         pass
 
 ################################################################################################################
     def video_color_thread(self, cap, inqueue):
+        """
+        Reads frames from an opened camera and adds them to a queue for processing,
+        while handling exceptions and keyboard interrupts.
+
+        Args:
+            cap (Capture): Represented by the object `cap`.
+            inqueue (Queue): Used to store the frames read from the video capture
+                device during the video processing thread execution.
+
+        """
         try:
             while cap.isOpened():
                 ret, frame = cap.read()
@@ -125,6 +188,18 @@ class SpecificWorker(GenericWorker):
 
     def video_depth_thread(self, cap, inqueue):
         #print("inicio bucle")
+        """
+        Reads frames from a given video capture object `cap` and enqueues them in
+        a queue `inqueue`. It repeatedly reads frames until the `cap` is closed,
+        then releases the resource.
+
+        Args:
+            cap (OpenCVVideoCapture): Used to capture video frames from a video
+                file or device.
+            inqueue (queueQueue): Used to store frames read from the video capture
+                device.
+
+        """
         try:
             while cap.isOpened():
                 ret, frame = cap.read()
@@ -143,6 +218,12 @@ class SpecificWorker(GenericWorker):
 
 
     def startup_check(self):
+        """
+        Tests various components of a class called `ifaces.RoboCompCameraRGBDSimple`.
+        These include the `TImage`, `TDepth`, and `TRGBD` classes, as well as the
+        `QApplication.instance().quit()` method.
+
+        """
         print(f"Testing RoboCompCameraRGBDSimple.TImage from ifaces.RoboCompCameraRGBDSimple")
         test = ifaces.RoboCompCameraRGBDSimple.TImage()
         print(f"Testing RoboCompCameraRGBDSimple.TDepth from ifaces.RoboCompCameraRGBDSimple")
@@ -160,6 +241,19 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of getAll method from CameraRGBDSimple interface
     #
     def CameraRGBDSimple_getAll(self, camera):
+        """
+        Retrieves RGB-D data from a camera and stores it in a queue for processing.
+        It returns the entire RGB-D data or `None` if the queue is empty.
+
+        Args:
+            camera (ifacesRoboCompCameraRGBDSimple): Used to retrieve RGB-D data
+                from a RoboComp camera.
+
+        Returns:
+            RoboCompCameraRGBDSimple: A RGB-D image representing the depth and
+            color information of a camera.
+
+        """
         try:
             ret = ifaces.RoboCompCameraRGBDSimple.TRGBD()
             #ret.depth.depth = cv2.resize(self.depth_queue.get(), (480, 270))
@@ -177,6 +271,20 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of getDepth method from CameraRGBDSimple interface
     #
     def CameraRGBDSimple_getDepth(self, camera):
+        """
+        Retrieves depth data from a queue and returns it in the form of a `TDepth`
+        object with dimensions and depth value.
+
+        Args:
+            camera (ifacesRoboCompCameraRGBDSimple): An instance of the
+                RoboCompCameraRGBDSimple class, which represents a camera for depth
+                sensing.
+
+        Returns:
+            ifacesRoboCompCameraRGBDSimpleTDepth: A struct containing height, width
+            and depth information of a image.
+
+        """
         try:
             img = self.depth_queue.get()
             # img = cv2.resize(img, (480, 270))
@@ -191,6 +299,19 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of getImage method from CameraRGBDSimple interface
     #
     def CameraRGBDSimple_getImage(self, camera):
+        """
+        Retrieves an image from a color queue and returns a `TImage` object with
+        the appropriate dimensions and contents.
+
+        Args:
+            camera (ifacesRoboCompCameraRGBDSimple): An instance of a class
+                representing a camera device.
+
+        Returns:
+            ifacesRoboCompCameraRGBDSimpleTImage: A struct containing height,
+            width, depth and image values of a RGB-D camera frame.
+
+        """
         try:
             img = self.color_queue.get()
             # img = cv2.resize(img, (480, 270))
