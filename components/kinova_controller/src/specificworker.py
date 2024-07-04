@@ -67,6 +67,7 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
+        print("timer init", time.time()*1000)
         if self.flag:
             self.kinova.get_camera_info()
             self.flag = False
@@ -89,6 +90,8 @@ class SpecificWorker(GenericWorker):
         ret = ifaces.RoboCompKinovaArm.TGripper()
         ret.distance = self.kinova.get_gripper_state()
         self.gripper = ret
+
+        print("timer end", time.time()*1000)
 
         return True
 

@@ -240,10 +240,12 @@ class SpecificWorker(GenericWorker):
             # self.timer6.start(500)
 
             # Initialize the AAMED algorithm for the cup position correction
-            self.aamed = pyAAMED(1080, 1940)
+            self.aamed = pyAAMED(722//2, 1282//2)
             self.aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
 
             print("SpecificWorker started")
+
+            self.flag = True
 
 
     def __del__(self):
@@ -371,13 +373,17 @@ class SpecificWorker(GenericWorker):
                     print("Toolbox compute init", time.time()*1000 - self.timestamp)
                     self.toolbox_compute()
                     print("Toolbox compute end", time.time()*1000 - self.timestamp)
+
+                    # pybulletImage, imageTime = self.read_camera_fixed()
+                    # cv2.imshow("Pybullet", pybulletImage)
+                    # cv2.waitKey(1)
                     # if self.arrived == True:
                     #     print("Arrived")
                     #     self.timer4.stop()
                     #     self.timer3.stop()
-                        # self.target_velocities = [0.0] * 7
-                        # self.move_mode = 8
-                        # self.move_mode = -1
+                    #     self.timer6.stop()
+                    #     self.target_velocities = [0.0] * 7
+                    #     self.move_mode = 8
                 except Ice.Exception as e:
                     print(e)
 
@@ -404,6 +410,8 @@ class SpecificWorker(GenericWorker):
                     angles.append(p.getJointState(self.robot_id, i + 1)[0])
 
                 error = np.sum(np.abs(np.array(angles) - np.array(self.observation_angles[:7])))
+
+                pybulletImage, imageTime = self.read_camera_fixed()
 
                 if error < 0.05:
                     print("Observation angles reached", int(time.time()*1000) - self.timestamp)
@@ -436,29 +444,26 @@ class SpecificWorker(GenericWorker):
                 # for i in range(7):
                 #     p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.home_angles[i])
 
+                print("initilizing toolbox", time.time()*1000 - self.timestamp)
                 self.initialize_toolbox()
+                print("toolbox initialized", time.time()*1000 - self.timestamp)
                 self.timer4.start(self.Period)
-                # self.timer3.start(self.Period)
-                self.timer6.start(500)
+                self.timer3.start(self.Period)
+                self.timer6.start(self.Period)
 
                 print("Moving to fixed cup")
                 self.move_mode = 4
                 self.timer.start(self.Period)
 
             case 8:
-                pybulletImage, _ = self.read_camera_fixed()
-                cv2.imshow("Pybullet", pybulletImage)
-                cv2.waitKey(1)
-                print("/////////////////////////////////////////////////////////////////////7")
-                for i in range(len(self.colorKinova)):
-                    print("Kinovas timestamps:", self.colorKinova[i][1])
+                if self.flag == True:
+                    cv2.imwrite("pybullet_image.png", self.colorKinova[0][0])
+                    self.flag = False
 
-                # self.moveKinovaWithAngles(self.home_angles[:7])
-                # for i in range(7):
-                #     p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.home_angles[i])
+                self.moveKinovaWithAngles(self.home_angles[:7])
+                for i in range(7):
+                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.home_angles[i])
 
-        #p.stepSimulation()
-        # pass
 
     # =============== Methods ==================
 
@@ -484,10 +489,15 @@ class SpecificWorker(GenericWorker):
         # aamed = pyAAMED(1080, 1940)
         # aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
 
-        print("processing first image", time.time()*1000 - self.timestamp)
+        print("Get pybullet image", time.time()*1000 - self.timestamp)
         pybulletImage, imageTime = self.read_camera_fixed()
+        print("Pybullet image obtained", time.time()*1000 - self.timestamp)
+        pybulletImage = cv2.resize(pybulletImage, (1280//2, 720//2))
         imgGPybullet = cv2.cvtColor(pybulletImage, cv2.COLOR_BGR2GRAY)
+        print("processing first image", time.time()*1000 - self.timestamp)
         resPybullet = self.aamed.run_AAMED(imgGPybullet)
+        if isinstance(resPybullet, list):
+            resPybullet = np.array(resPybullet)
         # aamed.drawAAMED(imgGPybullet)
         # if len(resPybullet) > 0:
         #     cv2.circle(imgGPybullet, (round(resPybullet[0][1]), round(resPybullet[0][0])), 8, (0, 0, 255), -1)
@@ -510,13 +520,20 @@ class SpecificWorker(GenericWorker):
         print("processing second image", time.time()*1000 - self.timestamp)
 
         imgGKinova = cv2.cvtColor(self.colorKinova[index][0], cv2.COLOR_BGR2GRAY)
-        resKinova = self.aamed.run_AAMED(imgGKinova)
+        imgGKinova = cv2.resize(imgGKinova, (1280//2, 720//2))
+        resKinova = np.array(self.aamed.run_AAMED(imgGKinova))
+        if isinstance(resKinova, list):
+            resKinova = np.array(resKinova)
         # aamed.drawAAMED(imgGKinova)
         # if len(resKinova) > 0:
         #     cv2.circle(imgGKinova, (round(resKinova[0][1]), round(resKinova[0][0])), 8, (0, 0, 255), -1)
         #     cv2.imshow("test kinova", imgGKinova)
 
         print("second image processed", time.time()*1000 - self.timestamp)
+
+        if resKinova.size == 0 or resPybullet.size == 0:
+            print("No keypoints detected")
+            return -1
 
         error = np.abs(resKinova[0][1] - resPybullet[0][1] + resKinova[0][0] - resPybullet[0][0])
 
@@ -728,7 +745,7 @@ class SpecificWorker(GenericWorker):
         # print("Pose obtained", time.time()*1000-self.timestamp)
         # Define camera intrinsic parameters
         width = 1280  # image width
-        height = 720  # image height
+        height =  720  # image height
         f_in_pixels = 1298 #1298
         near = 0.01  # near clipping plane
         far = 100  # far clipping plane
@@ -772,7 +789,13 @@ class SpecificWorker(GenericWorker):
 
         # print("Camera image obtained", time.time() * 1000 - self.timestamp)
         rgb = img[2]
+        # rgb = cv2.resize(rgb, (1280, 720))
         rgb = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+        ## sum in one frame rgb and self.colorKinova[0][0]
+        sum = cv2.addWeighted(rgb, 0.5, self.colorKinova[0][0], 0.5, 0)
+        cv2.imshow("Pybullet", sum)
+        cv2.waitKey(5)
 
         # print("Returning the image", time.time() * 1000 - self.timestamp)
 
@@ -796,9 +819,9 @@ class SpecificWorker(GenericWorker):
 
             self.colorKinova.append([kinovaImage, both.image.alivetime])
 
-            cv2.imshow("ColorKinova", self.colorKinova[0][0])
+            # cv2.imshow("ColorKinova", self.colorKinova[0][0])
             # cv2.imshow("DepthKinova", self.depthKinova)
-            cv2.waitKey(1)
+            # cv2.waitKey(5)
         except Ice.Exception as e:
             print(e)
         return True
@@ -825,9 +848,11 @@ class SpecificWorker(GenericWorker):
                                     targetVelocity=self.target_velocities[i])
 
     def movePybulletWithToolbox(self):
+        # print("Pybullet move with toolbox init", time.time()*1000 - self.timestamp)
         for i in range(len(self.target_velocities)):
             p.setJointMotorControl2(self.robot_id, i+1, p.VELOCITY_CONTROL,
                                     targetVelocity=self.target_velocities[i])
+        # print("Pybullet move with toolbox end", time.time()*1000 - self.timestamp)
 
     def readDataFromProxy(self):
         while True:
@@ -844,14 +869,17 @@ class SpecificWorker(GenericWorker):
         self.kinovaarm_proxy.moveJointsWithAngle(self.angles)
 
     def moveKinovaWithSpeeds(self):
+        # print("Kinova move with speeds init", time.time()*1000 - self.timestamp)
         self.joint_speeds = []
         for i in range(7):
             speed = np.rad2deg(p.getJointState(self.robot_id, i + 1)[1]) * self.gains[i]
             self.joint_speeds.append(speed)
 
         self.speeds.jointSpeeds = self.joint_speeds
-        #print(self.gains)
+
+        # print("Kinova move with speeds proxy action start", time.time()*1000 - self.timestamp)
         self.kinovaarm_proxy.moveJointsWithSpeed(self.speeds)
+        # print("Kinova move with speeds end", time.time()*1000 - self.timestamp)
 
     def updateGains(self):
         self.posesTimes = self.posesTimes - self.ext_joints.timestamp
