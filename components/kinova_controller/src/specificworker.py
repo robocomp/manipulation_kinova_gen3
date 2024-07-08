@@ -41,43 +41,39 @@ from test import KinovaGen3
 
 class SpecificWorker(GenericWorker):
     """
-    Manages a robotic arm and gripper, controlling their movements and joint angles
-    through method calls. It also provides methods for getting joint states, gripper
-    state, and pose information.
+    Manages a robotic arm's joints and gripper, providing methods for computing
+    the arm's pose, getting the joints and gripper state, and moving the joints
+    with speed or angle.
 
     Attributes:
-        Period (int): 1 by default, which represents the time interval for the
-            timer in milliseconds.
-        startup_check (inline): Defined as a function that tests various aspects
-            of the `RoboCompKinovaArm` interface, including its pose and gripper
-            state.
-        kinova (ifacesRoboCompKinovaArmTKinova): Used to interact with the Kinova
-            Gen3 robot arm.
-        flag (int): Initialized to False. It is used to indicate whether the startup
-            check has been performed or not.
-        timer (QTimer): Used to schedule a call to the `compute` method at regular
-            intervals (period) using the `timeout` method.
-        compute (QtCoreSlot): Called when the timer timeout occurs. It initializes
-            variables, gets joints and gripper state from the Kinova arm, and then
-            computes the final pose of the arm based on the joint angles and gripper
-            distance.
-        joints (ifacesRoboCompKinovaArmTJoints): Initialized with joint positions,
-            velocities, and forces from the KinovaGen3 arm.
+        Period (int): 1 by default, indicating the interval between timer timeouts
+            for computing joint positions.
+        startup_check (unbound): Called when the worker is initialized. It performs
+            some testing and checks to ensure that the robotic arm is working correctly.
+        kinova (ifacesRoboCompKinovaArm): A reference to an instance of the
+            KinovaGen3 class, which provides access to the RoboCompKinovaArm API.
+        flag (bool): Used to indicate when the worker should perform its job.
+        timer (QTimer): Used to schedule a callable object at a specific interval,
+            in this case, the function `compute`.
+        compute (QtCoreSlot): A method that runs periodically to retrieve joint
+            information from the Kinova arm.
+        joints (ifacesRoboCompKinovaArmTJoints): A list of objects representing
+            the joint states of the Kinova arm.
         gripper (ifacesRoboCompKinovaArmTGripper): A representation of the gripper
-            state of the Kinova arm.
+            state of the RoboCompKinovaArm.
 
     """
     def __init__(self, proxy_map, startup_check=False):
         """
-        Initializes an instance of SpecificWorker, setting up its internal state
-        and starting a timer for periodic computation.
+        Initializes an instance of the SpecificWorker class by setting up its
+        properties and event handlers. It creates a KinovaGen3 object, sets a flag
+        to False, and starts a timer to trigger computation every `Period` seconds.
 
         Args:
-            proxy_map (dict): Used to map proxy names to their corresponding kinova
-                objects, allowing for easy interaction with multiple kinova devices
-                through a single interface.
-            startup_check (bool): Used to determine whether to run the `startup_check()`
-                method during initialization.
+            proxy_map (dict): Used to map proxy objects to their corresponding
+                worker objects.
+            startup_check (bool): Used to enable or disable a check when the
+                SpecificWorker initializes.
 
         """
         super(SpecificWorker, self).__init__(proxy_map)
@@ -102,15 +98,15 @@ class SpecificWorker(GenericWorker):
         #	traceback.print_exc()
         #	print("Error reading config params")
         """
-        Sets parameters for an instance of a `GenericWorker` subclass, `SpecificWorker`.
-        It returns `True` upon successful parameter setting.
+        Sets parameters for an instance of the `SpecificWorker` class, which
+        inherits from `GenericWorker`. It returns `True` indicating successful
+        parameter setting.
 
         Args:
-            params (object): Used to set parameters for the function.
+            params (objectinstance): Passed to the method for modification or alteration.
 
         Returns:
-            OptionalTrue: A value that may or may not be present and can have any
-            value.
+            True: 100% true.
 
         """
         return True
@@ -118,17 +114,19 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
+        # print("timer init", time.time()*1000)
         """
-        Computes and returns joints and gripper states for an arm robot based on
-        sensor readings.
+        Computes and updates the positions, velocities, and forces of joints and
+        gripper of a Robocomp Kinova arm based on sensor readings and returns True
+        if successful.
 
         Returns:
-            ifacesRoboCompKinovaArmTJoints: A list of TJoint objects containing
-            information about the robot's joints, followed by a TGripper object
-            containing information about the gripper's state.
+            ifacesRoboCompKinovaArmTGripper: A struct consisting of distance and
+            timestamp, and another value of type ifacesRoboCompKinovaArmTJoints
+            which is also a struct consisting of joint angles, velocities, forces,
+            and timestamp.
 
         """
-        print("timer init", time.time()*1000)
         if self.flag:
             self.kinova.get_camera_info()
             self.flag = False
@@ -152,14 +150,15 @@ class SpecificWorker(GenericWorker):
         ret.distance = self.kinova.get_gripper_state()
         self.gripper = ret
 
-        print("timer end", time.time()*1000)
+        # print("timer end", time.time()*1000)
 
         return True
 
     def startup_check(self):
         """
-        Tests various aspects of the `ifaces.RoboCompKinovaArm` interface and quits
-        the application after 200 milliseconds.
+        Tests the RoboCompKinovaArm TPose and TGripper classes, and then calls
+        QTimer.singleShot(200, QApplication.instance().quit) to quit the application
+        after a delay of 200 milliseconds.
 
         """
         print(f"Testing RoboCompKinovaArm.TPose from ifaces.RoboCompKinovaArm")
@@ -182,9 +181,7 @@ class SpecificWorker(GenericWorker):
         # write your CODE here
         #
         """
-        Is a method of the `SpecificWorker` class that closes the gripper of a
-        Kinova arm at a speed determined by the `close_gripper_speed()` method of
-        the kinova object.
+        Closes the gripper of a robotic arm with the `kinova` module.
 
         """
         self.kinova.close_gripper_speed()
@@ -196,15 +193,15 @@ class SpecificWorker(GenericWorker):
     #
     def KinovaArm_getCenterOfTool(self, referencedTo):
         """
-        Retrieves the center of a tool relative to a Kinova Arm, using the arm's
-        pose as reference.
+        Computes and returns the center of a tool referenced to a specific interface,
+        using the `RoboCompKinovaArm` interface.
 
         Args:
             referencedTo (ifacesRoboCompKinovaArmTPose): Used to specify the
-                reference frame for the tool center coordinates.
+                reference frame for the tool center point calculation.
 
         Returns:
-            ifacesRoboCompKinovaArmTPose: A pose object representing the center
+            ifacesRoboCompKinovaArmTPose: A Pose object representing the center
             of the tool referenced to the arm.
 
         """
@@ -227,8 +224,8 @@ class SpecificWorker(GenericWorker):
         # write your CODE here
         #
         """
-        Opens the gripper of a Kinova arm, a type of robotic arm, using the
-        `kinova.open_gripper_speed()` method.
+        Opens the gripper of a Kinova arm, a robotic arm used for material handling
+        and manipulation tasks, using the `kinova.open_gripper_speed()` method.
 
         """
         self.kinova.open_gripper_speed()
@@ -249,13 +246,14 @@ class SpecificWorker(GenericWorker):
         # write your CODE here
         #
         """
-        Sets the center of a tool referenced to a pose in the KinovaArm framework.
+        Sets the center of a tool referenced to a given pose within a specific
+        worker class, inheriting from `GenericWorker`.
 
         Args:
-            pose (kinovaPose): Used to set the center of the tool relative to the
-                arm's end effector.
-            referencedTo (object): Used to reference the coordinate system that
-                the tool should be set to.
+            pose (kinovageometryPose): Used to specify the position and orientation
+                of the tool relative to the arm.
+            referencedTo (KinovaArm_ReferencePoint): Used to specify the reference
+                point for the tool center coordinate calculation.
 
         """
         pass
@@ -271,12 +269,12 @@ class SpecificWorker(GenericWorker):
     #
     def KinovaArm_moveJointsWithAngle(self, angles):
         """
-        Moves the joints of a Kinova arm to specified angles using the
+        Moves the joints of a robot arm to specified angles, using the
         `kinova.move_joints_to()` method.
 
         Args:
-            angles (Angle): Used to set the joint angles for movement of the Kinova
-                arm.
+            angles (angles): A joint angle representation containing multiple
+                angles for different joints of the robot arm to move to.
 
         """
         print(angles.jointAngles)
@@ -288,9 +286,8 @@ class SpecificWorker(GenericWorker):
 
     def buclePrueba(self):
             """
-            Retrieves and stores the current pose state of an object using the
-            `kinova.get_pose()` method, which is a part of the `GenericWorker`
-            class that the function inherits from.
+            Retrieves the current pose of an object using the `kinova.get_pose()`
+            method and stores it in a variable called `state`.
 
             """
             state = self.kinova.get_pose()
