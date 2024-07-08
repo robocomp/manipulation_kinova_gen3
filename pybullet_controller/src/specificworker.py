@@ -104,11 +104,11 @@ class SpecificWorker(GenericWorker):
             self.robot_launch_pos = [-0.3, 0.0, 0.64]
             self.robot_launch_orien = p.getQuaternionFromEuler([0, 0, 0])
             self.end_effector_link_index = 12
-            self.home_angles = [0, -0.34, np.pi, -2.54, -6.28, -0.87, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            self.home_angles = [0, -0.34, np.pi, -2.54, 0, -0.87, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                 0.0,
                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
-            self.observation_angles = [0, 0, np.pi, -0.96, -6.28, -2.1, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            self.observation_angles = [0, 0, np.pi, -0.96, 0, -2.1, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                 0.0,
                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
@@ -241,6 +241,9 @@ class SpecificWorker(GenericWorker):
 
             self.timer7 = QtCore.QTimer(self)
             self.timer7.timeout.connect(self.showKinovaAngles)
+
+            self.gainsTimer = QtCore.QTimer(self)
+            self.gainsTimer.timeout.connect(self.updateGains)
 
             # Initialize the AAMED algorithm for the cup position correction
             self.aamed = pyAAMED(722//2, 1282//2)
@@ -375,7 +378,21 @@ class SpecificWorker(GenericWorker):
                 try:
                     # print("Toolbox compute init", time.time()*1000 - self.timestamp)
                     self.toolbox_compute()
+                    self.correctCupPosition()
+                    self.movePybulletWithToolbox()
+                    self.moveKinovaWithSpeeds()
+
                     # print("Toolbox compute end", time.time()*1000 - self.timestamp)
+
+                    self.posesTimes = np.append(self.posesTimes, int(time.time()*1000))
+
+                    jointsState = []
+                    for i in range(7):
+                        state = p.getJointState(self.robot_id, i + 1)
+                        angle_speed = (state[0], state[1])
+                        jointsState.append(angle_speed)
+
+                    self.poses.append(jointsState)
 
                     # pybulletImage, imageTime = self.read_camera_fixed()
                     # cv2.imshow("Pybullet", pybulletImage)
@@ -450,10 +467,11 @@ class SpecificWorker(GenericWorker):
                 # print("initilizing toolbox", time.time()*1000 - self.timestamp)
                 self.initialize_toolbox()
                 # print("toolbox initialized", time.time()*1000 - self.timestamp)
-                self.timer4.start(self.Period)
+                # self.timer4.start(self.Period)
                 # self.timer3.start(self.Period)
                 # self.timer6.start(self.Period)
                 self.timer7.start(500)
+                self.gainsTimer.start(1000)
 
                 print("Moving to fixed cup")
                 self.move_mode = 4
@@ -595,8 +613,8 @@ class SpecificWorker(GenericWorker):
         # Set the desired end-effector pose
         self.rot = self.kinova.fkine(self.kinova.q).R
         self.rot = sm.SO3.OA([1, 0, 0], [0, 0, -1])
-        # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.23])
-        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])
+        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.23])
+        # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])
         # self.Tep = sm.SE3.Rt(self.rot, [0.4, 0.4, 0.13])  # green = x-axis, red = y-axis, blue = z-axis
         self.goal_axes.T = self.Tep
 
@@ -613,7 +631,7 @@ class SpecificWorker(GenericWorker):
         cup_position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
         cup_position[0] = cup_position[0] + 0.3  # Added the robot base offset in pybullet
 
-        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])  # green = x-axis, red = y-axis, blue = z-axis
+        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.26])  # green = x-axis, red = y-axis, blue = z-axis
         # Transform from the end-effector to desired pose
         self.eTep = self.Te.inv() * self.Tep
 
@@ -674,14 +692,10 @@ class SpecificWorker(GenericWorker):
         joints_angle = []
         for i in range(7):
             joints_angle.append(p.getJointState(self.robot_id, i + 1)[0])
-            if i == 4:
-                joints_angle[i] = joints_angle[i]
-            if i == 5:
-                joints_angle[i] = joints_angle[i]
 
-        error = np.sum(np.rad2deg(np.abs(np.array(joints_angle) - np.array(np.rad2deg(self.kinova.q)))))
-        print("Error joints", np.rad2deg(self.kinova.q-joints_angle), "Error: ", error)
-        if error > 7:
+        error = np.sum(np.rad2deg(np.abs(np.array(joints_angle) - np.array(self.kinova.q))))
+        # print("Error joints", np.rad2deg(self.kinova.q-joints_angle), "Error: ", error)
+        if error > 1:
             self.kinova.q = joints_angle
 
         # print("/////////////////////////////////////////////////////////////////////////////////////////////////////")
@@ -803,7 +817,8 @@ class SpecificWorker(GenericWorker):
         ## sum in one frame rgb and self.colorKinova[0][0]
         sum = cv2.addWeighted(rgb, 0.5, self.colorKinova[0][0], 0.5, 0)
         cv2.imshow("Pybullet", sum)
-        cv2.waitKey(5)
+        # print("Showing Pybullet image", time.time() * 1000 - self.timestamp)
+        cv2.waitKey(3)
 
         # print("Returning the image", time.time() * 1000 - self.timestamp)
 
@@ -885,8 +900,15 @@ class SpecificWorker(GenericWorker):
     def moveKinovaWithSpeeds(self):
         # print("Kinova move with speeds init", time.time()*1000 - self.timestamp)
         self.joint_speeds = []
+
         for i in range(7):
-            speed = np.rad2deg(p.getJointState(self.robot_id, i + 1)[1]) # * self.gains[i]
+            angle = p.getJointState(self.robot_id, i + 1)[0]
+            error = (np.deg2rad(self.ext_joints.joints[i].angle)
+                     - angle + math.pi) % (2 * math.pi) - math.pi
+
+            speed = np.rad2deg(p.getJointState(self.robot_id, i + 1)[1]) * self.gains[i] - np.rad2deg(error) * 0.3
+
+            # print("e", error)
             self.joint_speeds.append(speed)
 
         self.speeds.jointSpeeds = self.joint_speeds
@@ -899,8 +921,8 @@ class SpecificWorker(GenericWorker):
         self.posesTimes = self.posesTimes - self.ext_joints.timestamp
         best_timestamp = np.abs(self.posesTimes).argmin()
 
-        print("Best timestamp: ", best_timestamp, self.posesTimes[best_timestamp],
-              self.ext_joints.timestamp)
+        # print("Best timestamp: ", best_timestamp, self.posesTimes[best_timestamp],
+        #       self.ext_joints.timestamp)
 
         joints_state = self.poses[best_timestamp]
         for i in range(7):
@@ -909,15 +931,14 @@ class SpecificWorker(GenericWorker):
             error = (np.deg2rad(self.ext_joints.joints[i].angle)
                      - angle + math.pi) % (2 * math.pi) - math.pi
             if abs(speed) > 0.01:
-                self.gains[i] += error * 0.1
-            print("Gains: joint ", i, self.gains[i], "Kinova angle: ",
-                  np.deg2rad(self.ext_joints.joints[i].angle),
-                  "Pybullet angle: ", self.target_angles[i], "Error:", error)
-        # now draw the gains as timeseries in matplotlib
+                self.gains[i] += error * 0.2
+            # print("Gains: joint ", i, self.gains[i], "Kinova angle: ",
+            #       np.deg2rad(self.ext_joints.joints[i].angle),
+            #       "Pybullet angle: ", self.target_angles[i], "Error:", error)
+
         self.posesTimes = np.array([int(time.time() * 1000)])
         self.poses = joints_state
 
-        print("/////////////////////")
   
     # =============== Methods for SubscribesTo ================
     # =========================================================
