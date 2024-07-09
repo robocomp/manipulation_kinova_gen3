@@ -55,6 +55,8 @@ import collections
 from pybullet_utils import urdfEditor as ed
 from pybullet_utils import bullet_client as bc
 
+import queue
+
 # Set the LC_NUMERIC environment variable
 os.environ['LC_NUMERIC'] = 'en_US.UTF-8'
 # RMEMEMBER to SET: export LC_NUMERIC="en_US.UTF-8" in your terminal
@@ -66,6 +68,7 @@ class SpecificWorker(GenericWorker):
         super(SpecificWorker, self).__init__(proxy_map)
         self.Period = 50
         self.rgb = []
+        self.timestamp = int(time.time()*1000)
         if startup_check:
             self.startup_check()
         else:
@@ -76,94 +79,77 @@ class SpecificWorker(GenericWorker):
             p.setAdditionalSearchPath(pybullet_data.getDataPath())
             p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
             p.setGravity(0, 0, -9.81)
-            #p.setGravity(0, 0, 0)
 
+            # Set the real time simulation
             p.setRealTimeSimulation(1)
-            # p.setTimeStep(1 / 240)
 
             flags = p.URDF_USE_INERTIA_FROM_FILE
             p.resetDebugVisualizerCamera(cameraDistance=1.5, cameraYaw=50, cameraPitch=-35,
                                          cameraTargetPosition=[0, 0, 0.5])
 
-            # load floor
-            self.plane = p.loadURDF("plane.urdf")
+            # Load floor in the simulation
+            self.plane = p.loadURDF("./URDFs/plane/plane.urdf")
 
             # Load a table to place the arm on
-            self.table_id = p.loadURDF("/home/robolab/software/bullet3/data/table/table.urdf", basePosition=[0, 0, 0],
+            self.table_id = p.loadURDF("./URDFs/table/table.urdf", basePosition=[0, 0, 0],
                                        baseOrientation=p.getQuaternionFromEuler([0, 0, 1.57]), flags=flags)
 
-            # Load Kinova arm
-            #self.robot = KinovaGen3()
-
-            #////////////////////////////////////////////////////
-
-            # Carga manual del brazo kinova
-
-            # self.robot_urdf = "/home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/pybullet_controller/kinova/kinova_with_pybullet/gen3_robotiq_2f_85.urdf"
-            self.robot_urdf = "/home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/pybullet_controller/kinova/kinova_with_pybullet/gen3_robotiq_2f_85-mod.urdf"
+            # Load the arm in the simulation
+            self.robot_urdf = "./URDFs/kinova_with_pybullet/gen3_robotiq_2f_85-mod.urdf"
             self.robot_launch_pos = [-0.3, 0.0, 0.64]
             self.robot_launch_orien = p.getQuaternionFromEuler([0, 0, 0])
             self.end_effector_link_index = 12
+            self.robot_id = p.loadURDF(self.robot_urdf, self.robot_launch_pos, self.robot_launch_orien,
+                                       flags=p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT)
+
+            # Angles for the home position of the robot
             self.home_angles = [0, -0.34, np.pi, -2.54, 0, -0.87, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                 0.0,
                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
+            # Angles for the observation position of the robot
             self.observation_angles = [0, 0, np.pi, -0.96, 0, -2.1, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                 0.0,
                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
-            self.observation_angles_2 = [0.87, 0.17, 4.01, -1.74, -6.80, -1.92, 3.22, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                0.0,
-                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-
-            self.observation_angles_3 = [0.26, 0.17, 3.52, -1.13, -6.406, -1.78, 2.18, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                0.0,
-                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-
-            self.observation_angles_cube = [2.1753, 0.6980, 2.6924, -1.3950, -6.6862, -1.8915, 3.9945, 0.0, 0.0, 0.0, 0.0,
-                                            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-
-            self.robot_id = p.loadURDF(self.robot_urdf, self.robot_launch_pos, self.robot_launch_orien,
-                                       flags=p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT)
-
+            # Set the initial joint angles of the pybullet arm
             for i in range(7):
                 p.resetJointState(bodyUniqueId=self.robot_id, jointIndex=i+1,
                                   targetValue=self.home_angles[i], targetVelocity=0)
 
-
-            for i in range(7):
-                p.setJointMotorControl2(self.robot_id, i+1, p.POSITION_CONTROL, targetPosition=self.home_angles[i])
-
-            #////////////////////////////////////////////////////
-
             # Load a cup to place on the table
-            self.pybullet_cup = p.loadURDF("/home/robolab/software/bullet3/data/dinnerware/cup/cup_small.urdf", basePosition=[0.074, 0.20, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
+            self.pybullet_cup = p.loadURDF("./URDFs/cup/cup_small.urdf", basePosition=[0.074, 0.20, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
 
-            self.square = p.loadURDF("/home/robolab/software/bullet3/data/cube_small_square.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
-            texture_path = "/home/robolab/Escritorio/textura_cubo.png"
+            # Load a square to place on the table for calibration
+            self.square = p.loadURDF("./URDFs/cube_and_square/cube_small_square.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
+            texture_path = "./URDFs/cube_and_square/square_texture.png"
             textureIdSquare = p.loadTexture(texture_path)
             p.changeVisualShape(self.square, -1, textureUniqueId=textureIdSquare)
 
-            # # Load a cube to place on the table
-            # self.cube = p.loadURDF("/home/robolab/software/bullet3/data/cube_small.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
-            #
-            # # Cargar la textura
-            # texture_path = "/home/robolab/Escritorio/textura_cubo_v2.png"
+            # # Load a cube to place on the table for calibration
+            # self.cube = p.loadURDF("./URDFs/cube_and_square/cube_small.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
+            # texture_path = "./URDFs/cube_and_texture/cube_texture.png"
             # textureId = p.loadTexture(texture_path)
             #
-            # # Aplicar la textura al cubo
-            # # Cambiar el visual shape del cubo
             # p.changeVisualShape(self.cube, -1, textureUniqueId=textureId)
 
-            # Crear una restricción fija entre los dos modelos
-            fixed_constraint = p.createConstraint(self.table_id, -1, self.robot_id, -1, p.JOINT_FIXED, [0, 0, 0], [0, 0.3, 0.64], [0, 0, 0], childFrameOrientation=p.getQuaternionFromEuler([0, 0, 1.57]))
+            # Thread to read the real arm angles from kinova_controller
+            self.threadKinovaAngles = threading.Thread(target=self.readDataFromProxy)
+            self.threadKinovaAngles.start()
 
-            self.hilo_lectura = threading.Thread(target=self.readDataFromProxy)
-            self.hilo_lectura.start()
+            # Queues to store the images from the real arm camera
+            self.colorKinova = collections.deque(maxlen=5)
+            self.depthKinova = collections.deque(maxlen=5)
 
-            # wait for half a second
+            # Thread to read the Pybullet camera
+            # self.pybulletImageQueue = queue.Queue(maxsize=1)
+            # self.threadPybulletImage = threading.Thread(target=self.read_camera_fixed)
+            # self.threadPybulletImage.start()
+
+            # Wait for half a second
             time.sleep(0.5)
 
+            # Change the mass of the links of the robot to do the simulation more stable
             for i in range(7):
                 if i != 0:
                     val = p.getDynamicsInfo(self.robot_id, i)[2]
@@ -176,16 +162,41 @@ class SpecificWorker(GenericWorker):
 
                 print("Kinova", i, p.getDynamicsInfo(self.robot_id, i))
 
+
+            # This variables is to store the position of the end effector of the robot
             self.target_angles = self.home_angles
             self.target_position = p.getLinkState(self.robot_id, self.end_effector_link_index)[0]
             self.target_orientation = p.getLinkState(self.robot_id, self.end_effector_link_index)[1]
             self.target_velocities = [0.0] * 7
+
+            # This variable is to store the joint selected in the joystick mode
             self.joy_selected_joint = 0
+
+            # This variable is to store the mode of the robot
             self.move_mode = 5
-            self.n_rotations = np.zeros(7).tolist()
-            self.n_rotations = [0, -1, 0, -1, -1, -1, 0]
+
+            # This variable is to store the state of the real arm
             self.ext_joints = self.kinovaarm_proxy.getJointsState()
             self.ext_gripper = self.kinovaarm_proxy.getGripperState()
+
+            # Timer to do the control loop
+            self.timer.timeout.connect(self.compute)
+            self.timer.start(self.Period)
+
+            # This variables are needed for move real arm
+            self.joint_speeds = []
+            for i in range(7):
+                self.joint_speeds.append(0)
+
+            self.speeds = ifaces.RoboCompKinovaArm.TJointSpeeds()
+            self.speeds.jointSpeeds = self.joint_speeds
+
+            self.angles = ifaces.RoboCompKinovaArm.TJointAngles()
+
+            self.angles.jointAngles = []
+
+            # This variables are needed for the gains of real arm speeds
+            self.gains = np.ones(7).tolist()
 
             self.posesTimes = np.array([int(time.time()*1000)])
             self.poses = []
@@ -195,52 +206,17 @@ class SpecificWorker(GenericWorker):
                 joints.append(actual_angle)
                 self.poses.append(joints)
 
-            self.timestamp = int(time.time()*1000)
-
-            # self.initialize_toolbox()
-
-            self.timer.timeout.connect(self.compute)
-            self.timer.start(self.Period)
-
-            self.timer2 = QtCore.QTimer(self)
-            self.timer2.timeout.connect(self.movePybulletWithExternalVel)
-            #self.timer2.start(50)
-
-            self.joint_speeds = []
-            for i in range(7):
-                self.joint_speeds.append(0)
-
-            self.gains = np.ones(7).tolist()
-
-            self.speeds = ifaces.RoboCompKinovaArm.TJointSpeeds()
-            self.speeds.jointSpeeds = self.joint_speeds
-
-            self.angles = ifaces.RoboCompKinovaArm.TJointAngles()
-
-            self.angles.jointAngles = []
-
-            self.timer3 = QtCore.QTimer(self)
-            self.timer3.timeout.connect(self.moveKinovaWithSpeeds)
-            # self.timer3.start(self.Period)
-
-            self.timer4 = QtCore.QTimer(self)
-            self.timer4.timeout.connect(self.movePybulletWithToolbox)
-            # self.timer4.start(50)
-
-            self.colorKinova = collections.deque(maxlen=5)
-            self.depthKinova = collections.deque(maxlen=5)
+            # This variable was to test the calibration of the camera
             self.calibrator = calibrator.Calibrator()
 
-            self.timer5 = QtCore.QTimer(self)
-            self.timer5.timeout.connect(self.readKinovaCamera)
-            self.timer5.start(self.Period)
+            # Timer to read the camera of the real arm
+            self.cameraKinovaTimer = QtCore.QTimer(self)
+            self.cameraKinovaTimer.timeout.connect(self.readKinovaCamera)
+            self.cameraKinovaTimer.start(self.Period)
 
-            self.timer6 = QtCore.QTimer(self)
-            self.timer6.timeout.connect(self.correctCupPosition)
-            # self.timer6.start(500)
-
-            self.timer7 = QtCore.QTimer(self)
-            self.timer7.timeout.connect(self.showKinovaAngles)
+            # Timers to update the gains and show the real arm angles
+            self.showKinovaStateTimer = QtCore.QTimer(self)
+            self.showKinovaStateTimer.timeout.connect(self.showKinovaAngles)
 
             self.gainsTimer = QtCore.QTimer(self)
             self.gainsTimer.timeout.connect(self.updateGains)
@@ -249,10 +225,7 @@ class SpecificWorker(GenericWorker):
             self.aamed = pyAAMED(722//2, 1282//2)
             self.aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
 
-            print("SpecificWorker started")
-
-            self.flag = True
-
+            print("SpecificWorker started", time.time()*1000 - self.timestamp)
 
     def __del__(self):
         """Destructor"""
@@ -376,13 +349,14 @@ class SpecificWorker(GenericWorker):
 
             case 4:
                 try:
-                    # print("Toolbox compute init", time.time()*1000 - self.timestamp)
-                    self.toolbox_compute()
                     self.correctCupPosition()
-                    self.movePybulletWithToolbox()
-                    self.moveKinovaWithSpeeds()
-
+                    # print("Correct cup position end", time.time()*1000 - self.timestamp)
+                    self.toolbox_compute()
                     # print("Toolbox compute end", time.time()*1000 - self.timestamp)
+                    self.movePybulletWithToolbox()
+                    # print("Move pybullet with toolbox end", time.time()*1000 - self.timestamp)
+                    self.moveKinovaWithSpeeds()
+                    # print("Move kinova with speeds end", time.time()*1000 - self.timestamp)
 
                     self.posesTimes = np.append(self.posesTimes, int(time.time()*1000))
 
@@ -393,6 +367,9 @@ class SpecificWorker(GenericWorker):
                         jointsState.append(angle_speed)
 
                     self.poses.append(jointsState)
+
+                    # print("Pybullet poses saved to update gains", time.time()*1000 - self.timestamp)
+                    # print("//====================================//")
 
                     # pybulletImage, imageTime = self.read_camera_fixed()
                     # cv2.imshow("Pybullet", pybulletImage)
@@ -435,6 +412,7 @@ class SpecificWorker(GenericWorker):
 
                 if error < 0.05:
                     print("Observation angles reached", int(time.time()*1000) - self.timestamp)
+                    # self.threadPybulletImage.start()
                     self.move_mode = 6
             case 6:
                 # self.calibrator.calibrate3(self.robot_id, self.colorKinova)
@@ -444,12 +422,13 @@ class SpecificWorker(GenericWorker):
                 # yolodetector = YoloDetector.YoloDetector()
                 # results = yolodetector.detect(self.colorKinova)
                 # yolodetector.plot(results)
+                # print(self.threadPybulletImage.is_alive())
 
                 if self.correctCupPosition() > 5:
-                    print("Correcting cup position")
+                    print("Correcting cup position", int(time.time()*1000) - self.timestamp)
 
                 else:
-                    print("Calibration finished")
+                    print("Calibration finished", int(time.time()*1000 - self.timestamp))
                     self.move_mode = 7
 
             case 7:
@@ -464,13 +443,10 @@ class SpecificWorker(GenericWorker):
                 # for i in range(7):
                 #     p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.home_angles[i])
 
-                # print("initilizing toolbox", time.time()*1000 - self.timestamp)
+                print("initilizing toolbox", time.time()*1000 - self.timestamp)
                 self.initialize_toolbox()
-                # print("toolbox initialized", time.time()*1000 - self.timestamp)
-                # self.timer4.start(self.Period)
-                # self.timer3.start(self.Period)
-                # self.timer6.start(self.Period)
-                self.timer7.start(500)
+                print("toolbox initialized", time.time()*1000 - self.timestamp)
+                self.showKinovaStateTimer.start(500)
                 self.gainsTimer.start(1000)
 
                 print("Moving to fixed cup")
@@ -507,12 +483,14 @@ class SpecificWorker(GenericWorker):
         QTimer.singleShot(200, QApplication.instance().quit)
 
     def correctCupPosition(self):
+        # print("//--------------------//")
         # print("Init time", time.time()*1000 - self.timestamp)
         # aamed = pyAAMED(1080, 1940)
         # aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
 
         # print("Get pybullet image", time.time()*1000 - self.timestamp)
         pybulletImage, imageTime = self.read_camera_fixed()
+        # pybulletImage = self.pybulletImageQueue.get()
         # print("Pybullet image obtained", time.time()*1000 - self.timestamp)
         pybulletImage = cv2.resize(pybulletImage, (1280//2, 720//2))
         imgGPybullet = cv2.cvtColor(pybulletImage, cv2.COLOR_BGR2GRAY)
@@ -562,9 +540,11 @@ class SpecificWorker(GenericWorker):
         # print("x: ", resKinova[0][1] - resPybullet[0][1], " y: ", resKinova[0][0] - resPybullet[0][0])
 
         position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
-        position[0] = position[0] - 0.0005 * (resKinova[0][0] - resPybullet[0][0])
-        position[1] = position[1] - 0.0005 * (resKinova[0][1] - resPybullet[0][1])
+        position[0] = position[0] - 0.0002 * (resKinova[0][0] - resPybullet[0][0])
+        position[1] = position[1] - 0.0002 * (resKinova[0][1] - resPybullet[0][1])
         p.resetBasePositionAndOrientation(self.pybullet_cup, tuple(position), p.getQuaternionFromEuler([0, 0, 0]))
+
+        # print("//--------------------//")
 
         # print("Finish time", time.time()*1000 - self.timestamp)
         return error
@@ -613,8 +593,8 @@ class SpecificWorker(GenericWorker):
         # Set the desired end-effector pose
         self.rot = self.kinova.fkine(self.kinova.q).R
         self.rot = sm.SO3.OA([1, 0, 0], [0, 0, -1])
-        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.23])
-        # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])
+        # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.26])
+        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])
         # self.Tep = sm.SE3.Rt(self.rot, [0.4, 0.4, 0.13])  # green = x-axis, red = y-axis, blue = z-axis
         self.goal_axes.T = self.Tep
 
@@ -631,7 +611,7 @@ class SpecificWorker(GenericWorker):
         cup_position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
         cup_position[0] = cup_position[0] + 0.3  # Added the robot base offset in pybullet
 
-        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.26])  # green = x-axis, red = y-axis, blue = z-axis
+        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])  # green = x-axis, red = y-axis, blue = z-axis
         # Transform from the end-effector to desired pose
         self.eTep = self.Te.inv() * self.Tep
 
@@ -762,71 +742,80 @@ class SpecificWorker(GenericWorker):
         viewMatrix = T.T.reshape(16)
         return viewMatrix
     def read_camera_fixed(self):
-        # print("Getting the pose", time.time()*1000-self.timestamp)
-        com_p, com_o, _, _, _, _ = p.getLinkState(self.robot_id, 9)
-        # print("Pose obtained", time.time()*1000-self.timestamp)
-        # Define camera intrinsic parameters
-        width = 1280  # image width
-        height =  720  # image height
-        f_in_pixels = 1298 #1298
-        near = 0.01  # near clipping plane
-        far = 100  # far clipping plane
+        while True:
+            # print("Getting the pose", time.time()*1000-self.timestamp)
+            com_p, com_o, _, _, _, _ = p.getLinkState(self.robot_id, 9)
+            # print("Pose obtained", time.time()*1000-self.timestamp)
+            # Define camera intrinsic parameters
+            width = 1280  # image width
+            height =  720  # image height
+            f_in_pixels = 1298 #1298
+            near = 0.01  # near clipping plane
+            far = 100  # far clipping plane
 
-        # Optical center in pixel coordinates
-        optical_center_x_pixels = 646.23 #620  # example x-coordinate in pixels
-        optical_center_y_pixels = 267.62 #238  # example y-coordinate in pixels
+            # Optical center in pixel coordinates
+            optical_center_x_pixels = 646.23 #620  # example x-coordinate in pixels
+            optical_center_y_pixels = 267.62 #238  # example y-coordinate in pixels
 
-        fov = 2 * np.degrees(np.arctan(width / (2 * f_in_pixels)))
+            fov = 2 * np.degrees(np.arctan(width / (2 * f_in_pixels)))
 
-        k = np.array([[f_in_pixels, 0, optical_center_x_pixels],
-                      [0, f_in_pixels, optical_center_y_pixels],
-                      [0, 0, 1]])
+            k = np.array([[f_in_pixels, 0, optical_center_x_pixels],
+                          [0, f_in_pixels, optical_center_y_pixels],
+                          [0, 0, 1]])
 
-        projection_matrix = self.cvK2BulletP(k, width, height, near, far)
+            projection_matrix = self.cvK2BulletP(k, width, height, near, far)
 
-        # print("Projection matrix obtained", time.time() * 1000 - self.timestamp)
-        # print("fixed proyection matrix", projection_matrix)
+            # print("Projection matrix obtained", time.time() * 1000 - self.timestamp)
+            # print("fixed proyection matrix", projection_matrix)
 
-        # Define camera extrinsic parameters
-        camera_translation = np.array([0.0, 0.0, 0.0])
+            # Define camera extrinsic parameters
+            camera_translation = np.array([0.0, 0.0, 0.0])
 
-        camera_rotation_matrix = np.array([
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0]
-        ])
+            camera_rotation_matrix = np.array([
+                [1.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0]
+            ])
 
-        camera_translation += com_p
-        com_o_matrix = p.getMatrixFromQuaternion(com_o)
-        camera_rotation_matrix += np.array(com_o_matrix).reshape(3, 3)
+            camera_translation += com_p
+            com_o_matrix = p.getMatrixFromQuaternion(com_o)
+            camera_rotation_matrix += np.array(com_o_matrix).reshape(3, 3)
 
-        view_matrix = self.cvPose2BulletView(com_o, camera_translation)
+            view_matrix = self.cvPose2BulletView(com_o, camera_translation)
 
-        # print("View matrix obtained", time.time() * 1000 - self.timestamp)
-        # print("fixed view matrix", np.matrix(view_matrix))
-        # print("//////////////////////////////////////////////////////////////////")
+            # print("View matrix obtained", time.time() * 1000 - self.timestamp)
+            # print("fixed view matrix", np.matrix(view_matrix))
+            # print("//////////////////////////////////////////////////////////////////")
 
-        # Get the camera image
-        img = p.getCameraImage(width, height, view_matrix, projection_matrix, renderer=p.ER_BULLET_HARDWARE_OPENGL)
+            # Get the camera image
+            img = p.getCameraImage(width, height, view_matrix, projection_matrix, renderer=p.ER_BULLET_HARDWARE_OPENGL, flags=p.ER_NO_SEGMENTATION_MASK)
 
-        # print("Camera image obtained", time.time() * 1000 - self.timestamp)
-        rgb = img[2]
-        # rgb = cv2.resize(rgb, (1280, 720))
-        rgb = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+            # print("Camera image obtained", time.time() * 1000 - self.timestamp)
+            rgb = img[2]
+            # rgb = cv2.resize(rgb, (1280, 720))
+            rgb = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
 
-        ## sum in one frame rgb and self.colorKinova[0][0]
-        sum = cv2.addWeighted(rgb, 0.5, self.colorKinova[0][0], 0.5, 0)
-        cv2.imshow("Pybullet", sum)
-        # print("Showing Pybullet image", time.time() * 1000 - self.timestamp)
-        cv2.waitKey(3)
+            ## sum in one frame rgb and self.colorKinova[0][0]
+            sum = cv2.addWeighted(rgb, 0.5, self.colorKinova[0][0], 0.5, 0)
+            cv2.imshow("Pybullet", sum)
+            # print("Showing Pybullet image", time.time() * 1000 - self.timestamp)
+            cv2.waitKey(3)
 
-        # print("Returning the image", time.time() * 1000 - self.timestamp)
+            # print("Returning the image", time.time() * 1000 - self.timestamp)
 
-        return rgb, time.time()*1000
+            # print("Triying to put in queue", time.time()*1000 - self.timestamp)
+
+            # self.pybulletImageQueue.put_nowait([rgb, time.time()*1000])
+
+            # print("Pybullet image put in queue", time.time()*1000 - self.timestamp)
+
+            # time.sleep(0.05)
+            return rgb, time.time()*1000
 
     def readKinovaCamera(self):
         try:
             both = self.camerargbdsimple_proxy.getAll("CameraRGBDViewer")
+
             # self.colorKinova.append(both.image)
             # self.depthKinova.append(both.depth)
             # print(both.image.alivetime)
@@ -850,7 +839,7 @@ class SpecificWorker(GenericWorker):
         return True
 
     def showKinovaAngles(self):
-        print("///////////////////////////////////////////////////////////////////////////////////////////////")
+        print("//--------------------------------------------------------------------------------------------------//")
         ext_angles = []
         diff_from_pybullet = []
         for i in range(7):
@@ -858,8 +847,6 @@ class SpecificWorker(GenericWorker):
             diff_from_pybullet.append((math.degrees(p.getJointState(self.robot_id, i + 1)[0]) % 360) - self.ext_joints.joints[i].angle)
         print("Kinova angles", ext_angles)
         print("Diff from pybullet", diff_from_pybullet)
-        print("///////////////////////////////////////////////////////////////////////////////////////////////")
-
 
         # angles = []
         # for i in range(7):

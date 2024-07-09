@@ -52,6 +52,9 @@ class SpecificWorker(GenericWorker):
             self.timer.start(self.Period)
             self.joints = []
             self.gripper = []
+            self.speeds = ifaces.RoboCompKinovaArm.TJointSpeeds()
+            self.speeds.jointSpeeds = [0, 0, 0, 0, 0, 0, 0]
+            self.moveWithSpeed = False
 
     def __del__(self):
         """Destructor"""
@@ -90,6 +93,14 @@ class SpecificWorker(GenericWorker):
         ret = ifaces.RoboCompKinovaArm.TGripper()
         ret.distance = self.kinova.get_gripper_state()
         self.gripper = ret
+
+        if self.moveWithSpeed:
+            if self.lastMoveOrder + 1000 < time.time() * 1000:
+                self.speeds.jointSpeeds = [0, 0, 0, 0, 0, 0, 0]
+                self.moveWithSpeed = False
+            self.kinova.move_joints_with_speeds(self.speeds.jointSpeeds)
+
+
 
         # print("timer end", time.time()*1000)
 
@@ -164,7 +175,10 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of moveJointsWithSpeed method from KinovaArm interface
     #
     def KinovaArm_moveJointsWithSpeed(self, speeds):
-        self.kinova.move_joints_with_speeds(speeds.jointSpeeds)
+        self.speeds = speeds
+        self.moveWithSpeed = True
+        self.lastMoveOrder = time.time()*1000
+        # self.kinova.move_joints_with_speeds(speeds.jointSpeeds)
 
     #
     # IMPLEMENTATION of moveJointsWithAngle method from KinovaArm interface
