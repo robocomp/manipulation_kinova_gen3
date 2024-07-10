@@ -848,11 +848,6 @@ class SpecificWorker(GenericWorker):
         print("Kinova angles", ext_angles)
         print("Diff from pybullet", diff_from_pybullet)
 
-        # angles = []
-        # for i in range(7):
-        #     angles.append(p.getJointState(self.robot_id, i+1)[0])
-        # print(np.rad2deg(angles)%360)
-
     def movePybulletWithExternalVel(self):
         for i in range(len(self.ext_joints.joints)):
             self.target_velocities[i] = self.ext_joints.joints[i].velocity
