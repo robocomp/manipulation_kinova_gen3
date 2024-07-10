@@ -65,130 +65,135 @@ console = Console(highlight=False)
 
 class SpecificWorker(GenericWorker):
     """
-    Is a Python script that implements a robot's specific work instructions, such
-    as moving to specific positions or orientations and performing specific actions
-    based on buttons pressed by an operator.
+    Manages a robot's movements and actions based on data from an API, updating
+    the robot's position, orientation, and mode of operation. It also handles
+    button presses and moves the robot to a home position.
 
     Attributes:
-        Period (enumeration): Used to specify the period of the robot's movements
-            based on the move mode selected by the user, with a possible value of
-            either `1`, `2`, `3`, `4`, or `5`.
-        rgb (3element): Used to represent the current position, orientation, and
-            gripper state of a robot.
-        timestamp (int): Used to store the timestamp of when the worker was created
-            or updated.
-        startup_check (int): 4 by default, indicating that the worker will check
-            for startup-related data on every iteration of the main loop.
-        physicsClient (int): 4, indicating that the worker is a physics client
-            with 4 axes.
-        plane (instance): A plane object that stores the orientation of the worker's
-            end effector in 3D space relative to the robot's base.
-        table_id (str): Used to identify the worker's table in a specific environment.
-        robot_urdf (obb): Used to store the robot's URDF file, which defines the
-            robot's geometry and kinematics.
-        robot_launch_pos (tuple): Used to store the position of the robot at the
-            beginning of a launch.
-        robot_launch_orien (numpyarray): Used to store the orientation of the robot
-            in a specific launch configuration.
-        end_effector_link_index (int): 0-based indexing for the end effector link
-            of the robot, indicating which link the end effector is attached to.
-        robot_id (int): 0-based index of the specific worker, indicating which
-            robot it belongs to.
-        home_angles (list): A set of angles representing the home positions for
-            each axis of the robot, used to move the robot to its starting position
-            when the mode is changed.
-        observation_angles (ndarray): 2D, representing the orientation angles of
-            the robot's end effector in the world frame, as observed by a set of
-            cameras.
-        square (instance): Used to store the square distance between the worker's
-            current position and its target position.
-        cylinderId (str): 5-digit unique identifier for each cylinder in a specific
-            worker's workcell.
-        threadKinovaAngles (tuple): 4-element list of angles representing the
-            target positions of the robot's end effector for each axis (X, Y, Z,
-            and gripper) in the Kinova manipulator.
-        readDataFromProxy (instance): A method that reads data from a proxy server
-            and updates the robot's position, orientation, and move mode based on
-            the received data.
-        colorKinova (str): A reference to a color name specific to Kinova manipulators,
-            used for visual identification of the robot's end effector.
-        depthKinova (int): 0 by default, indicating that the worker is a Kinova Robot.
-        target_angles (list): Used to store the target angles for each axis (X,
-            Y, Z, and gripper) as Euler angles in radians.
-        target_position (list): A target position for the robot to reach, which
-            can be modified based on the axis values received from the robot's interface.
-        target_orientation (3D): Used to store the target orientation of the robot,
-            which represents the desired orientation of the robot's end effector.
-            It is updated based on the values received from the sensors and actuators
+        Period (int): 4 by default, which means the worker will move to a new
+            position every 0.05 seconds.
+        rgb (8element): 3-dimensional, representing the color of the worker's suit
+            in RGB format.
+        timestamp (int): Used to store the timestamp of when the worker was created.
+        startup_check (int): 4 by default, indicating that the worker will start
+            with a check for the fourth state (mode) of the robot's axes.
+        physicsClient (physicsPhysicsClient): Used to communicate with the ROS
+            node that handles the robot's physics simulations, allowing for updates
+            on the robot's position, orientation, and joint angles.
+        plane (instance): 2D plane that represents the workspace of the robot. It
+            is used to store the position and orientation of the end effector in
+            relation to the workspace.
+        table_id (int): Used to identify a specific worker in a table of workers,
+            allowing for efficient handling of different workers' inputs.
+        robot_urdf (obb): A dictionary containing the robot's URDF (Uniform Resource
+            Locator Definition Framework) information, which defines the robot's
+            geometry, joints, and other relevant properties.
+        robot_launch_pos (Tuple): Used to store the position of the robot at the
+            beginning of a launch operation. It contains values for the x, y, and
+            z coordinates of the robot's initial position.
+        robot_launch_orien (numpymatrix): Used to store the orientation of a robot's
+            end effector in a specific workspace.
+        end_effector_link_index (int): 7-bit binary encoded, indicating which joint
+            of the robot's end effector the worker's end effector is attached to.
+        robot_id (int): 4 by default, representing the specific worker's ID.
+        home_angles (ndarray): 4D, representing the target angles for each joint
+            of the robot in home position.
+        observation_angles (8element): A list of angles that represent the orientation
+            of the robot's end effector relative to its initial position.
+        cylinderId (int): 0 by default, indicating that the worker is a generic
+            robot without any specific identifiers or features.
+        threadKinovaAngles (ndarray): 4D, representing the angles for each joint
+            in the Kinova robot, where each dimension corresponds to a different
+            joint.
+        readDataFromProxy (async): Used to read data from a proxy server. It
+            retrieves the data from the server using the provided connection and
+            returns the received data as a dictionary.
+        colorKinova (str): Optional, representing the RGB color code for the robot's
+            body, which can be used to customize the
+            robot's appearance.
+        depthKinova (list): Used to store the depth of the kinematic chain, which
+            is a measure of the distance between the end effector and the starting
+            position of the robot's joints.
+        target_angles (ndarray): 0-dimensional, storing the target angles for each
+            joint of the robot in radians as a vector. It is used to store the
+            desired positions of the robot's joints based on the received data
+            from the Robot Operating System (ROS).
+        target_position (3element): Defined as a list of tuples containing the
+            target positions for the robot's joints, gripper, and end effector.
+            It stores the target position values for each axis of movement based
+            on the current mode and buttons pressed.
+        target_orientation (3x3): Used to store the desired orientation of the end
+            effector relative to the base link. It is updated based on the input
+            from the joystick and other controls.
+        target_velocities (ndarray): 3D array representing the desired velocities
+            for each joint of the robot in the target position.
+        joy_selected_joint (int): 0-based, indicating the currently selected joint
+            of a robotic arm for motion control based on input from a joystick.
+        move_mode (int): 0 by default, representing the current mode of the robot
+            (0: move, 1: home, 2: orient, 3: pose, 4: robot2).
+        ext_joints (7element): Used to keep track of the joints of the robot for
+            each move mode. It stores the index of the selected joint for each
+            move mode, starting from 0.
+        kinovaarm_proxy (object): Used to simulate the movement of a Kinova arm,
+            which is a robotic arm used in industrial automation applications. It
+            contains methods that allow the worker to move the arm based on input
+            from sensors and buttons.
+        ext_gripper (8bit): 0-255, representing the external gripper position
+            (0-255) in the robot's end effector frame. It is used to control the
+            movement of the external gripper in conjunction with the other joints
             of the robot.
-        target_velocities (ndarray): 5-dimensional, where each element represents
-            the target velocity for a specific axis (X, Y, or Z) and gripper. It
-            stores the desired velocities for the robot to move its end effector
-            to the desired position.
-        joy_selected_joint (str): Used to store the selected joint name from the
-            joystick input. It stores the name of the joint that was selected by
-            the user in the current mode (move, home, or configure).
-        move_mode (int): 0 by default, which determines the move mode of the robot
-            (0 - home, 1 - move, 2 - turn, 3 - tool change, 4 - teach).
-        ext_joints (list): A list of joints that are extended beyond their usual
-            range of motion to accommodate external devices such as grippers or sensors.
-        kinovaarm_proxy (object): Used to store the KINOVA arm's proxy, which is
-            a Python object that represents the robot's end effector.
-        ext_gripper (instance): Not described in the provided code snippet. Its
-            purpose or value is unknown without additional context or information.
-        timer (int): 0 by default, representing the number of milliseconds to wait
-            before updating the robot's position and orientation based on the
-            received data from the robot.
-        compute (Callable): Responsible for computing the robot's new position
-            based on the received data.
-        joint_speeds (ndarray): 4D, representing the joint speeds for each axis
-            (X, Y, Z, and gripper) as floating-point values between 0 and 1.
-        speeds (int): Used to store the speed values for each axis of movement,
-            which are used to control the robot's movements.
-        angles (list): 3-element list containing values for X, Y, and Z axes
-            representing robot's current angle relative to its home position.
-        gains (list): Used to store the gains for each axis of movement, which
-            determine how quickly or slowly the robot moves when a button is pressed.
-        posesTimes (ndarray): 3D array of shape (N, 3) where N is the number of
-            poses in the sequence, representing the robot's position and orientation
-            at each pose.
-        poses (ndarray): 3D array representing the current pose of the robot
-            (position and orientation) as a set of 3 values for each axis (X, Y,
-            Z) or gripper.
-        calibrator (instance): Responsible for handling calibration data and
-            updating the robot's position and orientation based on that data.
-        cameraKinovaTimer (int): 0, indicating that the worker uses a camera from
-            Kinova, which is a company specialized in robotics and automation.
-        readKinovaCamera (method): Used to read the camera data from the Kinova
-            robot's built-in camera. It takes no arguments and returns a dictionary
-            containing the camera data.
-        showKinovaStateTimer (int): 4 by default, indicating that the worker will
-            show the Kinova state timer every 4 seconds when running in Move mode.
-        showKinovaAngles (Optionalfloat): Used to display the angles of the Kinova
-            robot's joints, which are calculated based on the current position and
-            orientation of the end effector.
-        gainsTimer (float): Used to control the speed of the robot's movement based
-            on the timer value, with higher values resulting in slower movements.
-        updateGains (instance): Used to update the gains of the robot's joints
-            based on the current position and orientation of the robot, as well
-            as the position of the end effector.
-        aamed (attribute): Used to store the name of the action mode that was
-            active when the worker started its task.
+        timer (int): 0 by default, it keeps track of how long the worker has been
+            running.
+        compute (instance): A method that computes the new values of the robot's
+            position, orientation, and joint angles based on the raw data received
+            from the Joy input device.
+        joint_speeds (ndarray): 7-long, where each element represents the speed
+            of a joint (in degrees per second) to move the robot to its desired position.
+        speeds (int): 0-dimensional, representing the maximum speed at which each
+            joint can move in the robot. It is used to limit the movement of the
+            robot's joints based on their current position.
+        angles (8element): Used to store the target angles for each joint of the
+            robot in degrees.
+        gains (ndarray): 2D, where each row represents a joint and each column
+            represents a gain value for that joint. The gains control the speed
+            and accuracy of the robot's movements.
+        posesTimes (ndarray): 4D, representing the position and orientation of the
+            robot over time in a sequence of poses.
+        poses (8element): 9array of dictionaries, each representing a pose (position
+            and orientation) of the robot's end effector.
+        calibrator (instance): Used to store a calibration object that is used to
+            convert raw accelerometer values to joint angles for the robot arm.
+        cameraKinovaTimer (float): 0 by default, it measures the time the robot
+            takes to perform a specific task.
+        readKinovaCamera (method): Used to read the data from the Kinova camera.
+            It takes no arguments and returns a dictionary containing the camera
+            data.
+        showKinovaStateTimer (float): Used to show how long it takes for the worker
+            to complete a task.
+        showKinovaAngles (instance): 0-based indexing for the joint angles of the
+            Kinova robot arm, where 0 represents the base joint, 1-6 represent the
+            shoulder, elbow, wrist, and hip joints, respectively.
+        gainsTimer (float): Used to store a timer for gaining the joints, which
+            is used to update the target position of the robot based on the user
+            input.
+        updateGains (lambda): Used to update the gains of the robot based on the
+            data from the controller. It takes the robot's current position,
+            orientation, and button states as input and updates the gains accordingly.
+        aamed (attribute): Used to store a reference to the worker's IAM user data.
 
     """
     def __init__(self, proxy_map, startup_check=False):
         """
-        Of `SpecificWorker` initializes various kinova arm properties, timers and
-        variables for controlling the kinova arm's movement based on a calibration
-        sequence.
+        Initializes the SpecificWorker class, setting up various timers and
+        connectors for reading data from the Kinova arm, computing new angles based
+        on user inputs, and updating gains based on previous measurements.
 
         Args:
-            proxy_map (dict): Used to map Kinova's joint names to OpenRTM's joint
-                names. It allows to customize the mapping between the two different
-                joint spaces.
-            startup_check (int): 5 by default. It controls whether to run the
-                robot's home position and initial angles computation during the
-                startup process.
+            proxy_map (dict): Used to map Kinova API endpoints to the corresponding
+                RoboComp API endpoints for communication with the Kinova arm.
+            startup_check (optional): Used to check if the Kinova arm has been
+                calibrated before or not. If it hasn't been calibrated, the function
+                will run the calibration process.
 
         """
         super(SpecificWorker, self).__init__(proxy_map)
@@ -243,14 +248,11 @@ class SpecificWorker(GenericWorker):
                 p.resetJointState(bodyUniqueId=self.robot_id, jointIndex=i+1,
                                   targetValue=self.home_angles[i], targetVelocity=0)
 
-            # Load a cup to place on the table
-            # self.pybullet_cup = p.loadURDF("./URDFs/cup/cup_small.urdf", basePosition=[0.074, 0.20, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
-
             # Load a square to place on the table for calibration
-            self.square = p.loadURDF("./URDFs/cube_and_square/cube_small_square.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
-            texture_path = "./URDFs/cube_and_square/square_texture.png"
-            textureIdSquare = p.loadTexture(texture_path)
-            p.changeVisualShape(self.square, -1, textureUniqueId=textureIdSquare)
+            # self.square = p.loadURDF("./URDFs/cube_and_square/cube_small_square.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
+            # texture_path = "./URDFs/cube_and_square/square_texture.png"
+            # textureIdSquare = p.loadTexture(texture_path)
+            # p.changeVisualShape(self.square, -1, textureUniqueId=textureIdSquare)
 
             # # Load a cube to place on the table for calibration
             # self.cube = p.loadURDF("./URDFs/cube_and_square/cube_small.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
@@ -260,7 +262,7 @@ class SpecificWorker(GenericWorker):
             # p.changeVisualShape(self.cube, -1, textureUniqueId=textureId)
 
             # Load a cylinder to place on the table
-            self.cylinderId = p.loadURDF("./URDFs/cylinder/cylinder.urdf", [0.074, 0.2, 0.64], p.getQuaternionFromEuler([0, 0, 0]))
+            self.cylinderId = p.loadURDF("./URDFs/cylinder/cylinder.urdf", [0.074, 0.2, 0.70], p.getQuaternionFromEuler([0, 0, 0]))
 
             # Thread to read the real arm angles from kinova_controller
             self.threadKinovaAngles = threading.Thread(target=self.readDataFromProxy)
@@ -269,11 +271,6 @@ class SpecificWorker(GenericWorker):
             # Queues to store the images from the real arm camera
             self.colorKinova = collections.deque(maxlen=5)
             self.depthKinova = collections.deque(maxlen=5)
-
-            # Thread to read the Pybullet camera
-            # self.pybulletImageQueue = queue.Queue(maxsize=1)
-            # self.threadPybulletImage = threading.Thread(target=self.read_camera_fixed)
-            # self.threadPybulletImage.start()
 
             # Wait for half a second
             time.sleep(0.5)
@@ -302,7 +299,7 @@ class SpecificWorker(GenericWorker):
             self.joy_selected_joint = 0
 
             # This variable is to store the mode of the robot
-            self.move_mode = 5
+            self.move_mode = 4
 
             # This variable is to store the state of the real arm
             self.ext_joints = self.kinovaarm_proxy.getJointsState()
@@ -366,15 +363,13 @@ class SpecificWorker(GenericWorker):
         #	traceback.print_exc()
         #	print("Error reading config params")
         """
-        Sets parameters for an instance of the `SpecificWorker` class, which
-        inherits from `GenericWorker`. The function returns `True` upon successful
-        parameter setting.
+        Sets parameters for an instance of the `GenericWorker` class.
 
         Args:
-            params (object): Passed in to set instance parameters.
+            params (object): Used to set parameters for the function.
 
         Returns:
-            Boolean: True when successful and an exception otherwise.
+            True: Returned when the method execution completes successfully.
 
         """
         return True
@@ -384,8 +379,9 @@ class SpecificWorker(GenericWorker):
     def compute(self):
 
         """
-        Performs computation for a specific robot and moves it to the desired
-        position using PyBullet, while also tracking the time elapsed since initialization.
+        Computes the joint angles and velocities for a Kinova arm based on the
+        current position of the end effector and the target position. It also
+        controls the movement of the robot using PyBullet and Kinova's API.
 
         """
         match self.move_mode:
@@ -483,9 +479,6 @@ class SpecificWorker(GenericWorker):
 
                     self.target_velocities = joints_velocity
 
-                    #print("Joints: ", self.target_angles)
-                    #print(self.n_rotations)
-
                     for i in range(8, len(self.target_angles)):
                         p.setJointMotorControl2(self.robot_id, i+1, p.POSITION_CONTROL, targetPosition=self.target_angles[i]) #Move the arm with phisics
 
@@ -493,48 +486,12 @@ class SpecificWorker(GenericWorker):
                 except Ice.Exception as e:
                     print(e)
 
-            case 4:
-                try:
-                    self.correctTargetPosition()
-                    # print("Correct cup position end", time.time()*1000 - self.timestamp)
-                    self.toolbox_compute()
-                    # print("Toolbox compute end", time.time()*1000 - self.timestamp)
-                    self.movePybulletWithToolbox()
-                    # print("Move pybullet with toolbox end", time.time()*1000 - self.timestamp)
-                    self.moveKinovaWithSpeeds()
-                    # print("Move kinova with speeds end", time.time()*1000 - self.timestamp)
-
-                    self.posesTimes = np.append(self.posesTimes, int(time.time()*1000))
-
-                    jointsState = []
-                    for i in range(7):
-                        state = p.getJointState(self.robot_id, i + 1)
-                        angle_speed = (state[0], state[1])
-                        jointsState.append(angle_speed)
-
-                    self.poses.append(jointsState)
-
-                    # print("Pybullet poses saved to update gains", time.time()*1000 - self.timestamp)
-                    # print("//====================================//")
-
-                    # pybulletImage, imageTime = self.read_camera_fixed()
-                    # cv2.imshow("Pybullet", pybulletImage)
-                    # cv2.waitKey(1)
-                    # if self.arrived == True:
-                    #     print("Arrived")
-                    #     self.timer4.stop()
-                    #     self.timer3.stop()
-                    #     self.timer6.stop()
-                    #     self.target_velocities = [0.0] * 7
-                    #     self.move_mode = 8
-                except Ice.Exception as e:
-                    print(e)
-
-            case 5:    #Move to observation angles
+            case 4:    #Move to observation angles
                 print("Moving to observation angles", int(time.time()*1000) - self.timestamp)
                 self.moveKinovaWithAngles(self.observation_angles[:7])
                 for i in range(7):
-                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.observation_angles[i], maxVelocity=np.deg2rad(25))
+                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL,
+                                            targetPosition=self.observation_angles[i], maxVelocity=np.deg2rad(25))
 
                 self.target_angles[13] = self.ext_gripper.distance
                 self.target_angles[15] = - self.ext_gripper.distance
@@ -546,7 +503,7 @@ class SpecificWorker(GenericWorker):
 
                 for i in range(8, len(self.target_angles)):
                     p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL,
-                                            targetPosition=self.target_angles[i])  # Move the arm with phisics
+                                            targetPosition=self.target_angles[i])
 
                 angles = []
                 for i in range(7):
@@ -558,9 +515,8 @@ class SpecificWorker(GenericWorker):
 
                 if error < 0.05:
                     print("Observation angles reached", int(time.time()*1000) - self.timestamp)
-                    # self.threadPybulletImage.start()
-                    self.move_mode = 6
-            case 6:
+                    self.move_mode = 5
+            case 5:
                 # self.calibrator.calibrate3(self.robot_id, self.colorKinova)
                 # self.calibrator.cube_test(self.robot_id, self.colorKinova.copy())
                 # self.calibrator.square_test(self.robot_id, self.colorKinova.copy())
@@ -575,9 +531,9 @@ class SpecificWorker(GenericWorker):
 
                 else:
                     print("Calibration finished", int(time.time()*1000 - self.timestamp))
-                    self.move_mode = 7
+                    self.move_mode = 6
 
-            case 7:
+            case 6:
                 # self.showKinovaAngles()
                 self.timer.stop()
                 # self.calibrator.get_kinova_images(self.robot_id, self.kinovaarm_proxy, self.camerargbdsimple_proxy)
@@ -592,30 +548,91 @@ class SpecificWorker(GenericWorker):
                 print("initilizing toolbox", time.time()*1000 - self.timestamp)
                 self.initialize_toolbox()
                 print("toolbox initialized", time.time()*1000 - self.timestamp)
-                self.showKinovaStateTimer.start(500)
+                self.showKinovaStateTimer.start(1000)
                 self.gainsTimer.start(1000)
 
                 print("Moving to fixed cup")
-                self.move_mode = 4
+                self.move_mode = 7
                 self.timer.start(self.Period)
 
-            case 8:
-                if self.flag == True:
-                    cv2.imwrite("pybullet_image.png", self.colorKinova[0][0])
-                    self.flag = False
+            case 7:
+                try:
+                    self.correctTargetPosition()
+                    # print("Correct cup position end", time.time()*1000 - self.timestamp)
+                    self.toolbox_compute()
+                    # print("Toolbox compute end", time.time()*1000 - self.timestamp)
+                    self.movePybulletWithToolbox()
+                    # print("Move pybullet with toolbox end", time.time()*1000 - self.timestamp)
+                    self.moveKinovaWithSpeeds()
+                    # print("Move kinova with speeds end", time.time()*1000 - self.timestamp)
 
-                self.moveKinovaWithAngles(self.home_angles[:7])
-                for i in range(7):
-                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL, targetPosition=self.home_angles[i])
+                    self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
+
+                    jointsState = []
+                    for i in range(7):
+                        state = p.getJointState(self.robot_id, i + 1)
+                        angle_speed = (state[0], state[1])
+                        jointsState.append(angle_speed)
+
+                    self.poses.append(jointsState)
+
+                    # print("Pybullet poses saved to update gains", time.time()*1000 - self.timestamp)
+                    # print("//====================================//")
+
+                    # if self.arrived == True:
+                    #     print("Arrived")
+                    #     self.target_velocities = [0.0] * 7
+                    #     self.move_mode = 8
+
+                    gripper_position = p.getLinkState(self.robot_id, self.end_effector_link_index)[0]
+                    target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
+                    print("Gripper position: ", gripper_position)
+                    print("Target position: ", target_position)
+
+                    if gripper_position[2] - target_position[2] < 0.5:
+                        print("Working without visual feedback")
+                        self.move_mode = 8
+                except Ice.Exception as e:
+                    print(e)
+
+            # TODO: Change toolbox methods to add the target position as parameter and complete the demo path
+
+            case 8:
+                try:
+                    if not self.arrived:
+                        self.toolbox_compute()
+
+                    self.movePybulletWithToolbox()
+                    self.moveKinovaWithSpeeds()
+
+                    imgPybullet, imageTime = self.read_camera_fixed()
+
+                    self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
+
+                    jointsState = []
+                    for i in range(7):
+                        state = p.getJointState(self.robot_id, i + 1)
+                        angle_speed = (state[0], state[1])
+                        jointsState.append(angle_speed)
+
+                    self.poses.append(jointsState)
+
+                    if self.arrived == True:
+                        # print("Arrived")
+                        self.target_velocities = [0.0] * 7
+                        # self.move_mode = 9
+
+                except Ice.Exception as e:
+                    print(e)
+
 
 
     # =============== Methods ==================
 
     def startup_check(self):
         """
-        Tests various components and methods of the `ifaces` module, including
-        `RoboCompKinovaArm`, `TGripper`, `TJoint`, `TJoints`, `RoboCompJoystickAdapter`,
-        and `AxisParams`.
+        Tests various components and interfaces of a RoboCompKinovaArm, including
+        TPose, TGripper, TJoint, TJoints, AxisParams, ButtonParams, and TData.
 
         """
         print(f"Testing RoboCompKinovaArm.TPose from ifaces.RoboCompKinovaArm")
@@ -638,14 +655,12 @@ class SpecificWorker(GenericWorker):
         # print("//--------------------//")
         # print("Get pybullet image", time.time()*1000 - self.timestamp)
         """
-        Determines the difference between the position of a target object detected
-        by the camera and the corresponding position of the same object in a
-        pre-defined kinematic model. It then adjusts the base position and orientation
-        of the robot to minimize the difference.
+        Calculates the difference between the positions of a kinova and a pybullet
+        object, and adjusts the position of the cylinder base to minimize the error.
 
         Returns:
-            float: The distance between the target position and the estimated
-            position of the kinova marker.
+            float: The difference between the positions of two sets of keypoints
+            detected by the AAMED algorithm, used to correct the position of a cylinder.
 
         """
         pybulletImage, imageTime = self.read_camera_fixed()
@@ -710,9 +725,9 @@ class SpecificWorker(GenericWorker):
     def initialize_toolbox(self):
         ## Launch the simulator Swift
         """
-        Sets up the toolbox environment, including adding grippers, end-effector,
-        and a cylinder object, as well as defining the desired end-effector pose.
-        It also sets parameters such as the step time and the arrived flag to False.
+        Initializes various tools and objects within the `SpecificWorker` class,
+        including a Swift environment, a Kinova robot, and axes for the robot's
+        end effector and goal position.
 
         """
         self.env = swift.Swift()
@@ -751,13 +766,13 @@ class SpecificWorker(GenericWorker):
 
         target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
         target_position[0] = target_position[0] + 0.3  # Added the robot base offset in pybullet
-
+        target_position[2] = target_position[2] - 0.45  # Added the robot base offset in pybullet and the height of the cup
         # objects
         # self.cup = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(cup_position[0], cup_position[1], 0), color=(0, 0, 1))
-        self.cup = sg.Cylinder(0.036, 0.168, pose=sm.SE3.Trans(target_position[0], target_position[1], 0), color=(0, 1, 0))
+        # self.cup = sg.Cylinder(0.036, 0.168, pose=sm.SE3.Trans(target_position[0], target_position[1], 0), color=(0, 1, 0))
 
         # self.cup = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.4, 0.4, 0), color=(0, 0, 1))
-        self.env.add(self.cup)
+        # self.env.add(self.cup)
 
         # Set the desired end-effector pose
         self.rot = self.kinova.fkine(self.kinova.q).R
@@ -765,6 +780,7 @@ class SpecificWorker(GenericWorker):
         # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.26])
         # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])
         self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], 0.60])
+        self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], target_position[2]])
         # self.Tep = sm.SE3.Rt(self.rot, [0.4, 0.4, 0.13])  # green = x-axis, red = y-axis, blue = z-axis
         self.goal_axes.T = self.Tep
 
@@ -777,9 +793,10 @@ class SpecificWorker(GenericWorker):
     def toolbox_compute(self):
         # The current pose of the kinova's end-effector
         """
-        Computes the worker's joint velocities based on its target position and
-        orientation, using a PID controller to regulate its motion. It also updates
-        the worker's ee axes and the environment's time step.
+        Computes the joint velocities for a robot arm based on its end effector
+        position and orientation. It uses the kinematic structure of the arm to
+        compute the joint angles and takes into account constraints on the motion
+        of the arm.
 
         """
         self.Te = self.kinova.fkine(self.kinova.q)
@@ -789,9 +806,10 @@ class SpecificWorker(GenericWorker):
 
         target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
         target_position[0] = target_position[0] + 0.3
+        target_position[2] = target_position[2] - 0.45
 
         # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])  # green = x-axis, red = y-axis, blue = z-axis
-        self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], 0.60])  # green = x-axis, red = y-axis, blue = z-axis
+        self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], target_position[2]])  # green = x-axis, red = y-axis, blue = z-axis
         # Transform from the end-effector to desired pose
         self.eTep = self.Te.inv() * self.Tep
 
@@ -800,7 +818,7 @@ class SpecificWorker(GenericWorker):
 
         # Calulate the required end-effector spatial velocity for the robot
         # to approach the goal. Gain is set to 1.0
-        self.v, self.arrived = rtb.p_servo(self.Te, self.Tep, 1.0, threshold=0.01)
+        self.v, self.arrived = rtb.p_servo(self.Te, self.Tep, 1.0, threshold=0.005)
 
         # Gain term (lambda) for control minimisation
         self.Y = 0.01
@@ -923,13 +941,11 @@ class SpecificWorker(GenericWorker):
         return viewMatrix
     def read_camera_fixed(self):
         """
-        Captures and processes images from a camera using PyBullet, a Python library
-        for robotics and computer vision. It retrieves camera intrinsic parameters,
-        projects the image, rotates the view matrix, and displays the resulting
-        image in an image window.
+        Reads the fixed camera image from a PyBullet simulation and processes it
+        to generate an RGB image.
 
         Returns:
-            2D: A grayscale image of the camera sensor.
+            3D: 2D image captured by a camera.
 
         """
         while True:
@@ -1004,11 +1020,12 @@ class SpecificWorker(GenericWorker):
 
     def readKinovaCamera(self):
         """
-        Retrieves camera data from Kinova and processes it by normalizing depth
-        images and storing them along with livetime values.
+        Retrieves depth and color images from a Kinova camera, normalizes them,
+        and appends them to instances of `depthKinova` and `colorKinova`.
 
         Returns:
-            True: 1 when the function execution is successful, and False otherwise.
+            True: A boolean value indicating whether the operation was successful
+            or not.
 
         """
         try:
@@ -1021,15 +1038,16 @@ class SpecificWorker(GenericWorker):
             kinovaImage = (np.frombuffer(both.image.image, np.uint8)
                                 .reshape(both.image.height, both.image.width, both.image.depth))
             self.colorKinova.append([kinovaImage, both.image.alivetime])
+
         except Ice.Exception as e:
             print(e)
         return True
 
     def showKinovaAngles(self):
         """
-        Calculates and prints the angles of the robot's joints using the `ext_joints`
-        attribute, and also computes and prints the difference between the angles
-        and the corresponding values from PyBullet.
+        Calculates and prints the angles of a Kinova robot's joints, as well as
+        the difference between those angles and the corresponding values retrieved
+        from PyBullet.
 
         """
         print("//--------------------------------------------------------------------------------------------------//")
@@ -1043,9 +1061,8 @@ class SpecificWorker(GenericWorker):
 
     def movePybulletWithExternalVel(self):
         """
-        Adjusts the velocities of a robot's joints based on external velocity
-        commands, converts the velocities to radians, and sets the motor control
-        targets for each joint using the PyBullet library.
+        Sets the target velocities for joints in a robot using PyBullet, and then
+        applies those velocities to the robot's motors.
 
         """
         for i in range(len(self.ext_joints.joints)):
@@ -1060,9 +1077,8 @@ class SpecificWorker(GenericWorker):
     def movePybulletWithToolbox(self):
         # print("Pybullet move with toolbox init", time.time()*1000 - self.timestamp)
         """
-        Sets the velocities of joints in a robot using PyBullet's `setJointMotorControl2`
-        method. It loops through the robot's joints and sets their velocities to
-        the target velocities provided as an argument.
+        Controls the velocity of a robot using PyBullet, setting joint motor control
+        values for each joint based on target velocities provided in a list.
 
         """
         for i in range(len(self.target_velocities)):
@@ -1072,9 +1088,9 @@ class SpecificWorker(GenericWorker):
 
     def readDataFromProxy(self):
         """
-        Obtains joint and gripper states from an external proxy, scales down the
-        gripper distance by 80%, and sleeps for 0.05 seconds before repeating the
-        process.
+        Reads data from a proxy server, specifically obtaining joint states and
+        gripper distances, and then multiplies the gripper distance by 0.8 before
+        sleeping for 0.05 seconds.
 
         """
         while True:
@@ -1087,12 +1103,12 @@ class SpecificWorker(GenericWorker):
 
     def moveKinovaWithAngles(self, angles):
         """
-        Updates joint angles for a Kinova arm based on angles passed as argument,
-        and then calls the `moveJointsWithAngle` method of the `kinovaarm_proxy`
-        object to move the arm with the new angles.
+        Moves the joints of a Kinova arm based on angles provided as input, using
+        the `moveJointsWithAngle` method of the `kinovaarm_proxy` object.
 
         Args:
-            angles (ndarray): 360-degree angle values represented as radians.
+            angles (ndarray): 2D array containing radians representing joint angles
+                to move in degrees.
 
         """
         array = np.round(np.rad2deg(angles) % 360)
@@ -1102,8 +1118,8 @@ class SpecificWorker(GenericWorker):
     def moveKinovaWithSpeeds(self):
         # print("Kinova move with speeds init", time.time()*1000 - self.timestamp)
         """
-        Controls the speed of robot joints based on error angles and gains, then
-        moves the joints with those speeds using the `kinovaarm_proxy`.
+        Controls the movement of a robot's joints using speed commands generated
+        based on error values and gain values.
 
         """
         self.joint_speeds = []
@@ -1126,9 +1142,9 @@ class SpecificWorker(GenericWorker):
 
     def updateGains(self):
         """
-        Updates the gains for each joint in the robot's arm based on the difference
-        between the current pose and the desired pose, with a maximum update rate
-        of 0.2 degrees per iteration.
+        Updates the gains of a robot's joints based on the difference between the
+        current position and the desired position, and the timestamp of the current
+        pose.
 
         """
         self.posesTimes = self.posesTimes - self.ext_joints.timestamp
@@ -1160,12 +1176,13 @@ class SpecificWorker(GenericWorker):
     #
     def JoystickAdapter_sendData(self, data):
         """
-        Receives data from a joystick and updates the position, orientation, and
-        mode of a robot based on the received data.
+        Processes data from a joystick and updates the robot's position, orientation,
+        and move mode based on the input axes and buttons. It also handles home
+        positions for the robot's joints and gripper.
 
         Args:
-            data (dict): Passed data from a joystick, containing axes and buttons
-                values.
+            data (dict): Passed as an argument from another function or main method,
+                containing the joystick input data as a dictionary of axes and buttons.
 
         """
         match self.move_mode:
