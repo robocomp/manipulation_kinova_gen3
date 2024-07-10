@@ -118,7 +118,7 @@ class SpecificWorker(GenericWorker):
                                   targetValue=self.home_angles[i], targetVelocity=0)
 
             # Load a cup to place on the table
-            self.pybullet_cup = p.loadURDF("./URDFs/cup/cup_small.urdf", basePosition=[0.074, 0.20, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
+            # self.pybullet_cup = p.loadURDF("./URDFs/cup/cup_small.urdf", basePosition=[0.074, 0.20, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
 
             # Load a square to place on the table for calibration
             self.square = p.loadURDF("./URDFs/cube_and_square/cube_small_square.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
@@ -132,6 +132,9 @@ class SpecificWorker(GenericWorker):
             # textureId = p.loadTexture(texture_path)
             #
             # p.changeVisualShape(self.cube, -1, textureUniqueId=textureId)
+
+            # Load a cylinder to place on the table
+            self.cylinderId = p.loadURDF("./URDFs/cylinder/cylinder.urdf", [0.074, 0.2, 0.64], p.getQuaternionFromEuler([0, 0, 0]))
 
             # Thread to read the real arm angles from kinova_controller
             self.threadKinovaAngles = threading.Thread(target=self.readDataFromProxy)
@@ -349,7 +352,7 @@ class SpecificWorker(GenericWorker):
 
             case 4:
                 try:
-                    self.correctCupPosition()
+                    self.correctTargetPosition()
                     # print("Correct cup position end", time.time()*1000 - self.timestamp)
                     self.toolbox_compute()
                     # print("Toolbox compute end", time.time()*1000 - self.timestamp)
@@ -424,7 +427,7 @@ class SpecificWorker(GenericWorker):
                 # yolodetector.plot(results)
                 # print(self.threadPybulletImage.is_alive())
 
-                if self.correctCupPosition() > 5:
+                if self.correctTargetPosition() > 5:
                     print("Correcting cup position", int(time.time()*1000) - self.timestamp)
 
                 else:
@@ -482,15 +485,10 @@ class SpecificWorker(GenericWorker):
         test = ifaces.RoboCompJoystickAdapter.TData()
         QTimer.singleShot(200, QApplication.instance().quit)
 
-    def correctCupPosition(self):
+    def correctTargetPosition(self):
         # print("//--------------------//")
-        # print("Init time", time.time()*1000 - self.timestamp)
-        # aamed = pyAAMED(1080, 1940)
-        # aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
-
         # print("Get pybullet image", time.time()*1000 - self.timestamp)
         pybulletImage, imageTime = self.read_camera_fixed()
-        # pybulletImage = self.pybulletImageQueue.get()
         # print("Pybullet image obtained", time.time()*1000 - self.timestamp)
         pybulletImage = cv2.resize(pybulletImage, (1280//2, 720//2))
         imgGPybullet = cv2.cvtColor(pybulletImage, cv2.COLOR_BGR2GRAY)
@@ -539,10 +537,10 @@ class SpecificWorker(GenericWorker):
 
         # print("x: ", resKinova[0][1] - resPybullet[0][1], " y: ", resKinova[0][0] - resPybullet[0][0])
 
-        position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
+        position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
         position[0] = position[0] - 0.0002 * (resKinova[0][0] - resPybullet[0][0])
         position[1] = position[1] - 0.0002 * (resKinova[0][1] - resPybullet[0][1])
-        p.resetBasePositionAndOrientation(self.pybullet_cup, tuple(position), p.getQuaternionFromEuler([0, 0, 0]))
+        p.resetBasePositionAndOrientation(self.cylinderId, tuple(position), p.getQuaternionFromEuler([0, 0, 0]))
 
         # print("//--------------------//")
 
@@ -582,11 +580,16 @@ class SpecificWorker(GenericWorker):
         # Number of joint in the Kinova which we are controlling
         self.n = 7
 
-        cup_position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
-        cup_position[0] = cup_position[0] + 0.3  # Added the robot base offset in pybullet
+        # cup_position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
+        # cup_position[0] = cup_position[0] + 0.3  # Added the robot base offset in pybullet
+
+        target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
+        target_position[0] = target_position[0] + 0.3  # Added the robot base offset in pybullet
 
         # objects
-        self.cup = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(cup_position[0], cup_position[1], 0), color=(0, 0, 1))
+        # self.cup = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(cup_position[0], cup_position[1], 0), color=(0, 0, 1))
+        self.cup = sg.Cylinder(0.036, 0.168, pose=sm.SE3.Trans(target_position[0], target_position[1], 0), color=(0, 1, 0))
+
         # self.cup = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.4, 0.4, 0), color=(0, 0, 1))
         self.env.add(self.cup)
 
@@ -594,7 +597,8 @@ class SpecificWorker(GenericWorker):
         self.rot = self.kinova.fkine(self.kinova.q).R
         self.rot = sm.SO3.OA([1, 0, 0], [0, 0, -1])
         # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.26])
-        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])
+        # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])
+        self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], 0.60])
         # self.Tep = sm.SE3.Rt(self.rot, [0.4, 0.4, 0.13])  # green = x-axis, red = y-axis, blue = z-axis
         self.goal_axes.T = self.Tep
 
@@ -608,10 +612,14 @@ class SpecificWorker(GenericWorker):
         # The current pose of the kinova's end-effector
         self.Te = self.kinova.fkine(self.kinova.q)
 
-        cup_position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
-        cup_position[0] = cup_position[0] + 0.3  # Added the robot base offset in pybullet
+        # cup_position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
+        # cup_position[0] = cup_position[0] + 0.3  # Added the robot base offset in pybullet
 
-        self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])  # green = x-axis, red = y-axis, blue = z-axis
+        target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
+        target_position[0] = target_position[0] + 0.3
+
+        # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])  # green = x-axis, red = y-axis, blue = z-axis
+        self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], 0.60])  # green = x-axis, red = y-axis, blue = z-axis
         # Transform from the end-effector to desired pose
         self.eTep = self.Te.inv() * self.Tep
 
@@ -815,25 +823,14 @@ class SpecificWorker(GenericWorker):
     def readKinovaCamera(self):
         try:
             both = self.camerargbdsimple_proxy.getAll("CameraRGBDViewer")
-
-            # self.colorKinova.append(both.image)
-            # self.depthKinova.append(both.depth)
-            # print(both.image.alivetime)
-
             depthImage = (np.frombuffer(both.depth.depth, dtype=np.int16)
                                 .reshape(both.depth.height, both.depth.width))
             depthImage = cv2.normalize(src=depthImage, dst=None, alpha=0, beta=255,
                                              norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
             self.depthKinova.append([depthImage, both.depth.alivetime])
-
             kinovaImage = (np.frombuffer(both.image.image, np.uint8)
                                 .reshape(both.image.height, both.image.width, both.image.depth))
-
             self.colorKinova.append([kinovaImage, both.image.alivetime])
-
-            # cv2.imshow("ColorKinova", self.colorKinova[0][0])
-            # cv2.imshow("DepthKinova", self.depthKinova)
-            # cv2.waitKey(5)
         except Ice.Exception as e:
             print(e)
         return True
