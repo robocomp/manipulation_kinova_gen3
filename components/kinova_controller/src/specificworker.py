@@ -100,8 +100,6 @@ class SpecificWorker(GenericWorker):
                 self.moveWithSpeed = False
             self.kinova.move_joints_with_speeds(self.speeds.jointSpeeds)
 
-
-
         # print("timer end", time.time()*1000)
 
         return True
@@ -121,13 +119,9 @@ class SpecificWorker(GenericWorker):
     #
     # IMPLEMENTATION of closeGripper method from KinovaArm interface
     #
-    def KinovaArm_closeGripper(self):
+    def KinovaArm_closeGripper(self, position):
 
-        #
-        # write your CODE here
-        #
-        self.kinova.close_gripper_speed()
-        pass
+        self.kinova.gripper_move_to(position)
 
 
     #

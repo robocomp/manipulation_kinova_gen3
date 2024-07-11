@@ -58,7 +58,7 @@ module RoboCompKinovaArm
 	};
 	interface KinovaArm
 	{
-		void closeGripper ();
+		void closeGripper (float position);
 		TPose getCenterOfTool (ArmJoints referencedTo);
 		TGripper getGripperState ();
 		TJoints getJointsState ();

@@ -121,6 +121,26 @@ class KinovaGen3():
     def stop_movement(self):
         self.cartesian_move_relative(0, 0, 0, 0, 0, 0)
 
+    def gripper_move_to(self, target_position):
+        gripper_command = Base_pb2.GripperCommand()
+        finger = gripper_command.gripper.finger.add()
+
+        # Close the gripper with position increments
+        print("Performing gripper test in position...")
+        gripper_command.mode = Base_pb2.GRIPPER_POSITION
+        position = 0.00
+        finger.finger_identifier = 1
+        finger.value = target_position
+        self.base.SendGripperCommand(gripper_command)
+        # while position < 1.0:
+        #     finger.value = position
+        #     print("Going to position {:0.2f}...".format(finger.value))
+        #     self.base.SendGripperCommand(gripper_command)
+        #     position += 0.1
+        #     time.sleep(1)
+        return True
+
+
     def cartesian_move_to(self, x, y, z, theta_x, theta_y, theta_z):
 
         print("Starting Cartesian Especific Movement ...")

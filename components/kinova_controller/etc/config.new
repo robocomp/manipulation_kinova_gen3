@@ -1,5 +1,5 @@
 # Endpoints for implements interfaces
-KinovaArm.Endpoints=tcp -p 11300
+KinovaArm.Endpoints=tcp -p 14890
 
 
 

@@ -99,7 +99,7 @@ class SpecificWorker(GenericWorker):
     #
     # IMPLEMENTATION of closeGripper method from KinovaArm interface
     #
-    def KinovaArm_closeGripper(self):
+    def KinovaArm_closeGripper(self, position):
     
         #
         # write your CODE here
