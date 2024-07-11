@@ -34,12 +34,22 @@ Ice.loadSlice("-I ./src/ --all ./src/KinovaArm.ice")
 from RoboCompKinovaArm import *
 
 class KinovaArmI(KinovaArm):
+    """
+    Provides methods for controlling a Kinova arm, including closing and opening
+    the gripper, getting the center of tool, gripper state, joints state, and
+    moving the joints with angle or speed.
+
+    Attributes:
+        worker (KinovaArm): Used to interact with the Arm's API for joints movement,
+            gripper opening and closing, and tool positioning.
+
+    """
     def __init__(self, worker):
         self.worker = worker
 
 
-    def closeGripper(self, c):
-        return self.worker.KinovaArm_closeGripper()
+    def closeGripper(self, position, c):
+        return self.worker.KinovaArm_closeGripper(position)
 
     def getCenterOfTool(self, referencedTo, c):
         return self.worker.KinovaArm_getCenterOfTool(referencedTo)

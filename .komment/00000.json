@@ -318,232 +318,237 @@
     "path": "pybullet_controller/src/specificworker.py",
     "content": {
       "structured": {
-        "description": "a robot arm with five joints and a gripper, and controls its movement based on user input from a joystick. The code uses the `robotpy` library to interact with the robot arm and the `pygame` library for user input. It processes user input from the joystick in three different modes: move mode, home mode, and calibration mode. In move mode, the code moves the robot arm based on user input from the joystick, adjusting the position and orientation of the robot arm accordingly. In home mode, the code sets the robot arm's position and orientation to their default positions. In calibration mode, the code adjusts the sensitivity of the joystick input based on user input from a button on the joystick. The code also includes functionality for switching between different modes of operation based on the joystick's buttons.",
+        "description": "A class Robot and implements its functionality to control a robotic arm. It reads in data from a JSON file containing the robot's current position, orientation, and buttons, and based on this data, it updates the robot's position, orientation, and mode of movement. The code uses the `math` and `pickle` modules for mathematical operations and data serialization/deserialization, respectively.\n\nIn summary, the code defines a class Robot that controls a robotic arm based on data read from a JSON file, updating the arm's position, orientation, and mode of movement according to the data.",
         "items": [
           {
-            "id": "ef29c7a1-cb6b-8dad-1742-e9e410868437",
+            "id": "a0e98790-4053-5085-684a-ee095912b3b8",
             "ancestors": [],
-            "description": "Manages a robot's movements and actions based on data from an API, updating the robot's position, orientation, and mode of operation. It also handles button presses and moves the robot to a home position.",
+            "description": "Controls a robot's movements based on sensor data, with specific functions for each mode (e.g., home, move_mode, etc.). It updates the robot's position and orientation based on axis values and button presses, and switches between different modes based on the received data.",
             "attributes": [
               {
                 "name": "Period",
                 "type_name": "int",
-                "description": "4 by default, which means the worker will move to a new position every 0.05 seconds."
+                "description": "5 by default, indicating the maximum number of times the worker can move its end effector within a given time period before it needs to pause and recharge."
               },
               {
                 "name": "rgb",
-                "type_name": "8element",
-                "description": "3-dimensional, representing the color of the worker's suit in RGB format."
+                "type_name": "3element",
+                "description": "Used to represent the current position of the robot's end effector in RGB color space, where each component represents the position of the end effector along the X, Y, and Z axes, respectively."
               },
               {
                 "name": "timestamp",
                 "type_name": "int",
-                "description": "Used to store the timestamp of when the worker was created."
+                "description": "0 by default, indicating that the worker has just started processing the job."
               },
               {
                 "name": "startup_check",
                 "type_name": "int",
-                "description": "4 by default, indicating that the worker will start with a check for the fourth state (mode) of the robot's axes."
+                "description": "4 by default, indicating that the worker will check for startup-related data every 4 seconds."
               },
               {
                 "name": "physicsClient",
-                "type_name": "physicsPhysicsClient",
-                "description": "Used to communicate with the ROS node that handles the robot's physics simulations, allowing for updates on the robot's position, orientation, and joint angles."
+                "type_name": "instance",
+                "description": "Used to access the physics client for the robot's simulation, which allows for interaction with the robot's physical environment."
               },
               {
                 "name": "plane",
-                "type_name": "instance",
-                "description": "2D plane that represents the workspace of the robot. It is used to store the position and orientation of the end effector in relation to the workspace."
+                "type_name": "str",
+                "description": "Used to store the plane that the robot is currently working on."
               },
               {
                 "name": "table_id",
-                "type_name": "int",
-                "description": "Used to identify a specific worker in a table of workers, allowing for efficient handling of different workers' inputs."
+                "type_name": "str",
+                "description": "A unique identifier for each worker, used to differentiate between workers in the table."
               },
               {
                 "name": "robot_urdf",
                 "type_name": "obb",
-                "description": "A dictionary containing the robot's URDF (Uniform Resource Locator Definition Framework) information, which defines the robot's geometry, joints, and other relevant properties."
+                "description": "A dictionary that contains the URDF (Unified Robot Description Format) file of the robot used for manipulation."
               },
               {
                 "name": "robot_launch_pos",
-                "type_name": "Tuple",
-                "description": "Used to store the position of the robot at the beginning of a launch operation. It contains values for the x, y, and z coordinates of the robot's initial position."
+                "type_name": "tuple",
+                "description": "Defined as the position of the robot at the time of launch, used for storing the initial position of the robot in the simulation."
               },
               {
                 "name": "robot_launch_orien",
-                "type_name": "numpymatrix",
-                "description": "Used to store the orientation of a robot's end effector in a specific workspace."
+                "type_name": "numpyndarray",
+                "description": "Used to store the orientation of the robot in a specific configuration."
               },
               {
                 "name": "end_effector_link_index",
                 "type_name": "int",
-                "description": "7-bit binary encoded, indicating which joint of the robot's end effector the worker's end effector is attached to."
+                "description": "0-based, indicating the index of the end effector link in the robot's linkage structure."
               },
               {
                 "name": "robot_id",
                 "type_name": "int",
-                "description": "4 by default, representing the specific worker's ID."
+                "description": "4 in this case, indicating that the worker is the fourth robot in the system."
               },
               {
                 "name": "home_angles",
-                "type_name": "ndarray",
-                "description": "4D, representing the target angles for each joint of the robot in home position."
+                "type_name": "list",
+                "description": "Predefined angles values for each axis (X, Y, Z, and gripper) to return the robot to its home position when a specific button is pressed."
               },
               {
                 "name": "observation_angles",
-                "type_name": "8element",
-                "description": "A list of angles that represent the orientation of the robot's end effector relative to its initial position."
+                "type_name": "ndarray",
+                "description": "4D, representing the angle values for each axis (X, Y, Z, and gripper) as a numpy array."
+              },
+              {
+                "name": "table_center",
+                "type_name": "OptionalTuple",
+                "description": "Used to store the center position of the table in the robot's workspace, which is used for motion planning and task execution."
               },
               {
                 "name": "cylinderId",
                 "type_name": "int",
-                "description": "0 by default, indicating that the worker is a generic robot without any specific identifiers or features."
+                "description": "1 by default, representing the first cylinder of a robot's body. It is used to identify which part of the robot's body the worker is attached to."
               },
               {
                 "name": "threadKinovaAngles",
                 "type_name": "ndarray",
-                "description": "4D, representing the angles for each joint in the Kinova robot, where each dimension corresponds to a different joint."
+                "description": "0-dimensional, indicating that it has a single value representing the angles for the Kinova robot."
               },
               {
                 "name": "readDataFromProxy",
-                "type_name": "async",
-                "description": "Used to read data from a proxy server. It retrieves the data from the server using the provided connection and returns the received data as a dictionary."
+                "type_name": "lambda",
+                "description": "Used to read data from a proxy server. It takes in the robot's state as input and returns the data read from the proxy server."
               },
               {
                 "name": "colorKinova",
                 "type_name": "str",
-                "description": "Optional, representing the RGB color code for the robot's body, which can be used to customize the \nrobot's appearance."
+                "description": "Used to represent the color of the Kinova robot."
               },
               {
                 "name": "depthKinova",
-                "type_name": "list",
-                "description": "Used to store the depth of the kinematic chain, which is a measure of the distance between the end effector and the starting position of the robot's joints."
+                "type_name": "int",
+                "description": "0 by default, indicating that the worker is a Kinova robot with depth sensors."
               },
               {
                 "name": "target_angles",
-                "type_name": "ndarray",
-                "description": "0-dimensional, storing the target angles for each joint of the robot in radians as a vector. It is used to store the desired positions of the robot's joints based on the received data from the Robot Operating System (ROS)."
+                "type_name": "list",
+                "description": "Used to store the target angles for each axis (X, Y, Z) and gripper. It stores the target position of the end effector in angle space."
               },
               {
                 "name": "target_position",
-                "type_name": "3element",
-                "description": "Defined as a list of tuples containing the target positions for the robot's joints, gripper, and end effector. It stores the target position values for each axis of movement based on the current mode and buttons pressed."
+                "type_name": "list",
+                "description": "Used to store the target position of the robot's end effector for each axis (X, Y, Z, and gripper). The values in the list are used to calculate the new position of the end effector based on user input."
               },
               {
                 "name": "target_orientation",
-                "type_name": "3x3",
-                "description": "Used to store the desired orientation of the end effector relative to the base link. It is updated based on the input from the joystick and other controls."
+                "type_name": "3D",
+                "description": "Used to store the desired orientation of the robot's end effector relative to its initial position, after the move command has been executed."
               },
               {
                 "name": "target_velocities",
-                "type_name": "ndarray",
-                "description": "3D array representing the desired velocities for each joint of the robot in the target position."
+                "type_name": "list",
+                "description": "A reference to the target velocities for each axis of the robot's end effector, which are used to calculate the desired position of the robot."
               },
               {
                 "name": "joy_selected_joint",
-                "type_name": "int",
-                "description": "0-based, indicating the currently selected joint of a robotic arm for motion control based on input from a joystick."
+                "type_name": "str",
+                "description": "1-based index of the joint that the user has selected from the joystick, indicating which joint to move or manipulate."
               },
               {
                 "name": "move_mode",
                 "type_name": "int",
-                "description": "0 by default, representing the current mode of the robot (0: move, 1: home, 2: orient, 3: pose, 4: robot2)."
+                "description": "0-4, representing the move mode (home, absolute, or relative movement) of the robot."
               },
               {
                 "name": "ext_joints",
-                "type_name": "7element",
-                "description": "Used to keep track of the joints of the robot for each move mode. It stores the index of the selected joint for each move mode, starting from 0."
+                "type_name": "list",
+                "description": "A list of joints that are external to the robot, indicating that they can be controlled by the worker programmatically, such as the gripper."
               },
               {
                 "name": "kinovaarm_proxy",
-                "type_name": "object",
-                "description": "Used to simulate the movement of a Kinova arm, which is a robotic arm used in industrial automation applications. It contains methods that allow the worker to move the arm based on input from sensors and buttons."
+                "type_name": "instance",
+                "description": "A connection to the Kinova arm's API, which allows the worker to control the arm's movements and receive feedback on its position and orientation."
               },
               {
                 "name": "ext_gripper",
-                "type_name": "8bit",
-                "description": "0-255, representing the external gripper position (0-255) in the robot's end effector frame. It is used to control the movement of the external gripper in conjunction with the other joints of the robot."
+                "type_name": "Optionalfloat",
+                "description": "Used to represent the extension of the gripper in the robot's end effector coordinate system."
               },
               {
                 "name": "timer",
                 "type_name": "int",
-                "description": "0 by default, it keeps track of how long the worker has been running."
+                "description": "0 by default, indicating that the worker has not yet completed its task. It increments every time the worker takes a break, and it resets to 0 when the worker is active again."
               },
               {
                 "name": "compute",
-                "type_name": "instance",
-                "description": "A method that computes the new values of the robot's position, orientation, and joint angles based on the raw data received from the Joy input device."
+                "type_name": "Callable",
+                "description": "Defined as a function that computes the next target position, orientation, or gripper position based on the robot's current state and the received data packet."
               },
               {
                 "name": "joint_speeds",
-                "type_name": "ndarray",
-                "description": "7-long, where each element represents the speed of a joint (in degrees per second) to move the robot to its desired position."
+                "type_name": "list",
+                "description": "3x1 array, where each element is a 2-element tuple of floating-point numbers representing the desired speed and torque for each joint in the robot."
               },
               {
                 "name": "speeds",
                 "type_name": "int",
-                "description": "0-dimensional, representing the maximum speed at which each joint can move in the robot. It is used to limit the movement of the robot's joints based on their current position."
+                "description": "0-2, representing the speed values for the X, Y, and Z axes, respectively, to move the robot's end effector to its target position."
               },
               {
                 "name": "angles",
-                "type_name": "8element",
-                "description": "Used to store the target angles for each joint of the robot in degrees."
+                "type_name": "list",
+                "description": "0-dimensional, representing a sequence of angles to be applied to the robot's joints during movement."
               },
               {
                 "name": "gains",
-                "type_name": "ndarray",
-                "description": "2D, where each row represents a joint and each column represents a gain value for that joint. The gains control the speed and accuracy of the robot's movements."
+                "type_name": "float",
+                "description": "Used to control the speed of the robot's movement, with higher values resulting in faster movement and lower values resulting in slower movement."
               },
               {
                 "name": "posesTimes",
-                "type_name": "ndarray",
-                "description": "4D, representing the position and orientation of the robot over time in a sequence of poses."
+                "type_name": "list",
+                "description": "3D position and orientation of the worker at a specific time step, represented as numpy arrays with shape (3,) for position and (4,) for orientation."
               },
               {
                 "name": "poses",
-                "type_name": "8element",
-                "description": "9array of dictionaries, each representing a pose (position and orientation) of the robot's end effector."
+                "type_name": "list",
+                "description": "3D position and orientation vectors representing the worker's current pose in space."
               },
               {
                 "name": "calibrator",
                 "type_name": "instance",
-                "description": "Used to store a calibration object that is used to convert raw accelerometer values to joint angles for the robot arm."
+                "description": "A method that takes no arguments, which when called, updates the worker's position and orientation based on the data received from the robot."
               },
               {
                 "name": "cameraKinovaTimer",
                 "type_name": "float",
-                "description": "0 by default, it measures the time the robot takes to perform a specific task."
+                "description": "0 by default, which represents the time it takes for the robot to move from its current position to the target position specified in the `target_position` attribute."
               },
               {
                 "name": "readKinovaCamera",
-                "type_name": "method",
-                "description": "Used to read the data from the Kinova camera. It takes no arguments and returns a dictionary containing the camera data."
+                "type_name": "methods",
+                "description": "Not a valid attribute of this class."
               },
               {
                 "name": "showKinovaStateTimer",
-                "type_name": "float",
-                "description": "Used to show how long it takes for the worker to complete a task."
+                "type_name": "int",
+                "description": "0 by default, which means that it will display the current state of the Kinova robot every 0.05 seconds."
               },
               {
                 "name": "showKinovaAngles",
-                "type_name": "instance",
-                "description": "0-based indexing for the joint angles of the Kinova robot arm, where 0 represents the base joint, 1-6 represent the shoulder, elbow, wrist, and hip joints, respectively."
+                "type_name": "Optionalfloat",
+                "description": "Used to display the angles of the Kinova robot's joints."
               },
               {
                 "name": "gainsTimer",
                 "type_name": "float",
-                "description": "Used to store a timer for gaining the joints, which is used to update the target position of the robot based on the user input."
+                "description": "0 by default, representing the timer for gripper gain control."
               },
               {
                 "name": "updateGains",
                 "type_name": "lambda",
-                "description": "Used to update the gains of the robot based on the data from the controller. It takes the robot's current position, orientation, and button states as input and updates the gains accordingly."
+                "description": "Used to update the gains for the robot's motors based on the current mode and position of the robot."
               },
               {
                 "name": "aamed",
-                "type_name": "attribute",
-                "description": "Used to store a reference to the worker's IAM user data."
+                "type_name": "instance",
+                "description": "A list of 5 values representing the different work modes of the robot (move, home, undock, dock, and gripper)."
               }
             ],
             "name": "SpecificWorker",
@@ -555,25 +560,25 @@
               "comment": null
             },
             "item_type": "class",
-            "length": 780,
+            "length": 853,
             "docLength": null
           },
           {
-            "id": "54b5398d-3159-1685-8846-8ed20f5a9ddf",
+            "id": "f68c66e6-a25e-f9b3-e14d-17b2a9afbcdc",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Initializes the SpecificWorker class, setting up various timers and connectors for reading data from the Kinova arm, computing new angles based on user inputs, and updating gains based on previous measurements.",
+            "description": "Initializes the SpecificWorker class, setting up connections to the Kinova robot and defining the movement mode, target angles, and gains. It also starts timers for reading camera images, updating joint speeds, and computing torque commands.",
             "params": [
               {
                 "name": "proxy_map",
-                "type_name": "dict",
-                "description": "Used to map Kinova API endpoints to the corresponding RoboComp API endpoints for communication with the Kinova arm."
+                "type_name": "int",
+                "description": "Used to specify the mapping between the real joints of the Kinova arm and the virtual joints of the robot's end effector. It defines the correspondence between the actual joint angles of the Kinova arm and the desired joint angles of the robot."
               },
               {
                 "name": "startup_check",
-                "type_name": "optional",
-                "description": "Used to check if the Kinova arm has been calibrated before or not. If it hasn't been calibrated, the function will run the calibration process."
+                "type_name": "int",
+                "description": "0 by default, which means it will check if the robot is properly initialized during startup."
               }
             ],
             "returns": null,
@@ -586,30 +591,30 @@
               "comment": null
             },
             "item_type": "method",
-            "length": 126,
+            "length": 127,
             "docLength": null
           },
           {
-            "id": "969afdf3-ac40-7eaa-b343-bffb24fe1850",
+            "id": "e5b0bebf-c49c-f785-bf4c-143e5ec603a9",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Sets parameters for an instance of the `GenericWorker` class.",
+            "description": "Sets parameters for an instance of the `SpecificWorker` class, which inherits from `GenericWorker`. It returns `True` indicating successful parameter setting.",
             "params": [
               {
                 "name": "params",
                 "type_name": "object",
-                "description": "Used to set parameters for the function."
+                "description": "Used to set parameters for an instance of a class."
               }
             ],
             "returns": {
-              "type_name": "True",
-              "description": "Returned when the method execution completes successfully."
+              "type_name": "Boolean",
+              "description": "1 if the method executed successfully and 0 otherwise."
             },
             "name": "setParams",
             "location": {
-              "start": 228,
-              "insert": 234,
+              "start": 230,
+              "insert": 236,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -619,37 +624,37 @@
             "docLength": null
           },
           {
-            "id": "0371c7e5-2efb-f5af-cb4d-62d84a647967",
+            "id": "a450e37f-bae0-47ab-824f-74258387acff",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Computes the joint angles and velocities for a Kinova arm based on the current position of the end effector and the target position. It also controls the movement of the robot using PyBullet and Kinova's API.",
+            "description": "Computes the optimal joint angles for a specific task, such as picking up an object from a table and placing it on a surface. It uses the toolbox to compute the angles and moves the robot's joints using PyBullet and Kinova arm proxy.",
             "params": [],
             "returns": null,
             "name": "compute",
             "location": {
-              "start": 237,
-              "insert": 240,
+              "start": 239,
+              "insert": 242,
               "offset": " ",
               "indent": 8,
               "comment": null
             },
             "item_type": "method",
-            "length": 209,
+            "length": 282,
             "docLength": null
           },
           {
-            "id": "cc2317ee-44b8-f286-3f4e-5b94bb7ee3e1",
+            "id": "e7563f18-741d-a7af-3d45-dc446e6a0857",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Tests various components and interfaces of a RoboCompKinovaArm, including TPose, TGripper, TJoint, TJoints, AxisParams, ButtonParams, and TData.",
+            "description": "Tests various parts of the RoboCompKinovaArm and its associated adapters, including TPose, TGripper, TJoint, TJoints, AxisParams, ButtonParams, and TData.",
             "params": [],
             "returns": null,
             "name": "startup_check",
             "location": {
-              "start": 485,
-              "insert": 486,
+              "start": 555,
+              "insert": 556,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -659,20 +664,20 @@
             "docLength": null
           },
           {
-            "id": "39dc58dd-37ea-03a2-ba4f-a1ebfa525311",
+            "id": "e94e6a6c-5436-12ad-714f-32e4934b2ce2",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Calculates the difference between the positions of a kinova and a pybullet object, and adjusts the position of the cylinder base to minimize the error.",
+            "description": "Compares the positions of keypoints detected by a camera and those predicted by a pose estimation algorithm, and adjusts the position of a cylinder to minimize the error between the two.",
             "params": [],
             "returns": {
               "type_name": "float",
-              "description": "The difference between the positions of two sets of keypoints detected by the AAMED algorithm, used to correct the position of a cylinder."
+              "description": "The distance between the predicted position of the target and the actual position detected by the kinova."
             },
             "name": "correctTargetPosition",
             "location": {
-              "start": 502,
-              "insert": 505,
+              "start": 572,
+              "insert": 575,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -682,17 +687,23 @@
             "docLength": null
           },
           {
-            "id": "7ef93e0b-5a9c-a4ad-7248-bb3d68cfb473",
+            "id": "eb90633e-4bac-ecb2-1841-d13994cc8572",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Initializes various tools and objects within the `SpecificWorker` class, including a Swift environment, a Kinova robot, and axes for the robot's end effector and goal position.",
-            "params": [],
+            "description": "Initializes toolbox components, including an environment, kinova robot, and goal axes. It sets up the robot's position, orientation, and gripper angles, and adds them to the environment.",
+            "params": [
+              {
+                "name": "target_position",
+                "type_name": "3D",
+                "description": "Used to set the position of the end effector (gripper) at the beginning of the simulation."
+              }
+            ],
             "returns": null,
             "name": "initialize_toolbox",
             "location": {
-              "start": 564,
-              "insert": 566,
+              "start": 634,
+              "insert": 636,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -702,40 +713,46 @@
             "docLength": null
           },
           {
-            "id": "8b38c936-7985-e881-644b-b78e31ef015c",
+            "id": "72df788c-2016-9693-3747-bb8edeb4617e",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Computes the joint velocities for a robot arm based on its end effector position and orientation. It uses the kinematic structure of the arm to compute the joint angles and takes into account constraints on the motion of the arm.",
-            "params": [],
+            "description": "Performs computations for a specific robot worker, including calculating joint velocities and angles based on desired end-effector positions, computing the end-effector's position and orientation, and updating the robot's state.",
+            "params": [
+              {
+                "name": "target_position",
+                "type_name": "3D",
+                "description": "Given as a list containing the position of the end effector in meters."
+              }
+            ],
             "returns": null,
             "name": "toolbox_compute",
             "location": {
-              "start": 626,
-              "insert": 628,
+              "start": 696,
+              "insert": 698,
               "offset": " ",
               "indent": 8,
               "comment": null
             },
             "item_type": "method",
-            "length": 60,
+            "length": 57,
             "docLength": null
           },
           {
-            "id": "a83871f6-0a16-0abe-754c-b5aeb163704c",
+            "id": "d45bf9bc-e6c1-9892-3741-95f8913f74ba",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Reads the fixed camera image from a PyBullet simulation and processes it to generate an RGB image.",
+            "description": "Receives camera data from a PyBullet simulator and processes it to generate an RGB image that is displayed in a window using OpenCV.",
             "params": [],
             "returns": {
-              "type_name": "3D",
-              "description": "2D image captured by a camera."
+              "type_name": "2D",
+              "description": "A color image captured by a camera connected to PyBullet, along with the time stamp in milliseconds since the start of the program."
             },
             "name": "read_camera_fixed",
             "location": {
-              "start": 768,
-              "insert": 769,
+              "start": 838,
+              "insert": 839,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -745,20 +762,20 @@
             "docLength": null
           },
           {
-            "id": "532e5298-961d-83aa-cc49-7437da5e8f5f",
+            "id": "28206383-6252-61a2-8141-a941fe799f46",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Retrieves depth and color images from a Kinova camera, normalizes them, and appends them to instances of `depthKinova` and `colorKinova`.",
+            "description": "Retrieves depth and color images from a Kinova camera, normalizes the depth image, and appends it to a list along with the timestamp of when the image was captured.",
             "params": [],
             "returns": {
-              "type_name": "True",
-              "description": "A boolean value indicating whether the operation was successful or not."
+              "type_name": "OptionalTuplenumpyndarray",
+              "description": "A tuple containing two elements, the first being an array of depth image data and the second being an array of image data with corresponding alive times."
             },
             "name": "readKinovaCamera",
             "location": {
-              "start": 839,
-              "insert": 840,
+              "start": 909,
+              "insert": 910,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -768,37 +785,37 @@
             "docLength": null
           },
           {
-            "id": "1a89959f-99b9-399f-624a-437d405fa051",
+            "id": "33aec01f-587a-11b5-a840-d7006c74523d",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Calculates and prints the angles of a Kinova robot's joints, as well as the difference between those angles and the corresponding values retrieved from PyBullet.",
+            "description": "Calculates and prints the angles of the Kinova robot's joints, the difference between the current angle and the corresponding PyBullet angle, and the gripper distance.",
             "params": [],
             "returns": null,
             "name": "showKinovaAngles",
             "location": {
-              "start": 855,
-              "insert": 856,
+              "start": 925,
+              "insert": 926,
               "offset": " ",
               "indent": 8,
               "comment": null
             },
             "item_type": "method",
-            "length": 9,
+            "length": 10,
             "docLength": null
           },
           {
-            "id": "8d0303c3-462d-d5af-3d4b-e7add31c6c56",
+            "id": "d7fce29e-0355-78a6-fe42-48508c33a807",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Sets the target velocities for joints in a robot using PyBullet, and then applies those velocities to the robot's motors.",
+            "description": "Updates the target velocities of joints based on external velocity input, converts them to radians, and then sets the motor control targets for each joint using PyBullet's `setJointMotorControl2` method.",
             "params": [],
             "returns": null,
             "name": "movePybulletWithExternalVel",
             "location": {
-              "start": 865,
-              "insert": 866,
+              "start": 936,
+              "insert": 937,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -808,17 +825,17 @@
             "docLength": null
           },
           {
-            "id": "015b4d73-2134-cc93-6b4a-7a44ba7133eb",
+            "id": "ffdbf302-a5d8-078a-b64a-b907ad59ea55",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Controls the velocity of a robot using PyBullet, setting joint motor control values for each joint based on target velocities provided in a list.",
+            "description": "Controls the velocity of a robot using PyBullet, setting joint motor control parameters to reach target velocities for each joint.",
             "params": [],
             "returns": null,
             "name": "movePybulletWithToolbox",
             "location": {
-              "start": 875,
-              "insert": 877,
+              "start": 946,
+              "insert": 948,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -828,17 +845,17 @@
             "docLength": null
           },
           {
-            "id": "678efc8b-c731-5db5-644f-8027c8922ae1",
+            "id": "c4bb2816-a4f7-4cad-f740-fd30835b2e3f",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Reads data from a proxy server, specifically obtaining joint states and gripper distances, and then multiplies the gripper distance by 0.8 before sleeping for 0.05 seconds.",
+            "description": "Reads data from a proxy server and updates the values of class instance variables `ext_joints` and `ext_gripper`. It also scales down the value of the gripper's distance by a factor of 0.8 before sleeping for 0.05 seconds.",
             "params": [],
             "returns": null,
             "name": "readDataFromProxy",
             "location": {
-              "start": 882,
-              "insert": 883,
+              "start": 953,
+              "insert": 954,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -848,23 +865,23 @@
             "docLength": null
           },
           {
-            "id": "b07f4e08-7fe2-af83-8247-ef46e953b2f2",
+            "id": "7f44074f-918f-17b0-0f4f-36643dc1028d",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Moves the joints of a Kinova arm based on angles provided as input, using the `moveJointsWithAngle` method of the `kinovaarm_proxy` object.",
+            "description": "Moves the Kinova arm based on angles provided as input. The angles are converted to degrees and then passed to the `moveJointsWithAngle` method of the `kinovaarm_proxy` object.",
             "params": [
               {
                 "name": "angles",
                 "type_name": "ndarray",
-                "description": "2D array containing radians representing joint angles to move in degrees."
+                "description": "2D, representing the angles to move the Kinova arm in degrees."
               }
             ],
             "returns": null,
             "name": "moveKinovaWithAngles",
             "location": {
-              "start": 891,
-              "insert": 892,
+              "start": 962,
+              "insert": 963,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -874,17 +891,17 @@
             "docLength": null
           },
           {
-            "id": "02dad8cd-3ab6-b4b6-3b4d-30a58f3cee97",
+            "id": "a4c00747-648f-a298-0244-ccdb921635b9",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Controls the movement of a robot's joints using speed commands generated based on error values and gain values.",
+            "description": "Computes and sends joint speeds to the Kinova arm proxy for movement based on gains and error values calculated from joint angles.",
             "params": [],
             "returns": null,
             "name": "moveKinovaWithSpeeds",
             "location": {
-              "start": 896,
-              "insert": 898,
+              "start": 967,
+              "insert": 969,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -894,17 +911,17 @@
             "docLength": null
           },
           {
-            "id": "8a1d995c-51c8-88b3-8e4f-f242cfff2aa2",
+            "id": "5ea6e3cf-d5d8-428a-e543-69c4fd3bd54d",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Updates the gains of a robot's joints based on the difference between the current position and the desired position, and the timestamp of the current pose.",
+            "description": "Updates the gains for the robot's joints based on the current position and speed, and calculates the new timestamp for the next sampling period.",
             "params": [],
             "returns": null,
             "name": "updateGains",
             "location": {
-              "start": 916,
-              "insert": 917,
+              "start": 987,
+              "insert": 988,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -914,23 +931,23 @@
             "docLength": null
           },
           {
-            "id": "7c8c8f06-ec71-539a-a446-17e94d0ebfc2",
+            "id": "bc7ca0e7-2f57-a2a4-d742-6f10dc09b0e5",
             "ancestors": [
-              "ef29c7a1-cb6b-8dad-1742-e9e410868437"
+              "a0e98790-4053-5085-684a-ee095912b3b8"
             ],
-            "description": "Processes data from a joystick and updates the robot's position, orientation, and move mode based on the input axes and buttons. It also handles home positions for the robot's joints and gripper.",
+            "description": "Receives and processes joystick input data for a specific robot, updating its position and orientation based on the input from the joystick.",
             "params": [
               {
                 "name": "data",
                 "type_name": "dict",
-                "description": "Passed as an argument from another function or main method, containing the joystick input data as a dictionary of axes and buttons."
+                "description": "Passed the raw data from the joystick, which contains the axis values and button states."
               }
             ],
             "returns": null,
             "name": "JoystickAdapter_sendData",
             "location": {
-              "start": 944,
-              "insert": 945,
+              "start": 1015,
+              "insert": 1016,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -948,52 +965,62 @@
     "path": "components/kinova_controller/src/specificworker.py",
     "content": {
       "structured": {
-        "description": "An interface `ifaces.RoboCompKinovaArm` that provides several methods for interacting with a Robocomp Kinova arm, including `startup`, `get_pose`, `get_gripper_state`, `move_joints_with_speed`, and `set_center_of_tool`. The code also implements these methods and provides additional functionality such as `buclePrueba` which demonstrates how to use the `get_pose` method to retrieve the current state of the arm and move it to a new position. Overall, the code provides a way for developers to interact with a Robocomp Kinova arm using Python.",
+        "description": "A class `RoboCompKinovaArm` that implements various interfaces from the `ifaces` module, which provides a set of abstractions for interacting with the RoboComp Kinova arm. The code provides implementations for methods such as `get_pose`, `move_joints_with_speeds`, `get_gripper_state`, and more. Additionally, it defines several methods for working with joint angles, cartesian moves, and gripper states. Overall, the code appears to provide a way to interact with the RoboComp Kinova arm using Python, including movements and manipulation of objects.",
         "items": [
           {
-            "id": "33f83743-73ae-b295-0445-708a86481b58",
+            "id": "b675b733-f301-1c9b-5843-306040339c2e",
             "ancestors": [],
-            "description": "Manages a robotic arm's joints and gripper, providing methods for computing the arm's pose, getting the joints and gripper state, and moving the joints with speed or angle.",
+            "description": "Manages a RoboCompKinovaArm, providing methods for getting and setting joints' state, gripper state, and pose. It also includes a startup check and a method to move joints with speed or angle.",
             "attributes": [
               {
                 "name": "Period",
                 "type_name": "int",
-                "description": "1 by default, indicating the interval between timer timeouts for computing joint positions."
+                "description": "1 by default, representing the period of time (in milliseconds) between successive invocations of the `compute()` method."
               },
               {
                 "name": "startup_check",
-                "type_name": "unbound",
-                "description": "Called when the worker is initialized. It performs some testing and checks to ensure that the robotic arm is working correctly."
+                "type_name": "Python",
+                "description": "Used for testing the RoboCompKinovaArm functionality."
               },
               {
                 "name": "kinova",
-                "type_name": "ifacesRoboCompKinovaArm",
-                "description": "A reference to an instance of the KinovaGen3 class, which provides access to the RoboCompKinovaArm API."
+                "type_name": "KinovaGen3",
+                "description": "Used to interact with the RoboCompKinovaArm device."
               },
               {
                 "name": "flag",
                 "type_name": "bool",
-                "description": "Used to indicate when the worker should perform its job."
+                "description": "Used to indicate whether the worker has performed its computation or not, allowing the `compute()` method to be called only once."
               },
               {
                 "name": "timer",
-                "type_name": "QTimer",
-                "description": "Used to schedule a callable object at a specific interval, in this case, the function `compute`."
+                "type_name": "QtCoreQTimer",
+                "description": "Used to schedule a callable object (i.e., a slot) to be executed after a specified interval, typically for processing sensor data or other tasks that require periodic updates."
               },
               {
                 "name": "compute",
                 "type_name": "QtCoreSlot",
-                "description": "A method that runs periodically to retrieve joint information from the Kinova arm."
+                "description": "Used to execute a function when a specific event occurs, such as a timeout. The function executed by the `compute` attribute is responsible for retrieving data from the Kinova arm and updating the worker's internal state."
               },
               {
                 "name": "joints",
                 "type_name": "ifacesRoboCompKinovaArmTJoints",
-                "description": "A list of objects representing the joint states of the Kinova arm."
+                "description": "A list of objects representing the joint states of the RoboCompKinovaArm."
               },
               {
                 "name": "gripper",
                 "type_name": "ifacesRoboCompKinovaArmTGripper",
-                "description": "A representation of the gripper state of the RoboCompKinovaArm."
+                "description": "Used to store the current state of the gripper, such as its position and speed."
+              },
+              {
+                "name": "speeds",
+                "type_name": "ifacesRoboCompKinovaArmTJointSpeeds",
+                "description": "Used to store the joint speed values for moving the robotic arm with speed."
+              },
+              {
+                "name": "moveWithSpeed",
+                "type_name": "bool",
+                "description": "Used to control the movement of joints with speed. When set to True, it enables the movement of joints with a predefined speed, otherwise it disables it."
               }
             ],
             "name": "SpecificWorker",
@@ -1005,25 +1032,25 @@
               "comment": null
             },
             "item_type": "class",
-            "length": 112,
+            "length": 120,
             "docLength": null
           },
           {
-            "id": "a54b7c1e-4f11-7bb1-8b42-eead5f562197",
+            "id": "86b3b1cc-8637-aeaf-4049-5d25c62b5dbf",
             "ancestors": [
-              "33f83743-73ae-b295-0445-708a86481b58"
+              "b675b733-f301-1c9b-5843-306040339c2e"
             ],
-            "description": "Initializes an instance of the SpecificWorker class by setting up its properties and event handlers. It creates a KinovaGen3 object, sets a flag to False, and starts a timer to trigger computation every `Period` seconds.",
+            "description": "Sets up an instance of `SpecificWorker`, inheriting from `GenericWorker`. It initializes member variables, including a period for computing and a list of joints and gripper speeds.",
             "params": [
               {
                 "name": "proxy_map",
                 "type_name": "dict",
-                "description": "Used to map proxy objects to their corresponding worker objects."
+                "description": "Used to pass a mapping of kinova interface names to their corresponding implementations."
               },
               {
                 "name": "startup_check",
                 "type_name": "bool",
-                "description": "Used to enable or disable a check when the SpecificWorker initializes."
+                "description": "Used to check if the kinova arm is already started or not."
               }
             ],
             "returns": null,
@@ -1036,30 +1063,30 @@
               "comment": null
             },
             "item_type": "method",
-            "length": 12,
+            "length": 15,
             "docLength": null
           },
           {
-            "id": "66eeb551-e7a1-2cbd-f545-ccdaf5390ef3",
+            "id": "226c1de8-c82c-87b6-a344-6cd3bcfd570a",
             "ancestors": [
-              "33f83743-73ae-b295-0445-708a86481b58"
+              "b675b733-f301-1c9b-5843-306040339c2e"
             ],
-            "description": "Sets parameters for an instance of the `SpecificWorker` class, which inherits from `GenericWorker`. It returns `True` indicating successful parameter setting.",
+            "description": "Sets parameters for an instance of `SpecificWorker` subclassing `GenericWorker`. It returns `True` indicating successful parameter setting.",
             "params": [
               {
                 "name": "params",
                 "type_name": "objectinstance",
-                "description": "Passed to the method for modification or alteration."
+                "description": "Used to set parameters for an instance of a class."
               }
             ],
             "returns": {
               "type_name": "True",
-              "description": "100% true."
+              "description": "The default value returned by the method when no exception occurs."
             },
             "name": "setParams",
             "location": {
-              "start": 59,
-              "insert": 65,
+              "start": 62,
+              "insert": 68,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1069,40 +1096,40 @@
             "docLength": null
           },
           {
-            "id": "f3cb01cb-8c05-e8a9-0a4d-ad750e3d481c",
+            "id": "cdca8acc-4fe5-7fbb-3d4d-6bc0814c1e40",
             "ancestors": [
-              "33f83743-73ae-b295-0445-708a86481b58"
+              "b675b733-f301-1c9b-5843-306040339c2e"
             ],
-            "description": "Computes and updates the positions, velocities, and forces of joints and gripper of a Robocomp Kinova arm based on sensor readings and returns True if successful.",
+            "description": "Computes the joint positions, velocities, and forces for the RoboComp kinova arm based on input from sensors and other sources. It also retrieves gripper state information and moves the joints with specified speeds if necessary.",
             "params": [],
             "returns": {
-              "type_name": "ifacesRoboCompKinovaArmTGripper",
-              "description": "A struct consisting of distance and timestamp, and another value of type ifacesRoboCompKinovaArmTJoints which is also a struct consisting of joint angles, velocities, forces, and timestamp."
+              "type_name": "ifacesRoboCompKinovaArmTJoints",
+              "description": "An instance of a class that represents the joints information of the kinova arm, including the angles, velocities, and forces of each joint."
             },
             "name": "compute",
             "location": {
-              "start": 68,
-              "insert": 71,
+              "start": 71,
+              "insert": 74,
               "offset": " ",
               "indent": 8,
               "comment": null
             },
             "item_type": "method",
-            "length": 25,
+            "length": 31,
             "docLength": null
           },
           {
-            "id": "a05d1afd-2aa2-6a87-3e46-22fb2506f129",
+            "id": "9bd43b40-09eb-e69f-4244-dbe7a95136c2",
             "ancestors": [
-              "33f83743-73ae-b295-0445-708a86481b58"
+              "b675b733-f301-1c9b-5843-306040339c2e"
             ],
-            "description": "Tests the RoboCompKinovaArm TPose and TGripper classes, and then calls QTimer.singleShot(200, QApplication.instance().quit) to quit the application after a delay of 200 milliseconds.",
+            "description": "Tests RoboCompKinovaArm.TPose and RoboCompKinovaArm.TGripper classes from the ifaces module and then quits the application after a 200 milliseconds delay.",
             "params": [],
             "returns": null,
             "name": "startup_check",
             "location": {
-              "start": 98,
-              "insert": 99,
+              "start": 107,
+              "insert": 108,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1112,46 +1139,52 @@
             "docLength": null
           },
           {
-            "id": "01df8849-6ec2-0789-564d-0e0e573b4987",
+            "id": "fdbb5cba-000c-5e9b-0e4c-0f62d099589e",
             "ancestors": [
-              "33f83743-73ae-b295-0445-708a86481b58"
+              "b675b733-f301-1c9b-5843-306040339c2e"
             ],
-            "description": "Closes the gripper of a robotic arm with the `kinova` module.",
-            "params": [],
+            "description": "Moves the gripper of a robotic arm to a specified position, using the `kinova.gripper_move_to()` method.",
+            "params": [
+              {
+                "name": "position",
+                "type_name": "float",
+                "description": "Used to specify the desired position of the gripper in terms of the range of motion of the robotic arm."
+              }
+            ],
             "returns": null,
             "name": "KinovaArm_closeGripper",
             "location": {
-              "start": 113,
-              "insert": 118,
+              "start": 122,
+              "insert": 124,
               "offset": " ",
               "indent": 8,
               "comment": null
             },
             "item_type": "method",
-            "length": 5,
+            "length": 3,
             "docLength": null
           },
           {
-            "id": "30554e28-9096-3f80-3346-24812daec6f0",
+            "id": "09f1f0d0-1af7-29b5-4341-a8f4c47f23f0",
             "ancestors": [
-              "33f83743-73ae-b295-0445-708a86481b58"
+              "b675b733-f301-1c9b-5843-306040339c2e"
             ],
-            "description": "Computes and returns the center of a tool referenced to a specific interface, using the `RoboCompKinovaArm` interface.",
+            "description": "Retrieves the center of a tool referenced by `referencedTo`.",
             "params": [
               {
                 "name": "referencedTo",
                 "type_name": "ifacesRoboCompKinovaArmTPose",
-                "description": "Used to specify the reference frame for the tool center point calculation."
+                "description": "Used to return the center of the tool referenced to a specific position or orientation."
               }
             ],
             "returns": {
               "type_name": "ifacesRoboCompKinovaArmTPose",
-              "description": "A Pose object representing the center of the tool referenced to the arm."
+              "description": "A pose representation of the tool center position relative to the arm's end effector."
             },
             "name": "KinovaArm_getCenterOfTool",
             "location": {
-              "start": 125,
-              "insert": 126,
+              "start": 130,
+              "insert": 131,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1161,17 +1194,17 @@
             "docLength": null
           },
           {
-            "id": "ee72a45f-0dc9-1f83-2c4b-1f36ab1420c1",
+            "id": "fd16147b-f769-00bf-af4c-ecb7d798258f",
             "ancestors": [
-              "33f83743-73ae-b295-0445-708a86481b58"
+              "b675b733-f301-1c9b-5843-306040339c2e"
             ],
-            "description": "Opens the gripper of a Kinova arm, a robotic arm used for material handling and manipulation tasks, using the `kinova.open_gripper_speed()` method.",
+            "description": "Opens the gripper of a robotic arm controlled by the `kinova` library.",
             "params": [],
             "returns": null,
             "name": "KinovaArm_openGripper",
             "location": {
-              "start": 139,
-              "insert": 144,
+              "start": 144,
+              "insert": 149,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1181,28 +1214,28 @@
             "docLength": null
           },
           {
-            "id": "90e4fc0f-8760-5b9e-b846-4c49ef362865",
+            "id": "ec48246b-c60b-cab8-4f4e-90214ec441f7",
             "ancestors": [
-              "33f83743-73ae-b295-0445-708a86481b58"
+              "b675b733-f301-1c9b-5843-306040339c2e"
             ],
-            "description": "Sets the center of a tool referenced to a given pose within a specific worker class, inheriting from `GenericWorker`.",
+            "description": "Sets the center of a tool referenced to a given pose within a Kinova Arm.",
             "params": [
               {
                 "name": "pose",
-                "type_name": "kinovageometryPose",
-                "description": "Used to specify the position and orientation of the tool relative to the arm."
+                "type_name": "opencvcoreMat",
+                "description": "Used to represent the tool's pose relative to the end effector."
               },
               {
                 "name": "referencedTo",
-                "type_name": "KinovaArm_ReferencePoint",
-                "description": "Used to specify the reference point for the tool center coordinate calculation."
+                "type_name": "kinova_msgsmsgReferenceFrame",
+                "description": "Used to specify the reference frame for the tool center point."
               }
             ],
             "returns": null,
             "name": "KinovaArm_setCenterOfTool",
             "location": {
-              "start": 156,
-              "insert": 161,
+              "start": 161,
+              "insert": 166,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1212,23 +1245,49 @@
             "docLength": null
           },
           {
-            "id": "7960f2a5-1f08-9d9e-f640-ac6e796a90e5",
+            "id": "2333643c-5b6e-cf91-2c4b-56472039d929",
             "ancestors": [
-              "33f83743-73ae-b295-0445-708a86481b58"
+              "b675b733-f301-1c9b-5843-306040339c2e"
             ],
-            "description": "Moves the joints of a robot arm to specified angles, using the `kinova.move_joints_to()` method.",
+            "description": "Sets the speeds of joint movements for an arm using a timer to determine the move order and speed.",
+            "params": [
+              {
+                "name": "speeds",
+                "type_name": "numpyarray",
+                "description": "3D array of float values representing the desired joint speeds for the Kinova arm to move with."
+              }
+            ],
+            "returns": null,
+            "name": "KinovaArm_moveJointsWithSpeed",
+            "location": {
+              "start": 171,
+              "insert": 172,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 5,
+            "docLength": null
+          },
+          {
+            "id": "6e03a331-3fd0-db8c-f645-a3c68f7bd161",
+            "ancestors": [
+              "b675b733-f301-1c9b-5843-306040339c2e"
+            ],
+            "description": "Moves the joints of a Kinova arm to specific angles, using the `kinova.move_joints_to()` method.",
             "params": [
               {
                 "name": "angles",
-                "type_name": "angles",
-                "description": "A joint angle representation containing multiple angles for different joints of the robot arm to move to."
+                "type_name": "Angle",
+                "description": "Passed as an instance of the Angle class, containing the desired joint angles in degrees for the Kinova arm to move."
               }
             ],
             "returns": null,
             "name": "KinovaArm_moveJointsWithAngle",
             "location": {
-              "start": 172,
-              "insert": 173,
+              "start": 180,
+              "insert": 181,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1238,23 +1297,671 @@
             "docLength": null
           },
           {
-            "id": "74e70278-a86d-1591-4648-0387e24923b8",
+            "id": "26ba57a0-c0bc-0aac-bd4b-5357c505612e",
             "ancestors": [
-              "33f83743-73ae-b295-0445-708a86481b58"
+              "b675b733-f301-1c9b-5843-306040339c2e"
             ],
-            "description": "Retrieves the current pose of an object using the `kinova.get_pose()` method and stores it in a variable called `state`.",
+            "description": "Retrieves the current pose of an object using the `kinova` module and stores it in a variable called `state`.",
             "params": [],
             "returns": null,
             "name": "buclePrueba",
             "location": {
-              "start": 180,
-              "insert": 181,
+              "start": 188,
+              "insert": 189,
               "offset": " ",
               "indent": 12,
               "comment": null
             },
             "item_type": "method",
             "length": 3,
+            "docLength": null
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "kinovaarmI.py",
+    "path": "components/kinova_controller/src/kinovaarmI.py",
+    "content": {
+      "structured": {
+        "description": "A class `KinovaArmI` that inherits from the `KinovaArm` class and provides additional functionality for controlling a Kinova Arm robotic arm. The code imports various packages including `sys`, `os`, and `Ice`, which is likely used for interacting with the RoboComp framework. The class defines several methods for controlling the arm's joints, gripper, and center of tool, as well as setting the arm's position and orientation. Overall, the code provides a way to programmatically control a Kinova Arm robotic arm using the RoboComp framework.",
+        "items": [
+          {
+            "id": "dfb38b51-dfce-a2b9-9945-674cea2f58ed",
+            "ancestors": [],
+            "description": "Provides methods for controlling a Kinova arm, including closing and opening the gripper, getting the center of tool, gripper state, joints state, and moving the joints with angle or speed.",
+            "attributes": [
+              {
+                "name": "worker",
+                "type_name": "KinovaArm",
+                "description": "Used to interact with the Arm's API for joints movement, gripper opening and closing, and tool positioning."
+              }
+            ],
+            "name": "KinovaArmI",
+            "location": {
+              "start": 36,
+              "insert": 37,
+              "offset": " ",
+              "indent": 4,
+              "comment": null
+            },
+            "item_type": "class",
+            "length": 28,
+            "docLength": null
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "test.py",
+    "path": "components/kinova_controller/src/test.py",
+    "content": {
+      "structured": {
+        "description": "Two functions: `close_gripper_speed()` and `open_gripper_speed()`. These functions use the `base` object to control a robotic gripper's movement using speed commands. The `close_gripper_speed()` function sets the gripper's speed to close it, while the `open_gripper_speed()` function sets the gripper's speed to open it. Both functions use the `GetMeasuredGripperMovement()` method to check the gripper's current position and speed, and adjust the speed command accordingly.",
+        "items": [
+          {
+            "id": "b1c40329-5339-d8af-c640-a982dab945c3",
+            "ancestors": [],
+            "description": "Provides methods for getting camera information, intrinsic and extrinsic parameters, and movement actions using the Kinova Gen III SDK. It also includes functions for closing the gripper with a speed command and opening it with a speed command.",
+            "attributes": [
+              {
+                "name": "connection",
+                "type_name": "object",
+                "description": "Used to establish a connection with the Kinova Gen 3 robot controller. It represents the result of calling the `connect()` method, which returns a connection object that can be used to send commands to the robot and receive data from it."
+              },
+              {
+                "name": "router",
+                "type_name": "RoombaRouter",
+                "description": "Used to interact with the Robot's ROS2 node, sending and receiving messages."
+              },
+              {
+                "name": "base",
+                "type_name": "instance",
+                "description": "A reference to an object of the `KinovaBase` class, which provides access to the robot's base functionality such as movement, gripper control, and sensor readings."
+              },
+              {
+                "name": "base_cyclic",
+                "type_name": "Base_pb2Base",
+                "description": "Used to interact with the Cyclic robotic arm. It provides methods for moving the arm, closing the gripper, and opening the gripper."
+              }
+            ],
+            "name": "KinovaGen3",
+            "location": {
+              "start": 51,
+              "insert": 52,
+              "offset": " ",
+              "indent": 4,
+              "comment": null
+            },
+            "item_type": "class",
+            "length": 342,
+            "docLength": null
+          },
+          {
+            "id": "b99b8053-62c2-298b-7d49-87f8a03b69bb",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Establishes connections to an IP address, username, and password using the `utilities.DeviceConnection` class, then creates instances of `BaseClient` and `BaseCyclicClient` using the connected router.",
+            "params": [],
+            "returns": null,
+            "name": "__init__",
+            "location": {
+              "start": 52,
+              "insert": 54,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 11,
+            "docLength": null
+          },
+          {
+            "id": "26e6d7dd-e7b3-9a8a-0645-c46a66e7b070",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3",
+              "82de0138-290b-de95-5c45-8c70ba2d91c5"
+            ],
+            "description": "Takes a `notification` object and an optional `e` parameter, and prints the action event name of the notification. If the action event is either `ACTION_END` or `ACTION_ABORT`, the `e` variable is set to a default value.",
+            "params": [
+              {
+                "name": "notification",
+                "type_name": "Base_pb2Notification",
+                "description": "Passed an event object containing information about the event that triggered the function, such as the action event name."
+              },
+              {
+                "name": "e",
+                "type_name": "Base_pb2Event",
+                "description": "Set to an instance of that class by the line `e.set()`."
+              }
+            ],
+            "returns": null,
+            "name": "check",
+            "location": {
+              "start": 77,
+              "insert": 78,
+              "offset": " ",
+              "indent": 12,
+              "comment": null
+            },
+            "item_type": "function",
+            "length": 6,
+            "docLength": null
+          },
+          {
+            "id": "92b95edf-da79-f9b9-3742-31209be9799c",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Within the KinovaGen3 class retrieves refresh feedback from the base cyclic object and returns it.",
+            "params": [],
+            "returns": {
+              "type_name": "RefreshFeedback",
+              "description": "An instance of a class that contains information about the state of the system."
+            },
+            "name": "get_state",
+            "location": {
+              "start": 86,
+              "insert": 87,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 4,
+            "docLength": null
+          },
+          {
+            "id": "6975f821-eec4-e483-0449-af8605c31e80",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Returns a dictionary containing the position, velocity, and torque of the joints of an object controlled by a Kinova Gen 3 robot.",
+            "params": [],
+            "returns": {
+              "type_name": "dict",
+              "description": "A dictionary containing the positions, velocities, and torques of the joints."
+            },
+            "name": "get_joints",
+            "location": {
+              "start": 93,
+              "insert": 94,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 7,
+            "docLength": null
+          },
+          {
+            "id": "2aebd117-7ade-259c-5c4a-8400fa9ee964",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Retrieves the current state of a gripper, specifically the position of the gripper's finger, as measured by the `Base` class's `GetMeasuredGripperMovement` method.",
+            "params": [],
+            "returns": {
+              "type_name": "float",
+              "description": "The measured movement of the gripper in the `finger[0]` position."
+            },
+            "name": "get_gripper_state",
+            "location": {
+              "start": 101,
+              "insert": 102,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 4,
+            "docLength": null
+          },
+          {
+            "id": "e7cae492-c359-dd82-544a-e452cbae52fc",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Retrieves the current position and orientation of a tool in a robotic system, returning a list of 6 values representing the tool's x, y, z coordinates and theta angles in each dimension.",
+            "params": [],
+            "returns": {
+              "type_name": "5element",
+              "description": "A list of five floating-point numbers that represent the tool's pose (position and orientation) in the global coordinate system."
+            },
+            "name": "get_pose",
+            "location": {
+              "start": 106,
+              "insert": 107,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 9,
+            "docLength": null
+          },
+          {
+            "id": "69d6404d-a82b-f081-c543-475ecc57a69d",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Controls the movement of a gripper based on a target position, sending a command to the base to move the gripper to that position.",
+            "params": [
+              {
+                "name": "target_position",
+                "type_name": "float",
+                "description": "Representing the desired position of the gripper to move to."
+              }
+            ],
+            "returns": {
+              "type_name": "Boolean",
+              "description": "True if the gripper moves to the target position successfully, otherwise False."
+            },
+            "name": "gripper_move_to",
+            "location": {
+              "start": 124,
+              "insert": 125,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 13,
+            "docLength": null
+          },
+          {
+            "id": "ab204fbc-6297-1fb4-7b4c-04922f54df11",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Performs Cartesian specific movement of a robot, which involves moving the robot's end effector to a specified position and orientation using an action message.",
+            "params": [
+              {
+                "name": "x",
+                "type_name": "float64",
+                "description": "Used to set the x-coordinate of the target position for the Cartesian movement."
+              },
+              {
+                "name": "y",
+                "type_name": "int",
+                "description": "Used to specify the y coordinate of the target position for the cartesian movement."
+              },
+              {
+                "name": "z",
+                "type_name": "float",
+                "description": "Used to set the z-coordinate of the target pose in the Cartesian coordinate system."
+              },
+              {
+                "name": "theta_x",
+                "type_name": "float",
+                "description": "Representing the x-angle of the robot's end effector at the specified position."
+              },
+              {
+                "name": "theta_y",
+                "type_name": "float",
+                "description": "Representing the yaw angle of the robot, which determines the orientation of the robot's yaw axis relative to its base."
+              },
+              {
+                "name": "theta_z",
+                "type_name": "float",
+                "description": "Used to specify the z-rotation angle of the robot's end effector during movement."
+              }
+            ],
+            "returns": {
+              "type_name": "bool",
+              "description": "1 if the movement was successful and 0 if it timed out."
+            },
+            "name": "cartesian_move_to",
+            "location": {
+              "start": 144,
+              "insert": 146,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 26,
+            "docLength": null
+          },
+          {
+            "id": "9f93db2e-47e3-ab89-004d-09915170dd5c",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Within the KinovaGen3 class takes a list of joint speeds as input and creates a `JointSpeeds` message to send to the robot's base module. It then iterates through the list of speeds, adding each one to the message with the appropriate joint identifier and duration. Finally, it sends the completed message to the base module using the `SendJointSpeedsCommand` method.",
+            "params": [
+              {
+                "name": "speeds",
+                "type_name": "Base_pb2JointSpeeds",
+                "description": "An iterable containing joint speed values for each joint in a robot."
+              }
+            ],
+            "returns": null,
+            "name": "move_joints_with_speeds",
+            "location": {
+              "start": 178,
+              "insert": 182,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 13,
+            "docLength": null
+          },
+          {
+            "id": "e9254dd7-d93c-be83-2c4a-e86155d56c38",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Controls movement of joints in an angular action by creating an action object, adding joint angles to it, and executing the action using the `ExecuteAction` method. It also waits for the movement to finish and unsubscribes from the notification handle.",
+            "params": [
+              {
+                "name": "joints",
+                "type_name": "list",
+                "description": "Used to specify the joint angles for movement."
+              }
+            ],
+            "returns": {
+              "type_name": "bool",
+              "description": "1 if the angular movement completed within the specified timeout duration, or 0 if the movement did not complete before the timeout."
+            },
+            "name": "move_joints_to",
+            "location": {
+              "start": 196,
+              "insert": 197,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 30,
+            "docLength": null
+          },
+          {
+            "id": "697a1bc0-f352-e0b5-234e-6b7c831a750e",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Prints the extrinsic parameters (rotation and translation) of an object represented by the `KinovaGen3` class.",
+            "params": [
+              {
+                "name": "extrinsics",
+                "type_name": "3x3",
+                "description": "Used to represent a rotation matrix followed by a translation vector."
+              }
+            ],
+            "returns": null,
+            "name": "print_extrinsic_parameters",
+            "location": {
+              "start": 231,
+              "insert": 232,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 10,
+            "docLength": null
+          },
+          {
+            "id": "ed500cd4-b2d6-8db3-434f-46ae62c6bbe5",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Retrieves the device ID of the vision module in a Kinova Gen3 system. It first reads all devices information, then checks if there is only one vision device, and finally returns its device ID.",
+            "params": [
+              {
+                "name": "device_manager",
+                "type_name": "DeviceManager",
+                "description": "Used to retrieve information about all devices connected to the system."
+              }
+            ],
+            "returns": {
+              "type_name": "int",
+              "description": "The device identifier of the first vision device found in the devices list or an error message if there are no vision devices registered or more than one vision device is registered."
+            },
+            "name": "example_vision_get_device_id",
+            "location": {
+              "start": 245,
+              "insert": 246,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 16,
+            "docLength": null
+          },
+          {
+            "id": "c4d48fde-88cf-44b9-9449-9330762a7878",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Retrieves extrinsic parameters for a given vision device ID using the `VisionConfigService`. It then prints the retrieved extrinsics to the console.",
+            "params": [
+              {
+                "name": "vision_config",
+                "type_name": "VisionConfig",
+                "description": "Used to retrieve extrinsic parameters for a specific vision device ID."
+              },
+              {
+                "name": "vision_device_id",
+                "type_name": "int",
+                "description": "Used to identify a specific vision device for which extrinsic parameters are being retrieved."
+              }
+            ],
+            "returns": null,
+            "name": "example_routed_vision_get_extrinsics",
+            "location": {
+              "start": 266,
+              "insert": 267,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 6,
+            "docLength": null
+          },
+          {
+            "id": "304fb343-4b3e-2c84-a649-4b0c3869c741",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Within the KinovaGen3 class prints out various parameters associated with intrinsics.",
+            "params": [
+              {
+                "name": "intrinsics",
+                "type_name": "IntrinsicParameters",
+                "description": "Represented as a object that contains the intrinsic parameters of the camera sensor, including the principal point, resolution, focal length, and distortion coefficients."
+              }
+            ],
+            "returns": null,
+            "name": "print_intrinsic_parameters",
+            "location": {
+              "start": 288,
+              "insert": 289,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 13,
+            "docLength": null
+          },
+          {
+            "id": "647cb6c5-05c7-2e9c-0648-ed5b389e5e00",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Retrieves intrinsic parameters of Color and Depth sensors using the Vision Config Service, and also retrieves intrinsic parameters for specific resolutions of Color and Depth sensors.",
+            "params": [
+              {
+                "name": "vision_config",
+                "type_name": "VisionConfig_pb2VisionConfig",
+                "description": "Used to retrieve intrinsic parameters from the vision config service."
+              },
+              {
+                "name": "vision_device_id",
+                "type_name": "int",
+                "description": "Used to specify the device ID for which intrinsic parameters are being retrieved."
+              }
+            ],
+            "returns": null,
+            "name": "example_routed_vision_get_intrinsics",
+            "location": {
+              "start": 305,
+              "insert": 306,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 27,
+            "docLength": null
+          },
+          {
+            "id": "dd5b386e-4d39-1e81-5d41-748edae0f6bc",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Retrieves device information and extrinsic and intrinsic parameters for a vision device in Kinova Gen3.",
+            "params": [],
+            "returns": null,
+            "name": "get_camera_info",
+            "location": {
+              "start": 333,
+              "insert": 334,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 9,
+            "docLength": null
+          },
+          {
+            "id": "10acdf05-4fc0-7781-084c-b77b797c0c61",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Performs Cartesian movement based on user-inputted coordinates and angles, using the Kinova Gen3 robot's base API.",
+            "params": [
+              {
+                "name": "x",
+                "type_name": "int",
+                "description": "The relative movement of the tool along the x-axis."
+              },
+              {
+                "name": "y",
+                "type_name": "int",
+                "description": "Represented as feedback.base.tool_pose_y + y, which indicates an additional movement along the Y axis of the tool's pose."
+              },
+              {
+                "name": "z",
+                "type_name": "32bit",
+                "description": "Representing the relative movement of the tool's Z axis."
+              },
+              {
+                "name": "theta_x",
+                "type_name": "float",
+                "description": "Part of the target pose's orientation, representing the yaw angle of the tool in the x-y plane."
+              },
+              {
+                "name": "theta_y",
+                "type_name": "float",
+                "description": "Represented as the yaw angle of the tool relative to its parent link, indicating the direction of movement along the y-axis."
+              },
+              {
+                "name": "theta_z",
+                "type_name": "float",
+                "description": "Representing the z-axis angle of the tool's orientation relative to its starting position, which is used in calculating the target pose of the tool for the Cartesian action movement."
+              }
+            ],
+            "returns": {
+              "type_name": "bool",
+              "description": "1 if the cartesian movement finishes within the given timeout duration, and 0 otherwise."
+            },
+            "name": "cartesian_move_relative",
+            "location": {
+              "start": 343,
+              "insert": 345,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 28,
+            "docLength": null
+          },
+          {
+            "id": "dfb5a07b-6879-d3a4-db45-cb4fe6eba1f9",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Controls the movement of a gripper based on its destination position, moving it at a speed determined by the difference between its current position and the destined position.",
+            "params": [
+              {
+                "name": "dest_pos",
+                "type_name": "float",
+                "description": "Representing the desired position for the gripper to move towards."
+              }
+            ],
+            "returns": null,
+            "name": "move_gripper_speed_dest",
+            "location": {
+              "start": 379,
+              "insert": 381,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 30,
+            "docLength": null
+          },
+          {
+            "id": "3c0c15b6-f8ae-f782-704f-d4618b57738e",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Controls the speed of a gripper using a speed command. It sets the value of the gripper to -0.1 and sends the command to the base using the `SendGripperCommand` method. The function then sleeps for 0.1 seconds before continuing to monitor the gripper's movement using the `GetMeasuredGripperMovement` method.",
+            "params": [],
+            "returns": null,
+            "name": "close_gripper_speed",
+            "location": {
+              "start": 414,
+              "insert": 416,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 20,
+            "docLength": null
+          },
+          {
+            "id": "98568a1b-dae3-59a5-ad4a-d646713fe7d9",
+            "ancestors": [
+              "b1c40329-5339-d8af-c640-a982dab945c3"
+            ],
+            "description": "Controls the speed and position of a gripper using a Basebot2 interface. It creates a gripper command message, sends it to the Basebot2, and retrieves the measured movement response from the Basebot2.",
+            "params": [],
+            "returns": null,
+            "name": "open_gripper_speed",
+            "location": {
+              "start": 439,
+              "insert": 441,
+              "offset": " ",
+              "indent": 8,
+              "comment": null
+            },
+            "item_type": "method",
+            "length": 19,
             "docLength": null
           }
         ]
