@@ -218,9 +218,29 @@ class SpecificWorker(GenericWorker):
             self.gainsTimer = QtCore.QTimer(self)
             self.gainsTimer.timeout.connect(self.updateGains)
 
+            self.contactPointTimer = QtCore.QTimer(self)
+            self.contactPointTimer.timeout.connect(self.detectContactPoints)
+            self.contactPointTimer.start(1000)
+
             # Initialize the AAMED algorithm for the cup position correction
             self.aamed = pyAAMED(722//2, 1282//2)
             self.aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
+
+            self.pybullet_offset = [-0.3, 0.0, 0.6]
+
+            num_joints = p.getNumJoints(self.robot_id)
+
+            # Iterar sobre todos los enlaces y obtener su información
+            for joint_index in range(num_joints):
+                joint_info = p.getJointInfo(self.robot_id, joint_index)
+                link_name = joint_info[12].decode("utf-8")  # Nombre del enlace
+                parent_link_index = joint_info[16]  # Índice del enlace padre
+                link_state = p.getLinkState(self.robot_id, joint_index)
+
+                print(f"Link {joint_index}:")
+                print(f"  Name: {link_name}")
+                print(f"  Parent Link Index: {parent_link_index}")
+                print(f"  Link State: {link_state}")
 
             print("SpecificWorker started", time.time()*1000 - self.timestamp)
 
@@ -403,13 +423,17 @@ class SpecificWorker(GenericWorker):
 
             case 7:
                 try:
-                    if self.correctTargetPosition() == -1:
+                    error = self.correctTargetPosition()
+                    if error != -1:
+                        self.last_error = error
+                    else:
                         self.loopCounter += 1
+
                     # print("Correct cup position end", time.time()*1000 - self.timestamp)
 
                     target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
-                    target_position[0] = target_position[0] + 0.3
-                    target_position[2] = target_position[2] - 0.44
+                    target_position[0] = target_position[0] - self.pybullet_offset[0]
+                    target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.16
 
                     self.toolbox_compute(target_position)
                     # print("Toolbox compute end", time.time()*1000 - self.timestamp)
@@ -434,18 +458,58 @@ class SpecificWorker(GenericWorker):
                     gripper_position = p.getLinkState(self.robot_id, self.end_effector_link_index)[0]
                     target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
 
-                    if gripper_position[2] - target_position[2] < 0.1 or self.loopCounter > 20:
-                        print("Working without visual feedback")
+                    if self.last_error > 20 and (self.loopCounter > 20 or gripper_position[2] - target_position[2] < 0.25):
+                        print("Adjusting pose for target adjustment")
+                        self.target_position = list(p.getLinkState(self.robot_id, self.end_effector_link_index)[0])
+                        self.target_position[0] = self.target_position[0] - self.pybullet_offset[0]
+                        self.target_position[2] = self.target_position[2] - self.pybullet_offset[2] + 0.20
                         self.move_mode = 8
+
+                    if gripper_position[2] - target_position[2] < 0.1 or self.loopCounter > 20:
+                        print("Working without visual feedback", " Last error: ", self.last_error)
+                        self.move_mode = 9
                 except Ice.Exception as e:
                     print(e)
 
             case 8:
                 try:
+                    self.arrived = False
+
+                    self.toolbox_compute(self.target_position)
+                    self.movePybulletWithToolbox()
+                    self.moveKinovaWithSpeeds()
+
+                    imgPybullet, imageTime = self.read_camera_fixed()
+
+                    self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
+
+                    jointsState = []
+                    for i in range(7):
+                        state = p.getJointState(self.robot_id, i + 1)
+                        angle_speed = (state[0], state[1])
+                        jointsState.append(angle_speed)
+
+                    self.poses.append(jointsState)
+
+                    print("Arrived: ", self.arrived)
+
+                    if self.arrived == True:
+                        self.loopCounter = 0
+                        self.target_velocities = [0.0] * 7
+                        self.movePybulletWithToolbox()
+                        self.moveKinovaWithSpeeds()
+                        self.last_error = 0
+                        self.move_mode = 7
+
+                except Ice.Exception as e:
+                    print(e)
+
+            case 9:
+                try:
                     if not self.arrived:
                         target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
-                        target_position[0] = target_position[0] + 0.3
-                        target_position[2] = target_position[2] - 0.44
+                        target_position[0] = target_position[0] - self.pybullet_offset[0]
+                        target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.16
                         self.toolbox_compute(target_position)
                         self.movePybulletWithToolbox()
                         self.moveKinovaWithSpeeds()
@@ -469,15 +533,15 @@ class SpecificWorker(GenericWorker):
                         self.moveKinovaWithSpeeds()
                         self.changePybulletGripper(0.26)
                         self.kinovaarm_proxy.closeGripper(0.26)
-                        self.move_mode = 9
+                        self.move_mode = 10
                         self.target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
-                        self.target_position[0] = self.target_position[0] + 0.3
-                        self.target_position[2] = self.target_position[2] - 0.25
+                        self.target_position[0] = self.target_position[0] - self.pybullet_offset[0]
+                        self.target_position[2] = self.target_position[2] - self.pybullet_offset[2] + 0.25
 
                 except Ice.Exception as e:
                     print(e)
 
-            case 9:
+            case 10:
                 try:
                     self.arrived = False
 
@@ -502,12 +566,12 @@ class SpecificWorker(GenericWorker):
                         self.target_velocities = [0.0] * 7
                         self.movePybulletWithToolbox()
                         self.moveKinovaWithSpeeds()
-                        self.move_mode = 10
+                        self.move_mode = 11
 
                 except Ice.Exception as e:
                     print(e)
 
-            case 10:
+            case 11:
                 try:
                     self.arrived = False
 
@@ -533,12 +597,12 @@ class SpecificWorker(GenericWorker):
                         self.moveKinovaWithSpeeds()
                         self.changePybulletGripper(0.0)
                         self.kinovaarm_proxy.closeGripper(0.0)
-                        self.move_mode = 11
+                        self.move_mode = 12
 
                 except Ice.Exception as e:
                     print(e)
 
-            case 11:
+            case 12:
                 print("Reseting pose")
                 self.timer.stop()
                 self.moveKinovaWithAngles(self.observation_angles[:7])
@@ -596,49 +660,50 @@ class SpecificWorker(GenericWorker):
             p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL,
                                     targetPosition=self.target_angles[i])
 
+    def detectContactPoints(self):
+        # Get contact points for the left fingertip
+        contact_points_left = []
+        contact_points_left.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=14))
+        contact_points_left.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=15))
+        contact_points_left.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=16))
+        contact_points_left.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=17))
+        contact_points_left.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=18))
+
+        for contact in contact_points_left:  # Contact force is at index 9 of the contact point tuple
+            contact_force_left = contact[9]
+            print(f"Contact force on left fingertip: {contact_force_left}")
+        # Get contact points for the right fingertip
+        contact_points_right = []
+        contact_points_right.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=19))
+        contact_points_right.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=20))
+        contact_points_right.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=21))
+        contact_points_right.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=22))
+        contact_points_right.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=23))
+        for contact in contact_points_right:
+            # Contact force is at index 9 of the contact point tuple
+            contact_force_right = contact[9]
+            print(f"Contact force on right fingertip: {contact_force_right}")
+
     def correctTargetPosition(self):
-        # print("//--------------------//")
-        # print("Get pybullet image", time.time()*1000 - self.timestamp)
         pybulletImage, imageTime = self.read_camera_fixed()
-        # print("Pybullet image obtained", time.time()*1000 - self.timestamp)
         pybulletImage = cv2.resize(pybulletImage, (1280//2, 720//2))
         imgGPybullet = cv2.cvtColor(pybulletImage, cv2.COLOR_BGR2GRAY)
-        # print("processing first image", time.time()*1000 - self.timestamp)
         resPybullet = self.aamed.run_AAMED(imgGPybullet)
         if isinstance(resPybullet, list):
             resPybullet = np.array(resPybullet)
-        # aamed.drawAAMED(imgGPybullet)
-        # if len(resPybullet) > 0:
-        #     cv2.circle(imgGPybullet, (round(resPybullet[0][1]), round(resPybullet[0][0])), 8, (0, 0, 255), -1)
-        #     cv2.imshow("test pybullet", imgGPybullet)
-
-        # print("select second image", time.time()*1000 - self.timestamp)
 
         diff = 5000
         index = 0
         for i in range(len(self.colorKinova)):
-            # print("Index: ", i)
-            # print("Kinova timestamps :", self.colorKinova[i][1])
-            # print("Pybullet timestamp:", imageTime)
             if abs(imageTime - self.colorKinova[i][1]) < diff:
                 diff = abs(self.colorKinova[i][1] - imageTime)
                 index = i
-
-        # print("Diff: ", diff)
-
-        # print("processing second image", time.time()*1000 - self.timestamp)
 
         imgGKinova = cv2.cvtColor(self.colorKinova[index][0], cv2.COLOR_BGR2GRAY)
         imgGKinova = cv2.resize(imgGKinova, (1280//2, 720//2))
         resKinova = np.array(self.aamed.run_AAMED(imgGKinova))
         if isinstance(resKinova, list):
             resKinova = np.array(resKinova)
-        # aamed.drawAAMED(imgGKinova)
-        # if len(resKinova) > 0:
-        #     cv2.circle(imgGKinova, (round(resKinova[0][1]), round(resKinova[0][0])), 8, (0, 0, 255), -1)
-        #     cv2.imshow("test kinova", imgGKinova)
-
-        # print("second image processed", time.time()*1000 - self.timestamp)
 
         if resKinova.size == 0 or resPybullet.size == 0:
             print("No keypoints detected")
@@ -646,38 +711,27 @@ class SpecificWorker(GenericWorker):
 
         error = np.abs(resKinova[0][1] - resPybullet[0][1] + resKinova[0][0] - resPybullet[0][0])
 
-        # print("x: ", resKinova[0][1] - resPybullet[0][1], " y: ", resKinova[0][0] - resPybullet[0][0])
-
         position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
         position[0] = position[0] - 0.0002 * (resKinova[0][0] - resPybullet[0][0])
         position[1] = position[1] - 0.0002 * (resKinova[0][1] - resPybullet[0][1])
         p.resetBasePositionAndOrientation(self.cylinderId, tuple(position), p.getQuaternionFromEuler([0, 0, 0]))
 
-        # print("//--------------------//")
-
-        # print("Finish time", time.time()*1000 - self.timestamp)
         return error
 
     def initialize_toolbox(self, target_position):
         ## Launch the simulator Swift
         self.env = swift.Swift()
         self.env.launch(realtime=True)
-        # env = rtb.backends.PyPlot.PyPlot()
-        # env.launch(realtime=True)
 
         # Create a KionovaGen3 robot object
         self.kinova = rtb.models.KinovaGen3()
         print(self.kinova.grippers)
+
         # Set joint angles to ready configuration
-        # observation_angles = self.observation_angles[:7]
-        # observation_angles[5] = observation_angles[5] + 2*np.pi
-        # print(observation_angles)
-        # self.kinova.q = observation_angles
         self.kinova.q = self.kinova.qr
 
         # Add the robot to the simulator
         self.env.add(self.kinova)
-        # kinova = rtb.models.Panda()
 
         # axes
         self.goal_axes = sg.Axes(0.1)
@@ -691,12 +745,6 @@ class SpecificWorker(GenericWorker):
         # Number of joint in the Kinova which we are controlling
         self.n = 7
 
-        # cup_position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
-        # cup_position[0] = cup_position[0] + 0.3  # Added the robot base offset in pybullet
-
-        # target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
-        # target_position[0] = target_position[0] + 0.3  # Added the robot base offset in pybullet
-        # target_position[2] = target_position[2] - 0.45  # Added the robot base offset in pybullet and the height of the cup
         # objects
         # self.cup = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(cup_position[0], cup_position[1], 0), color=(0, 0, 1))
         # self.cup = sg.Cylinder(0.036, 0.168, pose=sm.SE3.Trans(target_position[0], target_position[1], 0), color=(0, 1, 0))
@@ -707,29 +755,19 @@ class SpecificWorker(GenericWorker):
         # Set the desired end-effector pose
         self.rot = self.kinova.fkine(self.kinova.q).R
         self.rot = sm.SO3.OA([1, 0, 0], [0, 0, -1])
-        # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.26])
-        # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])
-        self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], 0.60])
-        self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], target_position[2]])
-        # self.Tep = sm.SE3.Rt(self.rot, [0.4, 0.4, 0.13])  # green = x-axis, red = y-axis, blue = z-axis
+        # self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], 0.60])
+        self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], target_position[2]])  # green = x-axis, red = y-axis, blue = z-axis
         self.goal_axes.T = self.Tep
 
         self.arrived = False
         self.dt = 0.05
 
         self.env.step(0)
-        time.sleep(5)
+        time.sleep(1)
 
     def toolbox_compute(self, target_position):
         # The current pose of the kinova's end-effector
         self.Te = self.kinova.fkine(self.kinova.q)
-
-        # cup_position = list(p.getBasePositionAndOrientation(self.pybullet_cup)[0])
-        # cup_position[0] = cup_position[0] + 0.3  # Added the robot base offset in pybullet
-
-        # target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
-        # target_position[0] = target_position[0] + 0.3
-        # target_position[2] = target_position[2] - 0.45
 
         # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])  # green = x-axis, red = y-axis, blue = z-axis
         self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], target_position[2]])  # green = x-axis, red = y-axis, blue = z-axis
