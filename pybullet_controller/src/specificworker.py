@@ -54,8 +54,10 @@ import yaml
 import collections
 from pybullet_utils import urdfEditor as ed
 from pybullet_utils import bullet_client as bc
-
-import queue
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from PyQt5.QtWidgets import QApplication
+import sys
 
 # Set the LC_NUMERIC environment variable
 os.environ['LC_NUMERIC'] = 'en_US.UTF-8'
@@ -220,7 +222,7 @@ class SpecificWorker(GenericWorker):
 
             self.contactPointTimer = QtCore.QTimer(self)
             self.contactPointTimer.timeout.connect(self.detectContactPoints)
-            self.contactPointTimer.start(1000)
+            # self.contactPointTimer.start(self.Period)
 
             # Initialize the AAMED algorithm for the cup position correction
             self.aamed = pyAAMED(722//2, 1282//2)
@@ -241,6 +243,22 @@ class SpecificWorker(GenericWorker):
                 print(f"  Name: {link_name}")
                 print(f"  Parent Link Index: {parent_link_index}")
                 print(f"  Link State: {link_state}")
+
+            app = QApplication(sys.argv)
+
+            self.left_force_series = []
+            self.right_force_series = []
+            self.graphTimes = []
+
+            self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1)
+
+            self.line1, = self.ax1.plot([], [], label='Left fingertip')
+            self.line2, = self.ax2.plot([], [], label='Right fingertip')
+            self.ax1.legend()
+            self.ax2.legend()
+
+            plt.ion()
+            plt.show()
 
             print("SpecificWorker started", time.time()*1000 - self.timestamp)
 
@@ -561,6 +579,8 @@ class SpecificWorker(GenericWorker):
 
                     self.poses.append(jointsState)
 
+                    self.detectContactPoints()
+
                     if self.arrived == True:
                         # print("Arrived")
                         self.target_velocities = [0.0] * 7
@@ -663,26 +683,36 @@ class SpecificWorker(GenericWorker):
     def detectContactPoints(self):
         # Get contact points for the left fingertip
         contact_points_left = []
-        contact_points_left.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=14))
-        contact_points_left.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=15))
-        contact_points_left.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=16))
+        # contact_points_left.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=16))
         contact_points_left.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=17))
-        contact_points_left.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=18))
 
+        self.left_force_series = []
         for contact in contact_points_left:  # Contact force is at index 9 of the contact point tuple
             contact_force_left = contact[9]
-            print(f"Contact force on left fingertip: {contact_force_left}")
+            self.left_force_series.append(contact_force_left)
+            # print(f"Contact force on left fingertip: {contact_force_left}")
+
         # Get contact points for the right fingertip
         contact_points_right = []
-        contact_points_right.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=19))
-        contact_points_right.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=20))
-        contact_points_right.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=21))
+        # contact_points_right.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=21))
         contact_points_right.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=22))
-        contact_points_right.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=23))
+
+        self.right_force_series = []
         for contact in contact_points_right:
             # Contact force is at index 9 of the contact point tuple
             contact_force_right = contact[9]
-            print(f"Contact force on right fingertip: {contact_force_right}")
+            self.right_force_series.append(contact_force_right)
+            # print(f"Contact force on right fingertip: {contact_force_right}")
+
+        # print("/-----------------------------------/")
+        self.line1.set_ydata(self.left_force_series[0])
+        self.line2.set_ydata(self.right_force_series[0])
+        self.ax1.relim()
+        self.ax1.autoscale_view()
+        self.ax2.relim()
+        self.ax2.autoscale_view()
+        plt.draw()
+        plt.pause(1./120.)
 
     def correctTargetPosition(self):
         pybulletImage, imageTime = self.read_camera_fixed()
