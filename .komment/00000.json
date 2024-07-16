@@ -318,328 +318,368 @@
     "path": "pybullet_controller/src/specificworker.py",
     "content": {
       "structured": {
-        "description": "A robot arm's movements based on user inputs from a serial port. It uses the `robot2` library to interact with the robot arm and perform various actions such as moving the arm to a specific position or orientation, and controlling the gripper. The code also includes logic for handling different input modes, such as moving the arm to a home position or performing repetitive movements. Overall, the code is designed to automate the movement of a robot arm based on user inputs from a serial port.",
+        "description": "a robot controller that receives data from a sensor and uses it to control the movement of a robot. The code uses the `robot2` library to interact with the robot and performs various actions based on the sensor data, including moving the robot's end effector to a specific position, changing the robot's orientation, and pressing buttons on the robot's arm.\n\nThe code summarizes as follows:\n\n* It defines a class `RobotController` that receives sensor data from a `data` dictionary and controls the movement of a robot using the `robot2` library.\n* It has four modes of operation: `mode_0`, `mode_1`, `mode_2`, and `mode_3`, each with a different set of actions based on the sensor data.\n* In `mode_0`, it receives data from the robot's sensors, including the end effector position, orientation, and buttons.\n* In `mode_1`, it moves the robot's end effector to a specific position based on the sensor data.\n* In `mode_2`, it changes the robot's orientation based on the sensor data.\n* In `mode_3`, it presses buttons on the robot's arm based on the sensor data.\n\nThe code uses the `robot2` library to interact with the robot and perform various actions, including moving the robot's end effector, changing its orientation, and pressing buttons on its arm.",
         "items": [
           {
-            "id": "b3950ca6-24d1-5893-2349-d871399984d9",
+            "id": "05ac5550-5077-5daf-a14c-1c2016e053e2",
             "ancestors": [],
-            "description": "Manages the movement of a robotic arm based on the received data from a sensor and controls the arm's position, orientation, and gripper mode using Python's `robot` module. It also keeps track of the move mode and home positions.",
+            "description": "Manages a robot's movements and actions based on user input from a game controller. It receives data from the controller, updates the robot's position and orientation, and performs specific actions based on the user's inputs.",
             "attributes": [
               {
                 "name": "Period",
                 "type_name": "float|int",
-                "description": "4 seconds by default, indicating how often the worker will check for new commands from the robot."
+                "description": "4 by default, indicating that the worker performs actions every 4 seconds."
               },
               {
                 "name": "rgb",
                 "type_name": "Tuple[float,float,float]",
-                "description": "Used to represent the current orientation of the robot's end effector in terms of its position on the XY plane."
+                "description": "Used to store the red, green, and blue color values for the worker's visual representation in the simulation."
               },
               {
                 "name": "timestamp",
                 "type_name": "float|int",
-                "description": "Used to store the current time at which the worker is running, allowing for efficient execution of tasks based on time intervals."
+                "description": "Representing the time in milliseconds since the epoch (January 1, 1970, 00:00:00 UTC) that the worker has been running."
               },
               {
                 "name": "startup_check",
                 "type_name": "bool",
-                "description": "Used to track whether the worker has been started or not. It's initial value is `False`, and it's updated to `True` after the worker has been started, and back to `False` when the worker is stopped or reset."
+                "description": "Set to `True` if the worker has been started, and `False` otherwise. It is used to check whether the worker has been started before performing any actions."
               },
               {
                 "name": "physicsClient",
-                "type_name": "Tuple[float,float,float]",
-                "description": "Used to store the position and orientation of a robot's end effector in 3D space."
+                "type_name": "Tuple[float,float,float,float]",
+                "description": "Used to store the position and orientation of the robot in a physics engine simulation."
               },
               {
                 "name": "plane",
-                "type_name": "Tuple|List[float]",
-                "description": "Used to store the target position of the robot's end effector in 3D space, which can be moved along the X, Y, or Z axes using the `move_mode` attribute."
+                "type_name": "Tuple[float,float,float]",
+                "description": "Used to represent the position and orientation of the worker's end effector relative to its base."
               },
               {
                 "name": "table_id",
                 "type_name": "int|str",
-                "description": "Used to identify a specific worker's position in a table of workers, allowing for efficient handling of multiple workers with different positions."
+                "description": "Used to store the ID of a table that the worker can interact with, such as a user interface or a database."
               },
               {
                 "name": "robot_urdf",
                 "type_name": "Tuple[float,float,float]",
-                "description": "A reference to the robot's URDF (Unified Robot Description Format) definition. It contains the position and orientation of the robot in 3D space."
+                "description": "Represented as a list of three elements that represent the x, y, and z positions of the robot's end effector. It is used to define the position of the robot's end effector in the world coordinate system."
               },
               {
                 "name": "robot_launch_pos",
                 "type_name": "Tuple[float,float,float]",
-                "description": "Defined as the position of the robot's launch point."
+                "description": "A list of initial position values for the robot's launch position on the X, Y, and Z axes."
               },
               {
                 "name": "robot_launch_orien",
                 "type_name": "Tuple[float,float,float]",
-                "description": "Used to store the orientation of the robot's end effector relative to its base."
+                "description": "A reference to the robot's initial orientation."
               },
               {
                 "name": "end_effector_link_index",
                 "type_name": "int|str",
-                "description": "0-based index of the end effector link in the robot's kinematic chain, which represents the position of the gripper or other tool in the robot's workspace."
+                "description": "3 in the given code snippet, indicating that the end effector is linked to the third robot link."
               },
               {
                 "name": "robot_id",
                 "type_name": "int|str",
-                "description": "4 digits long, representing the unique identifier of the robot in a specific worker's profile."
+                "description": "Used to identify the specific worker among multiple workers of the same robot model."
               },
               {
                 "name": "home_angles",
                 "type_name": "Tuple[float,float,float]",
-                "description": "Defined as a set of angles for each axis (X, Y, Z) to home, which are default angles that the robot will move to when the \"home\" button is pressed."
+                "description": "Used to store the home position of the robot's end effector in the X, Y, and Z axes, respectively."
               },
               {
                 "name": "observation_angles",
-                "type_name": "Tuple[float,float,float]",
-                "description": "3 angles representing the orientation of the robot's end effector relative to its base, used for calculating the target position and orientation of the end effector based on user inputs."
+                "type_name": "List[float]",
+                "description": "Used to store the angles observed for each axis during a specific time step, with values ranging from -180 to 180."
               },
               {
                 "name": "table_center",
                 "type_name": "Tuple[float,float,float]",
-                "description": "Used to store the center coordinates of a table that the worker moves around."
+                "description": "Used to store the center coordinates of a table in front of the robot for pick and place operations."
               },
               {
                 "name": "cylinderId",
                 "type_name": "int|str",
-                "description": "Used to identify a specific cylinder for picking and placing objects."
+                "description": "Used to store the identifier of the cylinder to be moved by the worker."
               },
               {
                 "name": "threadKinovaAngles",
-                "type_name": "Tuple[float,float,float]",
-                "description": "Used to store the current angles of the robot's kinematic chain in degrees."
+                "type_name": "Tuple[float]",
+                "description": "Defined as a list of angles for each axis (X, Y, Z) and gripper, which are used to control the robot's movement."
               },
               {
                 "name": "readDataFromProxy",
-                "type_name": "Tuple[int,List[str]]",
-                "description": "Used to read data from a proxy server. It takes two arguments: the first is the protocol version, which can be either 1, 2, or 3, and the second is a list of strings representing the data from the proxy server. The attribute then parses the data based on the protocol version and returns the parsed data as a tuple of integers and a list of strigns."
+                "type_name": "Callable[Tuple,Tuple]",
+                "description": "Used to read data from a proxy server. It takes no arguments and returns a tuple containing the data read from the proxy server."
               },
               {
                 "name": "colorKinova",
                 "type_name": "str|int",
-                "description": "Set to a color value representing the robot's color, specifically \"red\", \"blue\", or \"green\"."
+                "description": "Used to store the color of the Kinova robot, which can be any valid hex code or a number between 0 and 255."
               },
               {
                 "name": "depthKinova",
                 "type_name": "int|str",
-                "description": "4D depth values from Kinova robot's end effector to the workspace origin in meter units."
+                "description": "4D array representing the depth values for a Kinova robot arm, where each dimension represents a different axis (X, Y, Z, or gripper)."
               },
               {
                 "name": "target_angles",
-                "type_name": "Tuple[float]",
-                "description": "Used to store the target angles for each axis of movement (X, Y, Z) and gripper, which are obtained from the robot's end effector position data."
+                "type_name": "List[float]",
+                "description": "Used to store the target angles for each axis (X, Y, Z, and gripper) in degrees."
               },
               {
                 "name": "target_position",
                 "type_name": "List[float]",
-                "description": "Used to store the target positions of the robot's end effector for the X, Y, and Z axes, as well as the gripper position."
+                "description": "Used to store the target position of the robot's end effector in 3D space, which can be modified through the `X`, `Y`, and `Z` axes."
               },
               {
                 "name": "target_orientation",
                 "type_name": "List[float]",
-                "description": "Used to store the target orientation of the robot's end effector, which is represented as a quaternion in the code. The quaternion represents the orientation of the end effector relative to the world coordinate system."
+                "description": "Used to store the target orientation of the robot's end effector in quaternion form. It represents the desired orientation of the end effector with respect to the base coordinate system, which can be updated based on user inputs or other factors."
               },
               {
                 "name": "target_velocities",
-                "type_name": "Tuple[float]",
-                "description": "Defined as a list of target velocities for each axis (X, Y, Z) and the gripper. The values in the list represent the desired velocity of the robot at each position and orientation."
+                "type_name": "List[float]",
+                "description": "Used to store the target velocities for each joint of the robot, which are calculated based on the user input."
               },
               {
                 "name": "joy_selected_joint",
                 "type_name": "Tuple[float]",
-                "description": "0-based indexing for the selected joint (axis) from the Joy device, where each element corresponds to a different axis."
+                "description": "Used to store the selected joint position as reported by the joystick. It keeps track of the current position of the robot's end effector in real-time based on the user input from the joysticks."
               },
               {
                 "name": "move_mode",
                 "type_name": "int|str",
-                "description": "Used to store the current mode of the worker's movement, which can be one of five options: \"home\", \"forward\", \"backward\", \"left\", or \"right\"."
+                "description": "Used to store the current mode of the robot (e.g., move, home, etc.) It can take on values such as 'move', 'home', or a number between 0 and 4 to represent different modes."
               },
               {
                 "name": "ext_joints",
                 "type_name": "Tuple[float]",
-                "description": "A list of joint angles for the robot's end effector, which are used to control the movement of the robot's arm."
+                "description": "A list of joint positions to move the robotic arm to in external mode."
               },
               {
                 "name": "kinovaarm_proxy",
-                "type_name": "Tuple[float,float,float]",
-                "description": "A reference to the robot's end effector position in 3D space."
+                "type_name": "Tuple[int,str]",
+                "description": "Used to store the current state of the kinova arm's joint positions and orientations."
               },
               {
                 "name": "ext_gripper",
-                "type_name": "Union[float,int]",
-                "description": "A variable for gripper position in case 4 of the switch statement. It represents the movement of the gripper in the X, Y, or Z axis."
+                "type_name": "str|float",
+                "description": "Used to represent the external gripper position, which can be set using a linear or angular motion control command."
               },
               {
                 "name": "timer",
                 "type_name": "float|int",
-                "description": "Used to store the elapsed time since the last call to `start_work`."
+                "description": "Used to keep track of time spent on a task, default value is 0."
               },
               {
                 "name": "compute",
-                "type_name": "function|NoneType",
-                "description": "Used to compute the new target position or orientation based on the received data packet from the robot. The function takes into account the current position, orientation, and other parameters such as move mode, home, and axis values, and updates the target position or orientation accordingly."
+                "type_name": "float|int",
+                "description": "Used to compute the target position, orientation, or gripper position based on the data from the robot's end effector, gripper, or other sensors. It takes into account the current pose of the robot and the desired position or orientation of the end effector, gripper, or other objects, and computes the necessary moves to reach the desired position or orientation."
               },
               {
                 "name": "joint_speeds",
                 "type_name": "List[float]",
-                "description": "Used to store the joint speeds for each axis, which are calculated based on the target position and orientation of the robot."
+                "description": "A list of joint speed values for each joint of the robot in the specific worker, which are used to control the movement of the robot."
               },
               {
                 "name": "speeds",
-                "type_name": "float|int",
-                "description": "A list of speeds for each axis (X, Y, Z) and the gripper, which represent the desired speed of the robot's joints and the gripper during movement."
+                "type_name": "List[float]",
+                "description": "Used to store the speed values for each axis of movement for the robot, which are set based on the input from the user."
               },
               {
                 "name": "angles",
-                "type_name": "List[float]",
-                "description": "Used to store the angles of the robot's joints in radians."
+                "type_name": "Tuple[float,float,float]",
+                "description": "Represented as a sequence of three floating-point numbers representing the angles for the X, Y, and Z axes of the robot's end effector."
               },
               {
                 "name": "gains",
-                "type_name": "float|List[float]",
-                "description": "Used to store the gains for each axis, which are used to control the movement of the robot's end effector."
+                "type_name": "float|int",
+                "description": "Used to store the gains for each axis of the robot, which are used to calculate the target position of the end effector based on the desired position and orientation of the robot."
               },
               {
                 "name": "posesTimes",
-                "type_name": "Tuple[float,]",
-                "description": "A list of pairs of position, orientation, and time stamps for each joint of the robot in a specific worker. It contains the current position and orientation of the robot's end effector at different time steps during the task execution."
+                "type_name": "Tuple[float,float,float]",
+                "description": "3-element list containing the current position, orientation, and time of the robot's arm in a specific mode."
               },
               {
                 "name": "poses",
-                "type_name": "Tuple[float,float,float,float]",
-                "description": "A list of robot positions in a format compatible with the Robot Operating System (ROS) kinematic tree. It stores the robot's current position and orientation in a form that can be used to calculate the robot's end effector pose relative to its base link."
+                "type_name": "Tuple[float,float,float]",
+                "description": "Used to store the position and orientation of the robot in various configurations. It contains 6 elements representing the position \nand orientation of the robot along the X, Y, Z axes and gripper position."
               },
               {
                 "name": "calibrator",
-                "type_name": "Union[int,str]",
-                "description": "Used to store the current calibration mode of the worker, which can be either 0, 1, 2, 3, or 4."
+                "type_name": "Tuple[float,float,float]|List[float]",
+                "description": "Used to store the calibration parameters for the robot's end effector. It contains the position and orientation of the end effector in Cartesian space with respect to the robot's base, which are obtained through calibration of the robot."
               },
               {
                 "name": "cameraKinovaTimer",
                 "type_name": "float|int",
-                "description": "0 by default, representing the timer for the camera's kinematic movements."
+                "description": "Used to control the timing of the robot's movements based on camera input."
               },
               {
                 "name": "readKinovaCamera",
-                "type_name": "Callable[[],Any]",
-                "description": "Called when the Kinova camera is read. It takes no arguments and returns any data read from the camera."
+                "type_name": "Tuple[float,float,float]",
+                "description": "Used to read the current position of the camera on a Kinova robot."
               },
               {
                 "name": "showKinovaStateTimer",
-                "type_name": "int|bool",
-                "description": "0 by default, indicating that the worker does not show the Kinova state timer."
+                "type_name": "float|int",
+                "description": "3, indicating that the worker will show the Kinova state timer every 3 seconds."
               },
               {
                 "name": "showKinovaAngles",
                 "type_name": "bool",
-                "description": "1 when the worker wants to display the angles of the robot's joints, and 0 otherwise."
+                "description": "Used to show the angles of the Kinova robot in degrees during debugging purposes."
               },
               {
                 "name": "gainsTimer",
-                "type_name": "int|float",
-                "description": "0 by default, which represents the time it takes for a worker to gain their target position after a move command has been executed."
+                "type_name": "float|int",
+                "description": "Used to store a timer value for gaining or moving the robot's end effector in a specific mode."
               },
               {
                 "name": "updateGains",
-                "type_name": "Callable[Tuple[float],None]",
-                "description": "Used to update the gains of the robot's joints based on the current position and orientation of the robot."
+                "type_name": "float|int",
+                "description": "Used to update the gains of the robot's joints based on the input from the user through the GUI."
               },
               {
                 "name": "contactPointTimer",
                 "type_name": "float|int",
-                "description": "Used to store the time taken for a specific worker to contact a target point, which can be used to calculate the move mode and home position."
+                "description": "Used to control the speed of the worker's movements, it starts at 0 and increases by 0.1 every second until it reaches a maximum value, after which it resets to 0."
               },
               {
                 "name": "detectContactPoints",
                 "type_name": "float|List[float]",
-                "description": "Used to store the contact points detected by the worker's end effector during its motion."
+                "description": "0 by default, which means it doesn't detect any contact points. It returns a list of floating-point numbers representing the positions of the robot's end effector in relation to the workpiece."
               },
               {
                 "name": "aamed",
-                "type_name": "str|int",
-                "description": "Used to store the name of the current move mode or home position in a robot. It can take on values such as \"move_mode\" or \"home\", indicating the different modes of the robot's movement or its default home position, respectively."
+                "type_name": "str|List[str]",
+                "description": "Used to store the name of the current action or command being executed by the worker, such as \"move_mode\" or \"home\"."
               },
               {
                 "name": "pybullet_offset",
                 "type_name": "Tuple[float,float,float]",
-                "description": "Used to define the offset of the robot's end effector from its initial position in world coordinates."
+                "description": "Used to store the offset values for the robot's end effector in the X, Y, and Z axes."
+              },
+              {
+                "name": "left_force_series",
+                "type_name": "List[float]",
+                "description": "A list of force values that will be applied to the left end effector of the robot in a specific order."
+              },
+              {
+                "name": "right_force_series",
+                "type_name": "List[float]",
+                "description": "A series of right forces applied to the robot's end effector at different points in time during a task."
+              },
+              {
+                "name": "graphTimes",
+                "type_name": "Tuple[float,float,float]",
+                "description": "Used to store the time taken for each graph creation attempt."
+              },
+              {
+                "name": "fig",
+                "type_name": "float|int",
+                "description": "Used to store the current position of the robot's figure in a specific axis."
+              },
+              {
+                "name": "ax1",
+                "type_name": "float",
+                "description": "Representing the x-axis position or orientation value for the robot."
+              },
+              {
+                "name": "ax2",
+                "type_name": "float",
+                "description": "Representing the value for the second axis (Y-axis) of the robot's end effector position. It is used to move the end effector along the Y-axis by a specified amount in response to user input."
+              },
+              {
+                "name": "line1",
+                "type_name": "str|List[str]",
+                "description": "50 characters long, containing a line of Python code that defines a specific worker's move mode based on the value of the `axis` attribute."
+              },
+              {
+                "name": "line2",
+                "type_name": "str|List[str]",
+                "description": "Used to store a list of lines of instructions for a specific worker. Each line represents a single instruction, such as \"move_mode\" or \"home\"."
               }
             ],
             "name": "SpecificWorker",
             "location": {
-              "start": 66,
-              "insert": 67,
+              "start": 68,
+              "insert": 69,
               "offset": " ",
               "indent": 4,
               "comment": null
             },
             "item_type": "class",
-            "length": 950,
+            "length": 971,
             "docLength": null
           },
           {
-            "id": "7a7b9254-b1a1-20aa-4b42-aebb8d8da76b",
+            "id": "d1fc8826-27d2-cab5-f444-8ebc26fe3f28",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Initializes variables and timers to communicate with the Kinova robot arm, retrieve joint angles and velocities, and perform calibration and visualization tasks.",
+            "description": "Initializes various parameters and timers for controlling the Kinova arm, camera, and gains, as well as plotting forces on a graph.",
             "params": [
               {
                 "name": "proxy_map",
                 "type_name": "Dict[str, int]",
-                "description": "Used to map the joint names of the Kinova arm to their corresponding indices in the PyBullet robot simulation. It allows to customize the mapping between the joints of the real-world Kinova arm and the virtual joints in PyBullet, which is useful when the real-world arm has a different number of joints or different joint names than the PyBullet robot."
+                "description": "Used to map the kinova arm joints indices to the actual joints names used by the PyBullet environment. It allows to customize the mapping between the kinova arm joints and the pybullet joints."
               },
               {
                 "name": "startup_check",
                 "type_name": "bool",
-                "description": "Used to check if the robot's end effector is within the desired workspace during startup. It is set to `True` by default, which will perform the check. If set to `False`, the check will be skipped, and the robot will proceed with its initialization."
+                "description": "Used to check if the robot's kinematic data is available before starting the main loop. It is set to `True` by default, meaning that the main loop will only start once the kinematic data is available. If the kinematic data is not available, the program will wait for it to become available before proceeding."
               }
             ],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "# Create an instance of SpecificWorker class\nworker = SpecificWorker(proxy_map, startup_check=False)\n\n# Call the __init__ method with the required arguments\nworker.__init__(proxy_map, startup_check=False)\n\n# Use the methods and variables defined in the SpecificWorker class\nprint(\"Starting physics simulation...\")\nworker.startPhysicsSimulation()\n\nprint(\"Adjusting camera settings...\")\nworker.adjustCameraSettings(1.5, 50, -35, [0, 0, 0.5])\n",
-              "description": ""
+              "code": "# Initialize the SpecificWorker class\nspecific_worker = SpecificWorker(proxy_map)\n",
+              "description": "\nIn this example, the user has created an instance of the `SpecificWorker` class and passed in the `proxy_map` as a parameter to the `__init__` function. The `__init__` function then calls the parent's `__init__` function to initialize the GenericWorker class.\n\nIt is important to note that this code does not include any specific examples on how to use the `SpecificWorker` class, but it demonstrates the basic idea of creating an instance of a class and passing in parameters to its constructor."
             },
             "name": "__init__",
             "location": {
-              "start": 67,
-              "insert": 68,
+              "start": 69,
+              "insert": 70,
               "offset": " ",
               "indent": 8,
               "comment": null
             },
             "item_type": "constructor",
-            "length": 144,
+            "length": 158,
             "docLength": null
           },
           {
-            "id": "b9ce7407-ff00-12a3-2c4d-1eb7bb1299eb",
+            "id": "9d092a83-9775-7d93-e34e-45cafaf99be5",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Sets parameters for further processing of data.",
+            "description": "Sets parameters for the worker instance.",
             "params": [
               {
                 "name": "params",
-                "type_name": "ParamType.any",
-                "description": "Passed in to update the parameters of an object."
+                "type_name": "Union[str, dict]",
+                "description": "Used to set parameters for the function."
               }
             ],
             "returns": {
               "type_name": "bool",
-              "description": "1 if the parameters are set successfully, otherwise it returns a value of False."
+              "description": "True if the parameters are successfully set, and False otherwise."
             },
             "usage": {
               "language": "python",
-              "code": "import SpecificWorker\n\n# Create a new instance of the SpecificWorker class with default parameters\nworker = SpecificWorker()\n\n# Set the parameters of the worker to use for the task\nparams = {\n    'Period': 100,\n    'rgb': [255, 0, 0],\n}\nworker.setParams(params)\n\n# Execute the task using the updated parameters\nworker.doTask()\n",
+              "code": "worker = SpecificWorker(proxy_map)\nparams = {\"Period\": 50, \"rgb\": [], \"timestamp\": int(time.time()*1000)}\nworker.setParams(params)\n",
               "description": ""
             },
             "name": "setParams",
             "location": {
-              "start": 250,
-              "insert": 256,
+              "start": 268,
+              "insert": 274,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -649,47 +689,47 @@
             "docLength": null
           },
           {
-            "id": "5893310d-853e-2f86-a94a-9565dbbdbf84",
+            "id": "999022f5-cfa1-b3ad-b84f-2aa15a48ddd0",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Computes the joint angles to reach a target position and orientation of the robot's end effector, taking into account the robot's dynamics and constraints. It also handles the communication with the PyBullet and Kinova APIs.",
+            "description": "Computes the joint angles and velocities based on the current pose and target position, and moves the robot using PyBullet and Kinova's API.",
             "params": [],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "# Initialize SpecificWorker object with proxy map and startup check as True\nworker = SpecificWorker(proxy_map, startup_check=True)\n\n# Startup check to set up the robot and camera in PyBullet\nworker.startup_check()\n\n# Compute function call to get the image and other data from the simulated environment\nworker.compute(1)\n\n# Print out the image, timestamp, and other data obtained from the compute function\nprint(worker.rgb)\nprint(worker.timestamp)\n",
-              "description": ""
+              "code": "# Importing necessary libraries\nimport time\nfrom specific_worker import SpecificWorker\n\nif __name__ == '__main__':\n    # Creating an instance of the SpecificWorker class\n    worker = SpecificWorker(proxy_map={\"kinovaarm\": \"tcp://192.168.100.7:50001\"}, startup_check=True)\n\n    # Calling the compute function with some input arguments\n    worker.compute(\"some input\", 42, foo=\"bar\")\n\n    # Waiting for a few seconds before calling the compute function again\n    time.sleep(3)\n",
+              "description": "\nIn this example, we first import the necessary libraries and then create an instance of the SpecificWorker class using the default constructor. We then call the compute function with some input arguments to demonstrate how it can be used. Finally, we wait for a few seconds before calling the compute function again to show how it can be called repeatedly in a loop.\nNote that this is just a simple example and that there are many other ways to use the compute function depending on the specific requirements of your application."
             },
             "name": "compute",
             "location": {
-              "start": 259,
-              "insert": 262,
+              "start": 277,
+              "insert": 280,
               "offset": " ",
               "indent": 8,
               "comment": null
             },
             "item_type": "method",
-            "length": 339,
+            "length": 341,
             "docLength": null
           },
           {
-            "id": "d1726d17-41c9-cfa1-3e4b-80282d804271",
+            "id": "91ed72b3-9f2e-2c99-1843-ceeb4c6615fe",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
             "description": "Tests various components and interfaces of the RoboCompKinovaArm library, including TPose, TGripper, TJoint, TJoints, AxisParams, ButtonParams, and TData.",
             "params": [],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "from SpecificWorker import SpecificWorker\nfrom GenericWorker import GenericWorker\nimport time\nimport pybullet as p\nimport pybullet_data\n\n# Create a new instance of the specific worker class and pass in the proxy map.\nworker = SpecificWorker(proxy_map)\n\n# Set the startup check flag to True so that the startup_check function is called on initialization.\nworker = SpecificWorker(proxy_map, startup_check=True)\n",
-              "description": "\nIn this example, we create a new instance of the specific worker class and pass in the proxy map. We also set the startup check flag to True so that the startup_check function is called on initialization. The startup_check function will then run through its code and perform any necessary tests before returning control back to the user."
+              "code": "from SpecificWorker import GenericWorker\n\n# Initialize the worker with a proxy map and enable startup check\nworker = SpecificWorker(proxy_map, startup_check=True)\n\n# Start the worker in its own thread\nworker.start()\n\n# Wait for the worker to finish\nworker.join()\n",
+              "description": "\nIn this example, the user initializes an instance of the `SpecificWorker` class with a proxy map and enables the startup check option. The worker is then started in its own thread using the `start()` method and waits until it finishes using the `join()` method."
             },
             "name": "startup_check",
             "location": {
-              "start": 633,
-              "insert": 634,
+              "start": 653,
+              "insert": 654,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -699,28 +739,28 @@
             "docLength": null
           },
           {
-            "id": "9bfffb0c-8160-b291-394b-b49d5bbe2982",
+            "id": "4edf90a1-260b-a68b-4441-aea1a245181e",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Modifies the target angles of a robot's grippers to reach a desired distance, using PyBullet's `setJointMotorControl2` function.",
+            "description": "Modifies the joint angles of a robot to change its grip on an object, based on the provided distance value.",
             "params": [
               {
                 "name": "distance",
                 "type_name": "float",
-                "description": "Used to modify the angles of the gripper's joints for proper gripping of an object."
+                "description": "Used to set the angle of the gripper."
               }
             ],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "# Create a SpecificWorker object\nspecific_worker = SpecificWorker(proxy_map)\n\n# Set the distance for which the gripper will move to\ndistance = 0.1\n\n# Call the function to change the position of the gripper\nspecific_worker.changePybulletGripper(distance)\n",
-              "description": "\nIn this example, we first create an object of type SpecificWorker using the proxy_map argument. We then set a variable distance with the desired value for the gripper's position. Finally, we call the changePybulletGripper function with the distance variable as an argument to change the position of the gripper."
+              "code": "# Initiate SpecificWorker class object\nworker = SpecificWorker(proxy_map)\n\n# Use changePybulletGripper method to change gripper distance to 0.5\nworker.changePybulletGripper(0.5)\n\n# Use changePybulletGripper method again with a different value of distance (i.e., 1.0)\nworker.changePybulletGripper(1.0)\n",
+              "description": ""
             },
             "name": "changePybulletGripper",
             "location": {
-              "start": 650,
-              "insert": 651,
+              "start": 670,
+              "insert": 671,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -730,50 +770,50 @@
             "docLength": null
           },
           {
-            "id": "a6b7b89b-3880-408e-4845-519aaf1337e3",
+            "id": "aafb9e42-cc78-909a-7640-2101ed895085",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Detects contact forces on the left and right fingertips based on data from the robot's end effector joint positions.",
+            "description": "Detects contact points on a robot's left and right fingertips using the getContactPoints method, and then extracts the force values associated with these contacts to plot them on a graph.",
             "params": [],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "# Load the URDF files for the robot and the plane\nplane_urdf = \"./URDFs/plane/plane.urdf\"\nrobot_urdf = \"./URDFs/table/table.urdf\"\n\n# Initialize the physics engine\nphysics_client = p.connect(p.GUI)\np.setAdditionalSearchPath(pybullet_data.getDataPath())\n\n# Load the plane and the robot in the simulation\nplane_id = p.loadURDF(plane_urdf, basePosition=[0, 0, 0], baseOrientation=[0, 0, 0, 1])\nrobot_id = p.loadURDF(robot_urdf, basePosition=[0, 0, 0], baseOrientation=[0, 0, 0, 1])\n\n# Set the simulation parameters\np.setRealTimeSimulation(1)\np.setGravity(0, 0, -9.81)\n\n# Detect contact points between the robot and the plane\ncontact_points = detectContactPoints(robot_id, plane_id)\nprint(\"Number of contact points:\", len(contact_points))\n",
+              "code": "# Create an instance of the SpecificWorker class\nworker = SpecificWorker(proxy_map=ProxyMap())\n\n# Set the period at which contact points are detected\nworker.Period = 50\n\n# Connect to the physics client and set up the simulation environment\nworker.physicsClient = p.connect(p.GUI)\np.setAdditionalSearchPath(pybullet_data.getDataPath())\np.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)\np.setGravity(0, 0, -9.81)\np.setRealTimeSimulation(1)\nflags = p.URDF_USE_INERTIA_FROM_FILE\np.resetDebugVisualizerCamera(cameraDistance=1.5, cameraYaw=50, cameraPitch=-35, cameraTargetPosition=[0, 0, 0.5])\nworker.plane = p.loadURDF(\"./URDFs/plane/plane.urdf\")\nworker.table_id = p.loadURDF(\"./URDFs/table/table.urdf\", basePosition=[0, 0, 0], baseOrientation)\n\n# Detect contact points at a specified period\nworker.detectContactPoints()\n",
               "description": ""
             },
             "name": "detectContactPoints",
             "location": {
-              "start": 663,
-              "insert": 665,
+              "start": 683,
+              "insert": 685,
               "offset": " ",
               "indent": 8,
               "comment": null
             },
             "item_type": "method",
-            "length": 19,
+            "length": 24,
             "docLength": null
           },
           {
-            "id": "529ac2d3-b4b4-f3be-364c-a709f3559bec",
+            "id": "347941b3-36e3-73b4-1849-5b56c235020b",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Calculates the difference between the predicted and actual positions of a target based on keypoints detected using the AAMED algorithm, and adjusts the position of a cylinder to minimize the error.",
+            "description": "Calculates the error between the predicted and actual positions of a target object based on keypoints detected using AAMED and adjusts the base position and orientation of a cylinder to minimize the error.",
             "params": [],
             "returns": {
               "type_name": "float",
-              "description": "Ether the error between the estimated position and the actual position or -1 if no keypoints are detected."
+              "description": "The difference between the estimated position of the target and the actual position of the target as determined by the AAMED algorithm."
             },
             "usage": {
               "language": "python",
-              "code": "from SpecificWorker import SpecificWorker\nimport time\n\n# Initialize the worker object\nworker = SpecificWorker()\n\n# Set up the simulation environment and get the reference to the proxy map\nproxy_map = worker.setUpSimulationEnvironment()\n\n# Call the correctTargetPosition method to adjust the position of a cylinder in the simulated environment based on a set of predefined colors\nworker.correctTargetPosition(proxy_map)\n",
+              "code": "from specific_worker import SpecificWorker\n\n# Initialize worker instance\nworker = SpecificWorker()\n\n# Correct target position of a cylinder object in PyBullet simulation\nerror = worker.correctTargetPosition(cylinder_id)\n\nif error == -1:\n    print(\"No keypoints detected\")\nelse:\n    # Display the corrected position of the cylinder object\n    print(f\"Cylinder object's new position: {p.getBasePositionAndOrientation(cylinder_id)[0]}\")\n",
               "description": ""
             },
             "name": "correctTargetPosition",
             "location": {
-              "start": 687,
-              "insert": 688,
+              "start": 717,
+              "insert": 718,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -783,28 +823,28 @@
             "docLength": null
           },
           {
-            "id": "9be3a800-f4e5-97aa-5844-40f07057dd94",
+            "id": "2222ca08-15bb-2b96-2141-f6d2e2404395",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Initializes tools and adds them to the environment, sets up grippers and end effectors, defines axes for movement, and prepares for work.",
+            "description": "Initializes the toolbox, sets up kinematic constraints, and defines objects to be manipulated in the environment.",
             "params": [
               {
                 "name": "target_position",
                 "type_name": "Tuple[float, float, float]",
-                "description": "Used to specify the position where the toolbox should arrive at the end of the simulation."
+                "description": "Passed to create a transformation matrix for reaching a desired position of an end effector (gripper) in the robot's workspace."
               }
             ],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "from swift import Swift\nfrom rtb import models\nimport sg\nimport sm\n\n# create a new instance of the specific worker class and pass in the target position as an argument\nworker = SpecificWorker(target_position=[0.4, 0.4, 0.8])\n\n# initialize the toolbox with the target position and launch the real-time environment\nworker.initialize_toolbox(target_position)\n",
-              "description": ""
+              "code": "from SpecificWorker import SpecificWorker\n\n# Initialize the worker object\nworker = SpecificWorker(proxy_map={})\n\n# Set the target position for the robot to reach\ntarget_position = [0.4, 0.4, 0.5]\n\n# Call the initialize_toolbox method and pass in the target position as an argument\nworker.initialize_toolbox(target_position)\n",
+              "description": "\nIn this example, the end-user creates a new object of the SpecificWorker class and calls the initialize_toolbox method on it. The target position is passed as an argument to the method, which initializes the toolbox for the specific task."
             },
             "name": "initialize_toolbox",
             "location": {
-              "start": 721,
-              "insert": 723,
+              "start": 751,
+              "insert": 753,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -814,28 +854,28 @@
             "docLength": null
           },
           {
-            "id": "c6e5c26d-8d89-288f-f348-f68736241887",
+            "id": "e1e6d8a1-9a94-e19d-f849-11bb9181f48b",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Computes the joint velocities for the robot to approach its goal position and orientation while avoiding joint limits. It uses the kinematic tree, Jacobian matrix, and velocity damping to compute the joint angles.",
+            "description": "Computes the joint velocities and positions for the robot to approach a target position while avoiding joint limits. It uses the kinematic tree to compute the end-effector pose and updates the joint angles, ee axes, and target velocities accordingly.",
             "params": [
               {
                 "name": "target_position",
                 "type_name": "Tuple[float, float, float]",
-                "description": "Used to specify the desired position of the end effector."
+                "description": "Used to compute the target joint angles for the robot to reach a specific position in the workspace."
               }
             ],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "import numpy as np\nfrom kinova_robot import SpecificWorker\n\n# Create a new instance of the specific worker class\nworker = SpecificWorker(proxy_map={}, startup_check=False)\n\n# Set the target position for the robot to move to\ntarget_position = [0.5, 0.25, 0.1]\n\n# Call the toolbox compute function and pass in the target position as an argument\nworker.toolbox_compute(target_position=target_position)\n",
+              "code": "import pybullet as p\nimport numpy as np\nfrom specific_worker import SpecificWorker\n\n# Initialize the worker\nspecific_worker = SpecificWorker(proxy_map={})\n\n# Set the target position for the robot's end effector\ntarget_position = [0.5, 0.5, 1]\n\n# Call the toolbox compute method with the target position as an argument\nresult = specific_worker.toolbox_compute(target_position)\n\n# Print the result\nprint(result)\n",
               "description": ""
             },
             "name": "toolbox_compute",
             "location": {
-              "start": 768,
-              "insert": 770,
+              "start": 798,
+              "insert": 800,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -845,25 +885,25 @@
             "docLength": null
           },
           {
-            "id": "406af517-1563-2ebd-2046-4ef59d4cddd2",
+            "id": "7781ea31-719a-1d8c-bb4e-378859bcb759",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Reads camera data from a PyBullet environment and processes it to generate an RGB image, which is displayed in a window using OpenCV functions.",
+            "description": "Reads camera data from a PyBullet robot simulation and processes it to generate an RGB image, which is displayed in real-time.",
             "params": [],
             "returns": {
-              "type_name": "Tuple[npndarray,float]",
-              "description": "The RGB image of the camera and time stamp in milliseconds."
+              "type_name": "float",
+              "description": "The camera image as a BGR color channel."
             },
             "usage": {
               "language": "python",
-              "code": "from SpecificWorker import SpecificWorker\nimport time\n\n# Create a new instance of the SpecificWorker class\nspecific_worker = SpecificWorker()\n\n# Start the robot simulation\nspecific_worker.start_simulation()\n\nwhile True:\n    # Read the camera image and timestamp\n    rgb, timestamp = specific_worker.read_camera_fixed()\n    \n    # Display the image in a window\n    cv2.imshow(\"Image\", rgb)\n    \n    # Wait for a key press to continue\n    if cv2.waitKey(1) == ord('q'):\n        break\n\n# Close the simulation and clean up resources\nspecific_worker.close()\n",
-              "description": "\nThis code creates an instance of the SpecificWorker class, starts the robot simulation, and reads the camera image and timestamp using the read_camera_fixed method in a loop. Finally, it closes the simulation and cleans up resources."
+              "code": "import time\nfrom pybullet_utils import SpecificWorker\n\n# Connect to the bullet physics server\nworker = SpecificWorker(proxy_map=None)\n\n# Get a fixed camera image\nimage, timestamp = worker.read_camera_fixed()\n\n# Display the image in a window\ncv2.imshow(\"Fixed Camera\", image)\ncv2.waitKey(3)\n",
+              "description": ""
             },
             "name": "read_camera_fixed",
             "location": {
-              "start": 903,
-              "insert": 904,
+              "start": 933,
+              "insert": 934,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -873,25 +913,25 @@
             "docLength": null
           },
           {
-            "id": "4e0b29b1-388b-588a-aa4e-88e1755916a1",
+            "id": "e4f40fdc-7032-ef88-6d4d-fd30b82047ee",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Retrieves depth and color images from a Kinova camera and stores them in instance variables for later processing.",
+            "description": "Retrieves depth and color images from the Kinova camera, normalizes the depth image, and appends it to a list along with the time stamp.",
             "params": [],
             "returns": {
               "type_name": "bool",
-              "description": "`True` when the operation is successful, and `False` otherwise."
+              "description": "True when the operation is successful, and False otherwise."
             },
             "usage": {
               "language": "python",
-              "code": "from SpecificWorker import SpecificWorker\nimport numpy as np\n\n# Initialize the worker object\nworker = SpecificWorker(proxy_map, startup_check=False)\n\n# Set the camera proxy map\ncamera_proxy_map = {\n    \"CameraRGBDViewer\": {\n        \"depth\": {\n            \"height\": 480,\n            \"width\": 640,\n            \"alivetime\": 10,\n            \"image\": [1329152, 1329152, 1329152, ...],\n        },\n        \"image\": {\n            \"height\": 480,\n            \"width\": 640,\n            \"depth\": 1,\n            \"alivetime\": 10,\n            \"image\": [1329152, 1329152, 1329152, ...],\n        },\n    }\n}\nworker.camerargbdsimple_proxy = camera_proxy_map\n\n# Set the depth and color arrays to empty lists\nworker.depthKinova = []\nworker.colorKinova = []\n\n# Call the readKinovaCamera function to get the latest data\nsuccess = worker.readKinovaCamera()\n\n# If successful, access the depth and color images\ndepth_image = np.asarray(worker.depthKinova[0][0])\ncolor_image = np.asarray(worker.colorKinova[0][0])\n",
+              "code": "import SpecificWorker\n\n# Instantiate a worker object and pass in proxy_map\nworker = SpecificWorker(proxy_map)\n\n# Call the readKinovaCamera method and append the resulting data to the rgb list\nworker.readKinovaCamera()\n\n# Print the length of the rgb list to show that data was appended\nprint(len(worker.rgb))\n",
               "description": ""
             },
             "name": "readKinovaCamera",
             "location": {
-              "start": 974,
-              "insert": 975,
+              "start": 1004,
+              "insert": 1005,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -901,22 +941,22 @@
             "docLength": null
           },
           {
-            "id": "f42601d9-05f6-f6ba-c549-b043a97a12b2",
+            "id": "fffb4203-1306-a098-bb4d-9b57750b553b",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Computes and prints the angles of Kinova joints, the difference between the current angles and those provided by PyBullet, and the distance of the gripper.",
+            "description": "Displays information about the robot's kinematics, including joint angles and differences between PyBullet and the robot's actual positions.",
             "params": [],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "worker = SpecificWorker()\nworker.showKinovaAngles()\n",
+              "code": "# Initialize the SpecificWorker object and load the PyBullet simulation environment\nworker = SpecificWorker(proxy_map)\nworker.load_simulation()\n\n# Print the current joint angles of the Kinova robot in the PyBullet simulation\nworker.showKinovaAngles()\n",
               "description": ""
             },
             "name": "showKinovaAngles",
             "location": {
-              "start": 990,
-              "insert": 991,
+              "start": 1020,
+              "insert": 1021,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -926,22 +966,22 @@
             "docLength": null
           },
           {
-            "id": "6bc34c0c-7929-90aa-da4b-a842737b69ec",
+            "id": "8d620501-0d13-5aae-cc44-9e3189e1b3ea",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Calculates and sets the target velocities for joints external to the robot, based on the robot's internal velocity signals, and then sets those velocities using PyBullet's `setJointMotorControl2` function.",
+            "description": "Updates the target velocities for joints based on an external velocity input, and then sets motor control targets using PyBullet's `setJointMotorControl2` function.",
             "params": [],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "# create a SpecificWorker object\nspecific_worker = SpecificWorker(proxy_map, startup_check=False)\n\n# initialize the worker and physics client\nspecific_worker.startup()\nspecific_worker.physicsClient = p.connect(p.GUI)\np.setAdditionalSearchPath(pybullet_data.getDataPath())\np.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)\np.setGravity(0, 0, -9.81)\n\np.setRealTimeSimulation(1)\n\nflags = p.URDF_USE_INERTIA_FROM_FILE\nspecific_worker.plane = p.loadURDF(\"./URDFs/plane/plane.urdf\")\nspecific_worker.table_id = p.loadURDF(\"./URDFs/table/table.urdf\", basePosition=[0, 0, 0],\n                                       baseOrientation)\n\n# move the robot using external joint velocities\nspecific_worker.movePybulletWithExternalVel(ext_joints=ExtJoints(joints=[1.2, 3.4]))\n",
+              "code": "from specific_worker import SpecificWorker\n\n# Initializing a new instance of the SpecificWorker class\nspecific_worker = SpecificWorker()\n\n# Setting up the external joints for the robot\nspecific_worker.ext_joints = [Joint1, Joint2]\n\n# Moving the robot with an external velocity\nspecific_worker.movePybulletWithExternalVel(robot_id=0)\n",
               "description": ""
             },
             "name": "movePybulletWithExternalVel",
             "location": {
-              "start": 1001,
-              "insert": 1002,
+              "start": 1031,
+              "insert": 1032,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -951,22 +991,22 @@
             "docLength": null
           },
           {
-            "id": "0ff152aa-9acd-d38c-0a41-dc6853e2e943",
+            "id": "510852ca-f4cf-51b3-fd46-7f0b86126673",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Controls the velocity of joints of a robot using PyBullet's setJointMotorControl2 function, based on target velocities provided in a list.",
+            "description": "Controls the velocities of joints of a robot using PyBullet, setting motor velocity targets for each joint based on user-defined target velocities.",
             "params": [],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "# Create a new instance of the SpecificWorker class\nspecific_worker = SpecificWorker()\n\n# Move the PyBullet robot with toolbox using the movePybulletWithToolbox method\nspecific_worker.movePybulletWithToolbox(target_velocities=[0, 0, 0])\n",
-              "description": ""
+              "code": "# Import the SpecificWorker class from the module\nfrom specific_worker import SpecificWorker\n\n# Instantiate a new object of the SpecificWorker class\nspecific_worker = SpecificWorker()\n\n# Call the movePybulletWithToolbox method with the target velocities list as an argument\nspecific_worker.movePybulletWithToolbox(target_velocities=[1, 2, 3])\n",
+              "description": "\nIn this example, we first import the SpecificWorker class from the specific_worker module. We then create a new object of the SpecificWorker class and call its movePybulletWithToolbox method with a target velocities list as an argument. The target velocities list is a sequence of values that represents the desired velocity for each joint in the robot."
             },
             "name": "movePybulletWithToolbox",
             "location": {
-              "start": 1011,
-              "insert": 1013,
+              "start": 1041,
+              "insert": 1043,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -976,22 +1016,22 @@
             "docLength": null
           },
           {
-            "id": "733d93e2-0f04-0c83-8f41-66c51346be0c",
+            "id": "d8dfcc69-0a72-bf99-d341-3ccb11b05050",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Retrieves joint state and gripper state data from a proxy server, scales the gripper distance by 0.8, and sleeps for 0.05 seconds before repeating the process.",
+            "description": "Retrieves joint and gripper state data from a Kinova arm proxy using the `kinovaarm_proxy.getJointsState()` and `kinovaarm_proxy.getGripperState()` methods, respectively. It then scales down the gripper distance by a factor of 0.8 before sleeping for 0.05 seconds to repeat the process.",
             "params": [],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "import time\n\n# Create an instance of SpecificWorker\nworker = SpecificWorker(proxy_map=None, startup_check=False)\n\n# Call the readDataFromProxy method\nwhile True:\n    worker.readDataFromProxy()\n    # Process the data as needed\n    time.sleep(0.05)\n",
+              "code": "# Initiate proxy_map with the relevant information for connecting to a Kinova Arm\nproxy_map = {}\nspecific_worker = SpecificWorker(proxy_map, startup_check=False)\nspecific_worker.readDataFromProxy()\n",
               "description": ""
             },
             "name": "readDataFromProxy",
             "location": {
-              "start": 1018,
-              "insert": 1019,
+              "start": 1048,
+              "insert": 1049,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1001,28 +1041,28 @@
             "docLength": null
           },
           {
-            "id": "1431565b-0bc2-4fb1-8e4b-579132e326b5",
+            "id": "1a374816-2660-66a5-f846-509b1a189c46",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Takes an angle array as input and moves the Kinova arm based on the angles.",
+            "description": "Converts angles (degrees) to radians and then rounds them to the nearest degree, storing the result in a list called `jointAngles`. The method then calls the moveJointsWithAngle method on the kinova arm proxy with the rounded angles.",
             "params": [
               {
                 "name": "angles",
-                "type_name": "float | List[float]",
-                "description": "Representing the joint angles to move the kinova arm in radians, with values between 0 and 360 degrees."
+                "type_name": "np.angle2rad | np.number",
+                "description": "An input angle array in radians for the robot's joint angles."
               }
             ],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "# Initializing the SpecificWorker class and its properties\nworker = SpecificWorker(proxy_map, startup_check=False)\n\n# Setting the joint angles of the Kinova arm using the moveKinovaWithAngles method\nangles = [45, 60, 70, 80, 90, 100]\nworker.moveKinovaWithAngles(angles)\n",
-              "description": "\nIn this example, the SpecificWorker class is initialized with its properties and a proxy_map argument. The moveKinovaWithAngles method is then called with an input of angles, which sets the joint angles of the Kinova arm to the specified values."
+              "code": "# Create an instance of the SpecificWorker class\nspecific_worker = SpecificWorker(proxy_map)\n\n# Move the Kinova arm to a specific joint angle configuration\nangles = [0, 1.57, -2.35, 0.6, 1.3, -0.8]\nspecific_worker.moveKinovaWithAngles(angles)\n",
+              "description": "\nIn this example, the `SpecificWorker` class instance is created and then a list of joint angles is defined and passed to the `moveKinovaWithAngles` method. The method uses this list to set the desired joint angle configuration for the Kinova arm."
             },
             "name": "moveKinovaWithAngles",
             "location": {
-              "start": 1027,
-              "insert": 1028,
+              "start": 1057,
+              "insert": 1058,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1032,22 +1072,22 @@
             "docLength": null
           },
           {
-            "id": "0aeae1ff-1bc1-dea3-1a45-0866ba1aba44",
+            "id": "c7948a8c-8acf-e693-ab40-24b13f08c965",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Computes and sends joint speeds to the Kinova arm proxy for movement based on current joint angles and gain values.",
+            "description": "Calculates joint speeds based on angle errors and applies them to the Kinova arm through the moveJointsWithSpeed method.",
             "params": [],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "# Create an instance of SpecificWorker\nworker = SpecificWorker(proxy_map={})\n\n# Define the joint speeds and angles for the Kinova arm\njoint_speeds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]\njoint_angles = [90, 180, 270, 360, 450, 540, 630]\n\n# Move the Kinova arm with the defined joint speeds and angles\nworker.moveKinovaWithSpeeds(joint_speeds, joint_angles)\n",
+              "code": "# Initialize an instance of SpecificWorker\nworker = SpecificWorker(proxy_map)\n\n# Move the Kinova robot with speeds for each joint in a specific order\njoint_speeds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]\nworker.moveKinovaWithSpeeds(joint_speeds)\n",
               "description": ""
             },
             "name": "moveKinovaWithSpeeds",
             "location": {
-              "start": 1032,
-              "insert": 1034,
+              "start": 1062,
+              "insert": 1064,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1057,22 +1097,22 @@
             "docLength": null
           },
           {
-            "id": "974e49b9-e888-e799-4c49-bab29c47a591",
+            "id": "2dad3bbf-6d21-53b0-0b47-343419424fc5",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Updates the gains for each joint based on the difference between the robot's current pose and its desired pose, with a maximum gain update of 0.2 radians per step.",
+            "description": "Updates the gains for each joint based on the difference between the current pose and the desired pose, and the timestamp of the current pose.",
             "params": [],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "import numpy as np\nfrom SpecificWorker import SpecificWorker\n\n# Initialize a SpecificWorker object with proxy_map and startup_check=False\nworker = SpecificWorker(proxy_map, startup_check=False)\n\n# Call the updateGains method of the worker object with some values for i and error\nworker.updateGains(i=7, error=np.deg2rad(45))\n",
-              "description": "\nThis code would update the gains for joint 7 in the SpecificWorker object using the given error value. It is assumed that the user has already initialized a SpecificWorker object with proxy_map and startup_check=False."
+              "code": "# Initialize the worker with the necessary proxies and check for startup issues\nworker = SpecificWorker(proxy_map, startup_check=True)\n\n# Use the updateGains method to calculate the gains for each joint\nworker.updateGains()\n\n# Get the updated gains for each joint\ngains = worker.gains\n",
+              "description": ""
             },
             "name": "updateGains",
             "location": {
-              "start": 1052,
-              "insert": 1053,
+              "start": 1082,
+              "insert": 1083,
               "offset": " ",
               "indent": 8,
               "comment": null
@@ -1082,28 +1122,28 @@
             "docLength": null
           },
           {
-            "id": "5f511f08-b117-a5b7-d549-971a179aceaa",
+            "id": "84b5588e-84b5-5e90-004d-e2df011b6c5b",
             "ancestors": [
-              "b3950ca6-24d1-5893-2349-d871399984d9"
+              "05ac5550-5077-5daf-a14c-1c2016e053e2"
             ],
-            "description": "Receives input data from a joystick and updates the robot's position, orientation, and move mode based on the received data.",
+            "description": "Receives data from a joystick and updates the robot's position, orientation, and move mode based on the input axes and buttons.",
             "params": [
               {
                 "name": "data",
                 "type_name": "Tuple[Axis, Button]",
-                "description": "Passed the raw joystick data from the user's input device."
+                "description": "Responsible for providing data from the joystick or other input devices."
               }
             ],
             "returns": null,
             "usage": {
               "language": "python",
-              "code": "# Create a new instance of the SpecificWorker class\nspecific_worker = SpecificWorker()\n\n# Set the move mode to 0 (default)\nspecific_worker.move_mode = 0\n\nwhile True:\n    # Retrieve data from the joystick and send it to the robot\n    specific_worker.JoystickAdapter_sendData(data=specific_worker.getJoystickData())\n",
-              "description": "\nThis example creates an instance of the SpecificWorker class, sets the move mode to 0 (default), and retrieves data from the joystick using the getJoystickData() function. It then sends this data to the robot using the JoystickAdapter_sendData() function. Note that this is just a simple example, and you will likely need to modify it to fit your specific needs."
+              "code": "# Import the necessary libraries\nimport pybullet as p\nfrom generic_worker import SpecificWorker\n\n# Initialize a new instance of the SpecificWorker class\nspecific_worker = SpecificWorker()\n\n# Set up the environment and robot\nspecific_worker.setup(p)\n\n# Set the move mode to mode 4 (robot2)\nspecific_worker.move_mode = 4\n\n# Get the current state of the robot's position and orientation\nspecific_worker.get_state()\n\n# Send a command to move the robot in a specific direction using the joystick\nspecific_worker.joystick_adapter_send_data(1, 0, -1)\n\n# Get the new state of the robot's position and orientation\nspecific_worker.get_state()\n",
+              "description": ""
             },
             "name": "JoystickAdapter_sendData",
             "location": {
-              "start": 1080,
-              "insert": 1081,
+              "start": 1110,
+              "insert": 1111,
               "offset": " ",
               "indent": 8,
               "comment": null
