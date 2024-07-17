@@ -63,6 +63,7 @@ CMAKE_BINARY_DIR = /home/robolab/robocomp_ws/src/robocomp/components/manipulatio
 # Directory level rules for the build root directory
 
 # The main recursive "all" target.
+all: CMakeFiles/ui_mainUI.dir/all
 all: src/all
 .PHONY : all
 
@@ -71,6 +72,7 @@ preinstall: src/preinstall
 .PHONY : preinstall
 
 # The main recursive "clean" target.
+clean: CMakeFiles/ui_mainUI.dir/clean
 clean: src/clean
 .PHONY : clean
 
@@ -88,6 +90,32 @@ src/preinstall:
 # Recursive "clean" directory target.
 src/clean: src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_pybullet_controller_src.dir/clean
 .PHONY : src/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/ui_mainUI.dir
+
+# All Build rule for target.
+CMakeFiles/ui_mainUI.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ui_mainUI.dir/build.make CMakeFiles/ui_mainUI.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ui_mainUI.dir/build.make CMakeFiles/ui_mainUI.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/pybullet_controller/CMakeFiles --progress-num=1 "Built target ui_mainUI"
+.PHONY : CMakeFiles/ui_mainUI.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/ui_mainUI.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/pybullet_controller/CMakeFiles 1
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/ui_mainUI.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/robolab/robocomp_ws/src/robocomp/components/manipulation_kinova_gen3/pybullet_controller/CMakeFiles 0
+.PHONY : CMakeFiles/ui_mainUI.dir/rule
+
+# Convenience name for target.
+ui_mainUI: CMakeFiles/ui_mainUI.dir/rule
+.PHONY : ui_mainUI
+
+# clean rule for target.
+CMakeFiles/ui_mainUI.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ui_mainUI.dir/build.make CMakeFiles/ui_mainUI.dir/clean
+.PHONY : CMakeFiles/ui_mainUI.dir/clean
 
 #=============================================================================
 # Target rules for target src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_pybullet_controller_src.dir

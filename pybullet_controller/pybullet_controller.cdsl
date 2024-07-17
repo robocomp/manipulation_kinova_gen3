@@ -10,5 +10,6 @@ Component pybullet_controller
         subscribesTo JoystickAdapter;
     };
     language python;
+    gui Qt(QWidget);
 };
 

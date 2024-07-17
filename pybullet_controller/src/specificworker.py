@@ -55,9 +55,7 @@ import collections
 from pybullet_utils import urdfEditor as ed
 from pybullet_utils import bullet_client as bc
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-from PyQt5.QtWidgets import QApplication
-import sys
+# from matplotlib.animation import FuncAnimation
 
 # Set the LC_NUMERIC environment variable
 os.environ['LC_NUMERIC'] = 'en_US.UTF-8'
@@ -115,7 +113,7 @@ class SpecificWorker(GenericWorker):
                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
             # Coordenates for the center of the table
-            self.table_center = [0.374, 0.0, 0.28]
+            self.table_center = [0.374, 0.0, 0.27]
 
             # Set the initial joint angles of the pybullet arm
             for i in range(7):
@@ -216,17 +214,18 @@ class SpecificWorker(GenericWorker):
             # Timers to update the gains and show the real arm angles
             self.showKinovaStateTimer = QtCore.QTimer(self)
             self.showKinovaStateTimer.timeout.connect(self.showKinovaAngles)
+            self.showKinovaStateTimer.start(1000)
 
             self.gainsTimer = QtCore.QTimer(self)
             self.gainsTimer.timeout.connect(self.updateGains)
 
-            self.contactPointTimer = QtCore.QTimer(self)
-            self.contactPointTimer.timeout.connect(self.detectContactPoints)
-            # self.contactPointTimer.start(self.Period)
-
             # Initialize the AAMED algorithm for the cup position correction
             self.aamed = pyAAMED(722//2, 1282//2)
             self.aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
+
+            self.contactPointTimer = QtCore.QTimer(self)
+            self.contactPointTimer.timeout.connect(self.detectContactPoints)
+            self.contactPointTimer.start(500)
 
             self.pybullet_offset = [-0.3, 0.0, 0.6]
 
@@ -244,21 +243,20 @@ class SpecificWorker(GenericWorker):
                 print(f"  Parent Link Index: {parent_link_index}")
                 print(f"  Link State: {link_state}")
 
-            app = QApplication(sys.argv)
-
-            self.left_force_series = []
-            self.right_force_series = []
-            self.graphTimes = []
-
-            self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1)
-
-            self.line1, = self.ax1.plot([], [], label='Left fingertip')
-            self.line2, = self.ax2.plot([], [], label='Right fingertip')
-            self.ax1.legend()
-            self.ax2.legend()
-
             plt.ion()
-            plt.show()
+            self.fig = plt.figure()
+
+            self.left_force_series = [0]
+            self.right_force_series = [0]
+            self.graphTimes = [0]
+
+            plt.plot(self.graphTimes, self.left_force_series, label="Left fingertip force")
+            plt.plot(self.graphTimes, self.right_force_series, label="Right fingertip force")
+
+            plt.tight_layout()
+            plt.draw()
+
+            self.hide()
 
             print("SpecificWorker started", time.time()*1000 - self.timestamp)
 
@@ -381,13 +379,15 @@ class SpecificWorker(GenericWorker):
 
             case 4:    #Move to observation angles
                 print("Moving to observation angles", int(time.time()*1000) - self.timestamp)
+                self.changePybulletGripper(0.0)
+                self.kinovaarm_proxy.closeGripper(0.0)
+
                 self.moveKinovaWithAngles(self.observation_angles[:7])
                 for i in range(7):
                     p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL,
                                             targetPosition=self.observation_angles[i], maxVelocity=np.deg2rad(25))
 
-                self.changePybulletGripper(0.0)
-                self.kinovaarm_proxy.closeGripper(0.0)
+
 
                 angles = []
                 for i in range(7):
@@ -579,8 +579,6 @@ class SpecificWorker(GenericWorker):
 
                     self.poses.append(jointsState)
 
-                    self.detectContactPoints()
-
                     if self.arrived == True:
                         # print("Arrived")
                         self.target_velocities = [0.0] * 7
@@ -681,38 +679,40 @@ class SpecificWorker(GenericWorker):
                                     targetPosition=self.target_angles[i])
 
     def detectContactPoints(self):
+        print("adding contact points", int(time.time()*1000) - self.timestamp)
+        self.graphTimes.append(int(time.time()*1000)-self.timestamp)
         # Get contact points for the left fingertip
         contact_points_left = []
-        # contact_points_left.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=16))
         contact_points_left.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=17))
+        # self.left_force_series.append(len(contact_points_left))
 
-        self.left_force_series = []
+        force_acum = 0
         for contact in contact_points_left:  # Contact force is at index 9 of the contact point tuple
             contact_force_left = contact[9]
-            self.left_force_series.append(contact_force_left)
+            force_acum += contact_force_left
             # print(f"Contact force on left fingertip: {contact_force_left}")
+        self.left_force_series.append(force_acum)
 
         # Get contact points for the right fingertip
         contact_points_right = []
-        # contact_points_right.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=21))
         contact_points_right.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=22))
+        # self.right_force_series.append(len(contact_points_right))
 
-        self.right_force_series = []
+        force_acum = 0
         for contact in contact_points_right:
             # Contact force is at index 9 of the contact point tuple
             contact_force_right = contact[9]
-            self.right_force_series.append(contact_force_right)
+            force_acum += contact_force_right
             # print(f"Contact force on right fingertip: {contact_force_right}")
+        self.right_force_series.append(force_acum)
 
-        # print("/-----------------------------------/")
-        self.line1.set_ydata(self.left_force_series[0])
-        self.line2.set_ydata(self.right_force_series[0])
-        self.ax1.relim()
-        self.ax1.autoscale_view()
-        self.ax2.relim()
-        self.ax2.autoscale_view()
+        plt.cla()
+        plt.plot(self.graphTimes, self.left_force_series, label="Left fingertip force")
+        plt.plot(self.graphTimes, self.right_force_series, label="Right fingertip force")
+
+        plt.tight_layout()
         plt.draw()
-        plt.pause(1./120.)
+        plt.pause(0.001)
 
     def correctTargetPosition(self):
         pybulletImage, imageTime = self.read_camera_fixed()
@@ -809,7 +809,7 @@ class SpecificWorker(GenericWorker):
 
         # Calulate the required end-effector spatial velocity for the robot
         # to approach the goal. Gain is set to 1.0
-        self.v, self.arrived = rtb.p_servo(self.Te, self.Tep, 1.0, threshold=0.015)
+        self.v, self.arrived = rtb.p_servo(self.Te, self.Tep, 1.0, threshold=0.005)
 
         # Gain term (lambda) for control minimisation
         self.Y = 0.01
@@ -1020,11 +1020,14 @@ class SpecificWorker(GenericWorker):
     def showKinovaAngles(self):
         print("//--------------------------------------------------------------------------------------------------//")
         ext_angles = []
+        ext_torques = []
         diff_from_pybullet = []
         for i in range(7):
             ext_angles.append(self.ext_joints.joints[i].angle)
+            ext_torques.append(self.ext_joints.joints[i].force)
             diff_from_pybullet.append((math.degrees(p.getJointState(self.robot_id, i + 1)[0]) % 360) - self.ext_joints.joints[i].angle)
         print("Kinova angles", ext_angles)
+        print("Kinova torqe", ext_torques)
         print("Diff from pybullet", diff_from_pybullet)
         print("Gripper distance", self.ext_gripper.distance)
 
