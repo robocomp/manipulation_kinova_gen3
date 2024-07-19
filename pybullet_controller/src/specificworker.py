@@ -63,6 +63,11 @@ os.environ['LC_NUMERIC'] = 'en_US.UTF-8'
 
 console = Console(highlight=False)
 
+
+class JointData:
+    kinovaAngles = []
+    pybulletAngles = []
+
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
@@ -244,7 +249,14 @@ class SpecificWorker(GenericWorker):
                 print(f"  Link State: {link_state}")
 
             plt.ion()
-            self.fig = plt.figure()
+            self.fig, self.axs = plt.subplots(4, 2)
+
+            self.jointsMap = {}
+            for i in range(7):
+                joint = JointData()
+                joint.kinovaAngles.append(self.ext_joints.joints[i].angle)
+                joint.pybulletAngles.append(math.degrees(p.getJointState(self.robot_id, i + 1)[0]) % 360)
+                self.jointsMap = {i: joint}
 
             self.left_force_series = [0]
             self.right_force_series = [0]
@@ -645,8 +657,6 @@ class SpecificWorker(GenericWorker):
 
 
 
-
-
     # =============== Methods ==================
 
     def startup_check(self):
@@ -714,6 +724,16 @@ class SpecificWorker(GenericWorker):
         plt.tight_layout()
         plt.draw()
         plt.pause(0.001)
+
+    def drawGraph(self):
+
+        plt.cla()
+        plt.plot(self.graphTimes, self.left_force_series, label="Left fingertip force")
+        plt.plot(self.graphTimes, self.right_force_series, label="Right fingertip force")
+
+        plt.tight_layout()
+        plt.draw()
+        # plt.pause(0.001)
 
     def correctTargetPosition(self):
         pybulletImage, imageTime = self.read_camera_fixed()
