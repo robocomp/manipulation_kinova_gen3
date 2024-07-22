@@ -65,8 +65,9 @@ console = Console(highlight=False)
 
 
 class JointData:
-    kinovaAngles = []
-    pybulletAngles = []
+    def __init__(self):
+        self.kinovaAngles = []
+        self.pybulletAngles = []
 
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
@@ -228,9 +229,13 @@ class SpecificWorker(GenericWorker):
             self.aamed = pyAAMED(722//2, 1282//2)
             self.aamed.setParameters(3.1415926 / 3, 3.4, 0.77)
 
-            self.contactPointTimer = QtCore.QTimer(self)
-            self.contactPointTimer.timeout.connect(self.detectContactPoints)
-            self.contactPointTimer.start(1000)
+            # self.contactPointTimer = QtCore.QTimer(self)
+            # self.contactPointTimer.timeout.connect(self.detectContactPoints)
+            # self.contactPointTimer.start(100)
+
+            self.drawGraphTimer = QtCore.QTimer(self)
+            self.drawGraphTimer.timeout.connect(self.drawGraph)
+            self.drawGraphTimer.start(1000)
 
             self.pybullet_offset = [-0.3, 0.0, 0.6]
 
@@ -249,21 +254,21 @@ class SpecificWorker(GenericWorker):
                 print(f"  Link State: {link_state}")
 
             plt.ion()
-            self.fig, self.axs = plt.subplots(4, 2)
+            self.fig, self.ax = plt.subplots(1, 1)
+            plt.show()
 
-            self.jointsMap = {}
+            self.jointsErrorMap = {}
             for i in range(7):
-                joint = JointData()
-                joint.kinovaAngles.append(self.ext_joints.joints[i].angle)
-                joint.pybulletAngles.append(math.degrees(p.getJointState(self.robot_id, i + 1)[0]) % 360)
-                self.jointsMap = {i: joint}
+                jointError = [
+                    self.ext_joints.joints[i].angle - math.degrees(p.getJointState(self.robot_id, i + 1)[0]) % 360]
+                item = {i: jointError}
+                self.jointsErrorMap.update(item)
 
             self.left_force_series = [0]
             self.right_force_series = [0]
             self.graphTimes = [0]
 
-            plt.plot(self.graphTimes, self.left_force_series, label="Left fingertip force")
-            plt.plot(self.graphTimes, self.right_force_series, label="Right fingertip force")
+            self.ax.set_ylim(0, 5)
 
             plt.tight_layout()
             plt.draw()
@@ -475,10 +480,17 @@ class SpecificWorker(GenericWorker):
                     self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
 
                     jointsState = []
+
+                    print("tiempo", self.ext_joints.timestamp, time.time() * 1000)
+
                     for i in range(7):
                         state = p.getJointState(self.robot_id, i + 1)
                         angle_speed = (state[0], state[1])
                         jointsState.append(angle_speed)
+
+                        self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
+
+                    self.graphTimes.append(int(time.time()*1000 - self.timestamp))
 
                     self.poses.append(jointsState)
 
@@ -493,7 +505,7 @@ class SpecificWorker(GenericWorker):
                         print("Adjusting pose for target adjustment")
                         self.target_position = list(p.getLinkState(self.robot_id, self.end_effector_link_index)[0])
                         self.target_position[0] = self.target_position[0] - self.pybullet_offset[0]
-                        self.target_position[2] = 0.6
+                        self.target_position[2] = 0.55
                         self.move_mode = 8
 
                     if gripper_position[2] - target_position[2] < 0.1 or self.loopCounter > 20:
@@ -506,11 +518,10 @@ class SpecificWorker(GenericWorker):
                 try:
                     self.arrived = False
 
+                    self.correctTargetPosition()
                     self.toolbox_compute(self.target_position)
                     self.movePybulletWithToolbox()
                     self.moveKinovaWithSpeeds()
-
-                    imgPybullet, imageTime = self.read_camera_fixed()
 
                     self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
 
@@ -519,6 +530,9 @@ class SpecificWorker(GenericWorker):
                         state = p.getJointState(self.robot_id, i + 1)
                         angle_speed = (state[0], state[1])
                         jointsState.append(angle_speed)
+                        self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
+
+                    self.graphTimes.append(int(time.time() * 1000 - self.timestamp))
 
                     self.poses.append(jointsState)
 
@@ -554,6 +568,9 @@ class SpecificWorker(GenericWorker):
                         state = p.getJointState(self.robot_id, i + 1)
                         angle_speed = (state[0], state[1])
                         jointsState.append(angle_speed)
+                        self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
+
+                    self.graphTimes.append(int(time.time() * 1000 - self.timestamp))
 
                     self.poses.append(jointsState)
 
@@ -589,6 +606,9 @@ class SpecificWorker(GenericWorker):
                         state = p.getJointState(self.robot_id, i + 1)
                         angle_speed = (state[0], state[1])
                         jointsState.append(angle_speed)
+                        self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
+
+                    self.graphTimes.append(int(time.time() * 1000 - self.timestamp))
 
                     self.poses.append(jointsState)
 
@@ -619,6 +639,9 @@ class SpecificWorker(GenericWorker):
                         state = p.getJointState(self.robot_id, i + 1)
                         angle_speed = (state[0], state[1])
                         jointsState.append(angle_speed)
+                        self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
+
+                    self.graphTimes.append(int(time.time() * 1000 - self.timestamp))
 
                     self.poses.append(jointsState)
 
@@ -717,22 +740,44 @@ class SpecificWorker(GenericWorker):
             # print(f"Contact force on right fingertip: {contact_force_right}")
         self.right_force_series.append(force_acum)
 
-        plt.cla()
-        plt.plot(self.graphTimes, self.left_force_series, label="Left fingertip force")
-        plt.plot(self.graphTimes, self.right_force_series, label="Right fingertip force")
-
-        plt.tight_layout()
-        plt.draw()
-        plt.pause(0.001)
+        # plt.cla()
+        # plt.plot(self.graphTimes, self.left_force_series, label="Left fingertip force")
+        # plt.plot(self.graphTimes, self.right_force_series, label="Right fingertip force")
+        #
+        # plt.tight_layout()
+        # plt.draw()
+        # plt.pause(0.001)
 
     def drawGraph(self):
 
         plt.cla()
-        plt.plot(self.graphTimes, self.left_force_series, label="Left fingertip force")
-        plt.plot(self.graphTimes, self.right_force_series, label="Right fingertip force")
+        print("Drawing graph", int(time.time()*1000) - self.timestamp)
+
+        self.ax.set_ylim(0, 5)
+
+        self.ax.plot(self.graphTimes, self.jointsErrorMap.get(0), label="joint 1 error")
+        self.ax.plot(self.graphTimes, self.jointsErrorMap.get(1), label="joint 2 error")
+        self.ax.plot(self.graphTimes, self.jointsErrorMap.get(2), label="joint 3 error")
+        self.ax.plot(self.graphTimes, self.jointsErrorMap.get(3), label="joint 4 error")
+        self.ax.plot(self.graphTimes, self.jointsErrorMap.get(4), label="joint 5 error")
+        self.ax.plot(self.graphTimes, self.jointsErrorMap.get(5), label="joint 6 error")
+        self.ax.plot(self.graphTimes, self.jointsErrorMap.get(6), label="joint 7 error")
+
+        # self.axs[0, 0].plot(self.graphTimes, self.jointsErrorMap.get(0), label="joint 1 error")
+        # self.axs[1, 0].plot(self.graphTimes, self.jointsErrorMap.get(1), label="joint 2 error")
+        # self.axs[2, 0].plot(self.graphTimes, self.jointsErrorMap.get(2), label="joint 3 error")
+        # self.axs[3, 0].plot(self.graphTimes, self.jointsErrorMap.get(3), label="joint 4 error")
+        # self.axs[0, 1].plot(self.graphTimes, self.jointsErrorMap.get(4), label="joint 5 error")
+        # self.axs[1, 1].plot(self.graphTimes, self.jointsErrorMap.get(5), label="joint 6 error")
+        # self.axs[2, 1].plot(self.graphTimes, self.jointsErrorMap.get(6), label="joint 7 error")
+
+        # self.axs[3, 1].plot(self.graphTimes, self.right_force_series, label="Right fingertip force")
+        # self.axs[3, 1].plot(self.graphTimes, self.left_force_series, label="Left fingertip force")
 
         plt.tight_layout()
         plt.draw()
+
+        print("Graph drawn", int(time.time()*1000) - self.timestamp)
         # plt.pause(0.001)
 
     def correctTargetPosition(self):

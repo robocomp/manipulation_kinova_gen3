@@ -140,6 +140,20 @@ class KinovaGen3():
         #     time.sleep(1)
         return True
 
+    def gripper_move_speed(self, speed):
+        gripper_command = Base_pb2.GripperCommand()
+        finger = gripper_command.gripper.finger.add()
+
+        # Close the gripper with speed increments
+        print("Performing gripper test in speed...")
+        gripper_command.mode = Base_pb2.GRIPPER_SPEED
+        finger.finger_identifier = 1
+        finger.value = speed
+
+        ## TODO: Check to stop when the sensor detect an object
+
+        self.base.SendGripperCommand(gripper_command)
+        return True
 
     def cartesian_move_to(self, x, y, z, theta_x, theta_y, theta_z):
 

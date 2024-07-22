@@ -47,7 +47,7 @@ class SpecificWorker(GenericWorker):
             self.startup_check()
         else:
             self.kinova = KinovaGen3()
-            self.flag = False
+            self.flag = True
             self.timer.timeout.connect(self.compute)
             self.timer.start(self.Period)
             self.joints = []
@@ -72,7 +72,7 @@ class SpecificWorker(GenericWorker):
     def compute(self):
         # print("timer init", time.time()*1000)
         if self.flag:
-            self.kinova.get_camera_info()
+            # self.kinova.get_camera_info()
             self.flag = False
 
         ret = ifaces.RoboCompKinovaArm.TJoints()
@@ -99,6 +99,8 @@ class SpecificWorker(GenericWorker):
                 self.speeds.jointSpeeds = [0, 0, 0, 0, 0, 0, 0]
                 self.moveWithSpeed = False
             self.kinova.move_joints_with_speeds(self.speeds.jointSpeeds)
+
+        # self.kinova.gripper_move_speed(-0.005)
 
         # print("timer end", time.time()*1000)
 
