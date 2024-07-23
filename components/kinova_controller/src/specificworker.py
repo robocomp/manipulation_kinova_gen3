@@ -107,6 +107,10 @@ class SpecificWorker(GenericWorker):
         return True
 
     def startup_check(self):
+        print(f"Testing RoboCompContactile.FingerTip from ifaces.RoboCompContactile")
+        test = ifaces.RoboCompContactile.FingerTip()
+        print(f"Testing RoboCompContactile.FingerTips from ifaces.RoboCompContactile")
+        test = ifaces.RoboCompContactile.FingerTips()
         print(f"Testing RoboCompKinovaArm.TPose from ifaces.RoboCompKinovaArm")
         test = ifaces.RoboCompKinovaArm.TPose()
         print(f"Testing RoboCompKinovaArm.TGripper from ifaces.RoboCompKinovaArm")
@@ -121,10 +125,18 @@ class SpecificWorker(GenericWorker):
     #
     # IMPLEMENTATION of closeGripper method from KinovaArm interface
     #
-    def KinovaArm_closeGripper(self, position):
+    def KinovaArm_closeGripper(self):
+        force = 0
+        while force < 8 and self.gripper.distance < 0.9:
+            self.kinova.gripper_move_speed(-0.005)
+            tactileValues = self.contactile_proxy.getValues()
+            leftValues = tactileValues.left
+            righValues = tactileValues.right
+            force = (abs(leftValues.x) + abs(leftValues.y) + abs(leftValues.z)
+                     + abs(righValues.x) + abs(righValues.y) + abs(righValues.z))
 
-        self.kinova.gripper_move_to(position)
-
+        print("Gripper closed")
+        self.kinova.gripper_move_speed(0)
 
     #
     # IMPLEMENTATION of getCenterOfTool method from KinovaArm interface
@@ -144,12 +156,10 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of openGripper method from KinovaArm interface
     #
     def KinovaArm_openGripper(self):
-    
-        #
-        # write your CODE here
-        #
-        self.kinova.open_gripper_speed()
-        pass
+        while self.gripper.distance > 0.01:
+            self.kinova.gripper_move_speed(0.005)
+
+        self.kinova.gripper_move_speed(0)
 
     #
     # IMPLEMENTATION of getJointsState method from KinovaArm interface
@@ -192,6 +202,14 @@ class SpecificWorker(GenericWorker):
             #self.kinova.cartesian_move_to(state[0],state[1],0.1,state[3],state[4],state[5])
 
 
+    ######################
+    # From the RoboCompContactile you can call this methods:
+    # self.contactile_proxy.getValues(...)
+
+    ######################
+    # From the RoboCompContactile you can use this types:
+    # RoboCompContactile.FingerTip
+    # RoboCompContactile.FingerTips
 
     ######################
     # From the RoboCompKinovaArm you can use this types:

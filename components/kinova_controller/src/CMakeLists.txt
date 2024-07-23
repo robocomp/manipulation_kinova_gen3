@@ -3,4 +3,4 @@ PROJECT(  kinova_controller )
 
 INCLUDE( /home/robocomp/robocomp/cmake/robocomp.cmake )
 
-ROBOCOMP_IDSL_TO_ICE( CommonBehavior KinovaArm )
+ROBOCOMP_IDSL_TO_ICE( CommonBehavior Contactile KinovaArm )

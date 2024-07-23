@@ -152,6 +152,8 @@ class KinovaGen3():
 
         ## TODO: Check to stop when the sensor detect an object
 
+
+
         self.base.SendGripperCommand(gripper_command)
         return True
 

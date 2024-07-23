@@ -77,6 +77,10 @@ class SpecificWorker(GenericWorker):
         return True
 
     def startup_check(self):
+        print(f"Testing RoboCompContactile.FingerTip from ifaces.RoboCompContactile")
+        test = ifaces.RoboCompContactile.FingerTip()
+        print(f"Testing RoboCompContactile.FingerTips from ifaces.RoboCompContactile")
+        test = ifaces.RoboCompContactile.FingerTips()
         print(f"Testing RoboCompKinovaArm.TPose from ifaces.RoboCompKinovaArm")
         test = ifaces.RoboCompKinovaArm.TPose()
         print(f"Testing RoboCompKinovaArm.TGripper from ifaces.RoboCompKinovaArm")
@@ -99,7 +103,7 @@ class SpecificWorker(GenericWorker):
     #
     # IMPLEMENTATION of closeGripper method from KinovaArm interface
     #
-    def KinovaArm_closeGripper(self, position):
+    def KinovaArm_closeGripper(self):
     
         #
         # write your CODE here
@@ -181,6 +185,15 @@ class SpecificWorker(GenericWorker):
     # ===================================================================
     # ===================================================================
 
+
+    ######################
+    # From the RoboCompContactile you can call this methods:
+    # self.contactile_proxy.getValues(...)
+
+    ######################
+    # From the RoboCompContactile you can use this types:
+    # RoboCompContactile.FingerTip
+    # RoboCompContactile.FingerTips
 
     ######################
     # From the RoboCompKinovaArm you can use this types:

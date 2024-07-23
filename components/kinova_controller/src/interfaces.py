@@ -5,6 +5,8 @@ from rich.console import Console, Text
 console = Console()
 
 
+Ice.loadSlice("-I ./src/ --all ./src/Contactile.ice")
+import RoboCompContactile
 Ice.loadSlice("-I ./src/ --all ./src/KinovaArm.ice")
 import RoboCompKinovaArm
 
@@ -102,6 +104,8 @@ class Requires:
     def __init__(self, ice_connector):
         self.ice_connector = ice_connector
         self.mprx={}
+
+        self.Contactile = self.create_proxy("ContactileProxy", RoboCompContactile.ContactilePrx)
 
     def get_proxies_map(self):
         return self.mprx

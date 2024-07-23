@@ -397,7 +397,7 @@ class SpecificWorker(GenericWorker):
             case 4:    #Move to observation angles
                 print("Moving to observation angles", int(time.time()*1000) - self.timestamp)
                 self.changePybulletGripper(0.0)
-                self.kinovaarm_proxy.closeGripper(0.0)
+                self.kinovaarm_proxy.openGripper()
 
                 self.moveKinovaWithAngles(self.observation_angles[:7])
                 for i in range(7):
@@ -554,7 +554,7 @@ class SpecificWorker(GenericWorker):
                     if not self.arrived:
                         target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
                         target_position[0] = target_position[0] - self.pybullet_offset[0]
-                        target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.16
+                        target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.17
                         self.toolbox_compute(target_position)
                         self.movePybulletWithToolbox()
                         self.moveKinovaWithSpeeds()
@@ -579,8 +579,8 @@ class SpecificWorker(GenericWorker):
                         self.target_velocities = [0.0] * 7
                         self.movePybulletWithToolbox()
                         self.moveKinovaWithSpeeds()
-                        self.changePybulletGripper(0.26)
-                        self.kinovaarm_proxy.closeGripper(0.26)
+                        self.kinovaarm_proxy.closeGripper()
+                        self.changePybulletGripper(self.ext_gripper.distance)
                         self.move_mode = 10
                         self.target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
                         self.target_position[0] = self.target_position[0] - self.pybullet_offset[0]
@@ -649,8 +649,8 @@ class SpecificWorker(GenericWorker):
                         self.target_velocities = [0.0] * 7
                         self.movePybulletWithToolbox()
                         self.moveKinovaWithSpeeds()
-                        self.changePybulletGripper(0.0)
-                        self.kinovaarm_proxy.closeGripper(0.0)
+                        self.kinovaarm_proxy.openGripper()
+                        self.changePybulletGripper(self.ext_gripper.distance)
                         self.move_mode = 12
 
                 except Ice.Exception as e:
@@ -683,6 +683,16 @@ class SpecificWorker(GenericWorker):
     # =============== Methods ==================
 
     def startup_check(self):
+        print(f"Testing RoboCompCameraRGBDSimple.Point3D from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.Point3D()
+        print(f"Testing RoboCompCameraRGBDSimple.TPoints from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.TPoints()
+        print(f"Testing RoboCompCameraRGBDSimple.TImage from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.TImage()
+        print(f"Testing RoboCompCameraRGBDSimple.TDepth from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.TDepth()
+        print(f"Testing RoboCompCameraRGBDSimple.TRGBD from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.TRGBD()
         print(f"Testing RoboCompKinovaArm.TPose from ifaces.RoboCompKinovaArm")
         test = ifaces.RoboCompKinovaArm.TPose()
         print(f"Testing RoboCompKinovaArm.TGripper from ifaces.RoboCompKinovaArm")
@@ -691,6 +701,10 @@ class SpecificWorker(GenericWorker):
         test = ifaces.RoboCompKinovaArm.TJoint()
         print(f"Testing RoboCompKinovaArm.TJoints from ifaces.RoboCompKinovaArm")
         test = ifaces.RoboCompKinovaArm.TJoints()
+        print(f"Testing RoboCompKinovaArm.TJointSpeeds from ifaces.RoboCompKinovaArm")
+        test = ifaces.RoboCompKinovaArm.TJointSpeeds()
+        print(f"Testing RoboCompKinovaArm.TJointAngles from ifaces.RoboCompKinovaArm")
+        test = ifaces.RoboCompKinovaArm.TJointAngles()
         print(f"Testing RoboCompJoystickAdapter.AxisParams from ifaces.RoboCompJoystickAdapter")
         test = ifaces.RoboCompJoystickAdapter.AxisParams()
         print(f"Testing RoboCompJoystickAdapter.ButtonParams from ifaces.RoboCompJoystickAdapter")
@@ -1294,3 +1308,45 @@ class SpecificWorker(GenericWorker):
                             self.move_mode = (self.move_mode + button.step) % 5
                         case "home":
                             pass
+
+    ######################
+    # From the RoboCompCameraRGBDSimple you can call this methods:
+    # self.camerargbdsimple_proxy.getAll(...)
+    # self.camerargbdsimple_proxy.getDepth(...)
+    # self.camerargbdsimple_proxy.getImage(...)
+    # self.camerargbdsimple_proxy.getPoints(...)
+
+    ######################
+    # From the RoboCompCameraRGBDSimple you can use this types:
+    # RoboCompCameraRGBDSimple.Point3D
+    # RoboCompCameraRGBDSimple.TPoints
+    # RoboCompCameraRGBDSimple.TImage
+    # RoboCompCameraRGBDSimple.TDepth
+    # RoboCompCameraRGBDSimple.TRGBD
+
+    ######################
+    # From the RoboCompKinovaArm you can call this methods:
+    # self.kinovaarm_proxy.closeGripper(...)
+    # self.kinovaarm_proxy.getCenterOfTool(...)
+    # self.kinovaarm_proxy.getGripperState(...)
+    # self.kinovaarm_proxy.getJointsState(...)
+    # self.kinovaarm_proxy.moveJointsWithAngle(...)
+    # self.kinovaarm_proxy.moveJointsWithSpeed(...)
+    # self.kinovaarm_proxy.openGripper(...)
+    # self.kinovaarm_proxy.setCenterOfTool(...)
+
+    ######################
+    # From the RoboCompKinovaArm you can use this types:
+    # RoboCompKinovaArm.TPose
+    # RoboCompKinovaArm.TGripper
+    # RoboCompKinovaArm.TJoint
+    # RoboCompKinovaArm.TJoints
+    # RoboCompKinovaArm.TJointSpeeds
+    # RoboCompKinovaArm.TJointAngles
+
+    ######################
+    # From the RoboCompJoystickAdapter you can use this types:
+    # RoboCompJoystickAdapter.AxisParams
+    # RoboCompJoystickAdapter.ButtonParams
+    # RoboCompJoystickAdapter.TData
+

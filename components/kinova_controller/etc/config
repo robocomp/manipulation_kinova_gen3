@@ -1,8 +1,8 @@
 # Endpoints for implements interfaces
 KinovaArm.Endpoints=tcp -p 17954
 
-
-
+# Proxies for required interfaces
+ContactileProxy = contactile:tcp -h localhost -p 18760
 
 
 Ice.Warn.Connections=0

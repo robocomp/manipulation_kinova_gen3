@@ -1,11 +1,12 @@
 import "KinovaArm.idsl";
-
+import "Contactile.idsl";
 
 Component kinova_controller
 {
     Communications
     {
         implements KinovaArm;
+        requires Contactile;
     };
     language python;
 };

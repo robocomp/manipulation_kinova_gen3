@@ -1,5 +1,9 @@
 # Endpoints for implements interfaces
-KinovaArm.Endpoints=tcp -p 14890
+KinovaArm.Endpoints=tcp -p 11936
+
+
+# Proxies for required interfaces
+ContactileProxy = contactile:tcp -h localhost -p 13588
 
 
 
