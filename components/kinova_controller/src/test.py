@@ -50,32 +50,30 @@ all_resolution_strings = {
 
 class KinovaGen3():
     """
-    Provides methods for getting camera information, intrinsic and extrinsic
-    parameters, and movement actions using the Kinova Gen III SDK. It also includes
-    functions for closing the gripper with a speed command and opening it with a
-    speed command.
+    Manages the opening and closing of a gripper using speed commands, as well as
+    measuring the movement of the gripper during these operations.
 
     Attributes:
-        connection (object): Used to establish a connection with the Kinova Gen 3
-            robot controller. It represents the result of calling the `connect()`
-            method, which returns a connection object that can be used to send
-            commands to the robot and receive data from it.
-        router (RoombaRouter): Used to interact with the Robot's ROS2 node, sending
-            and receiving messages.
-        base (instance): A reference to an object of the `KinovaBase` class, which
-            provides access to the robot's base functionality such as movement,
-            gripper control, and sensor readings.
-        base_cyclic (Base_pb2Base): Used to interact with the Cyclic robotic arm.
-            It provides methods for moving the arm, closing the gripper, and opening
-            the gripper.
+        connection (Base_pb2GripperCommand|Base_pb2GripperRequest): Used to send
+            gripper commands to the Kinova Gen III robot. It allows you to specify
+            the command mode, finger position, and other parameters for the gripper
+            movement.
+        router (Base_pb2GripperCommand): Used to send a gripper command to the
+            Kinova Gen III robotic arm. It allows for sending different types of
+            commands, such as speed or position, to control the movement of the gripper.
+        base (Base_pb2Base): A reference to the underlying robot's base module,
+            which provides methods for sending commands to the robot's end effectors.
+        base_cyclic (Base|GripperRequest): Used to specify the cyclic movement
+            pattern for the gripper, allowing for continuous opening or closing
+            of the gripper.
 
     """
     def __init__(self):
 
         """
-        Establishes connections to an IP address, username, and password using the
-        `utilities.DeviceConnection` class, then creates instances of `BaseClient`
-        and `BaseCyclicClient` using the connected router.
+        Establishes connections to a device using TCP and creates two clients:
+        `BaseClient` for direct interaction with the device, and `BaseCyclicClient`
+        for cyclic communication.
 
         """
         ip = "192.168.1.10"
@@ -103,16 +101,16 @@ class KinovaGen3():
 
         def check(notification, e=e):
             """
-            Takes a `notification` object and an optional `e` parameter, and prints
-            the action event name of the notification. If the action event is
-            either `ACTION_END` or `ACTION_ABORT`, the `e` variable is set to a
-            default value.
+            Prints the event name associated with a `notification` object and sets
+            an instance variable `e` to a default value if the event is either
+            `ACTION_END` or `ACTION_ABORT`.
 
             Args:
-                notification (Base_pb2Notification): Passed an event object
-                    containing information about the event that triggered the
-                    function, such as the action event name.
-                e (Base_pb2Event): Set to an instance of that class by the line `e.set()`.
+                notification (Base_pb2.Notification): Passed as an argument to the
+                    function, providing information about an event that triggered
+                    the function call.
+                e (Base_pb2.Event): Set to an instance of Event upon calling the
+                    function.
 
             """
             print("EVENT : " + \
@@ -125,12 +123,11 @@ class KinovaGen3():
 
     def get_state(self):
         """
-        Within the KinovaGen3 class retrieves refresh feedback from the base cyclic
-        object and returns it.
+        Retrieves refresh feedback from the base cyclic component and returns it.
 
         Returns:
-            RefreshFeedback: An instance of a class that contains information about
-            the state of the system.
+            Feedbackbase: A cyclic refresh feedback object created by calling the
+            `RefreshFeedback` method.
 
         """
         feedback = self.base_cyclic.RefreshFeedback()
@@ -141,12 +138,12 @@ class KinovaGen3():
 
     def get_joints(self):
         """
-        Returns a dictionary containing the position, velocity, and torque of the
-        joints of an object controlled by a Kinova Gen 3 robot.
+        Computes and returns the positions, velocities, and torques of the joints
+        of a robotic arm.
 
         Returns:
-            dict: A dictionary containing the positions, velocities, and torques
-            of the joints.
+            Dict[str,float]: A dictionary containing the positions, velocities,
+            and torques of the joints in the system.
 
         """
         feedback = self.base_cyclic.RefreshFeedback()
@@ -158,12 +155,12 @@ class KinovaGen3():
 
     def get_gripper_state(self):
         """
-        Retrieves the current state of a gripper, specifically the position of the
-        gripper's finger, as measured by the `Base` class's `GetMeasuredGripperMovement`
-        method.
+        Retrieves the current state of the gripper by sending a `GripperRequest`
+        message to the base module and returning the measured movement of the
+        gripper in the form of a `finger` object.
 
         Returns:
-            float: The measured movement of the gripper in the `finger[0]` position.
+            float: The finger position of the gripper in meters.
 
         """
         gripper_request = Base_pb2.GripperRequest()
@@ -172,13 +169,12 @@ class KinovaGen3():
 
     def get_pose(self):
         """
-        Retrieves the current position and orientation of a tool in a robotic
-        system, returning a list of 6 values representing the tool's x, y, z
-        coordinates and theta angles in each dimension.
+        Computes and returns the tool's pose (position and orientation) in a list
+        of six elements.
 
         Returns:
-            5element: A list of five floating-point numbers that represent the
-            tool's pose (position and orientation) in the global coordinate system.
+            Tuple[float,float,float,float,float,float]: 6 floats representing the
+            tool's pose in 3D space and orientation.
 
         """
         state = self.get_state()
@@ -200,16 +196,15 @@ class KinovaGen3():
 
     def gripper_move_to(self, target_position):
         """
-        Controls the movement of a gripper based on a target position, sending a
-        command to the base to move the gripper to that position.
+        Performs a gripper movement command to reach a specified position.
 
         Args:
             target_position (float): Representing the desired position of the
                 gripper to move to.
 
         Returns:
-            Boolean: True if the gripper moves to the target position successfully,
-            otherwise False.
+            bool: True when the gripper has moved to the target position successfully,
+            and False otherwise.
 
         """
         gripper_command = Base_pb2.GripperCommand()
@@ -230,31 +225,60 @@ class KinovaGen3():
         #     time.sleep(1)
         return True
 
+    def gripper_move_speed(self, speed):
+        """
+        Sets the gripper speed by creating a `GripperCommand` message, setting the
+        gripper mode and finger value to the input speed, and sending the command
+        to the base using `SendGripperCommand`.
+
+        Args:
+            speed (float): Represents the desired speed at which the gripper should
+                move in the specified finger.
+
+        Returns:
+            bool: `True` if the gripper command was sent successfully, and `False`
+            otherwise.
+
+        """
+        gripper_command = Base_pb2.GripperCommand()
+        finger = gripper_command.gripper.finger.add()
+
+        # Close the gripper with speed increments
+        print("Performing gripper test in speed...")
+        gripper_command.mode = Base_pb2.GRIPPER_SPEED
+        finger.finger_identifier = 1
+        finger.value = speed
+
+        ## TODO: Check to stop when the sensor detect an object
+
+
+
+        self.base.SendGripperCommand(gripper_command)
+        return True
 
     def cartesian_move_to(self, x, y, z, theta_x, theta_y, theta_z):
 
         """
-        Performs Cartesian specific movement of a robot, which involves moving the
-        robot's end effector to a specified position and orientation using an
-        action message.
+        Moves a robotic arm to a specified position and orientation using a Cartesian
+        movement approach, waiting for the movement to finish before returning.
 
         Args:
-            x (float64): Used to set the x-coordinate of the target position for
-                the Cartesian movement.
-            y (int): Used to specify the y coordinate of the target position for
-                the cartesian movement.
-            z (float): Used to set the z-coordinate of the target pose in the
-                Cartesian coordinate system.
-            theta_x (float): Representing the x-angle of the robot's end effector
-                at the specified position.
-            theta_y (float): Representing the yaw angle of the robot, which
-                determines the orientation of the robot's yaw axis relative to its
-                base.
-            theta_z (float): Used to specify the z-rotation angle of the robot's
-                end effector during movement.
+            x (float): Used to set the x-coordinate of the target pose in the
+                Cartesian space.
+            y (float): Used to specify the target y-coordinate of the robot's end
+                position after moving along the x-axis to the specified `x` coordinate.
+            z (float): Representing the z-coordinate of the target position for
+                the robot to move to.
+            theta_x (float): Used to represent the rotation angle of the robot's
+                end effector around its x-axis during movement.
+            theta_y (float): Used to specify the yaw angle of the robot's end
+                effector during the movement.
+            theta_z (float): Representing the z-rotation angle of the robot end
+                effector relative to its initial position, along the robot's Z axis.
 
         Returns:
-            bool: 1 if the movement was successful and 0 if it timed out.
+            bool: 1 if the movement was completed successfully within the timeout
+            duration, and 0 otherwise due to a timeout.
 
         """
         print("Starting Cartesian Especific Movement ...")
@@ -294,15 +318,11 @@ class KinovaGen3():
         # speeds = [SPEED, 0, -SPEED, 0, SPEED, 0, -SPEED]
 
         """
-        Within the KinovaGen3 class takes a list of joint speeds as input and
-        creates a `JointSpeeds` message to send to the robot's base module. It
-        then iterates through the list of speeds, adding each one to the message
-        with the appropriate joint identifier and duration. Finally, it sends the
-        completed message to the base module using the `SendJointSpeedsCommand` method.
+        Calculates and sends joint speeds to the robot.
 
         Args:
-            speeds (Base_pb2JointSpeeds): An iterable containing joint speed values
-                for each joint in a robot.
+            speeds (List[float]): A list of joint speed values to be applied to
+                the robot's joints.
 
         """
         joint_speeds = Base_pb2.JointSpeeds()
@@ -321,17 +341,16 @@ class KinovaGen3():
 
     def move_joints_to(self, joints):
         """
-        Controls movement of joints in an angular action by creating an action
-        object, adding joint angles to it, and executing the action using the
-        `ExecuteAction` method. It also waits for the movement to finish and
-        unsubscribes from the notification handle.
+        Moves joints to specified angles using an action object and waits for the
+        movement to finish before returning.
 
         Args:
-            joints (list): Used to specify the joint angles for movement.
+            joints (List[float]): Used to specify the angles of the joints to move
+                to.
 
         Returns:
-            bool: 1 if the angular movement completed within the specified timeout
-            duration, or 0 if the movement did not complete before the timeout.
+            bool: 1 if the angular movement was completed successfully within the
+            specified timeout, and 0 otherwise due to a timeout.
 
         """
         action = Base_pb2.Action()
@@ -370,12 +389,12 @@ class KinovaGen3():
     #
     def print_extrinsic_parameters(self, extrinsics):
         """
-        Prints the extrinsic parameters (rotation and translation) of an object
-        represented by the `KinovaGen3` class.
+        Prints the rotation and translation parameters of an extrinsic parameter
+        set.
 
         Args:
-            extrinsics (3x3): Used to represent a rotation matrix followed by a
-                translation vector.
+            extrinsics (Extrinsic | RotationMatrix | TranslationVector): 3x3
+                rotation matrix or 3x1 translation vector.
 
         """
         print("Rotation matrix:")
@@ -393,18 +412,16 @@ class KinovaGen3():
     #
     def example_vision_get_device_id(self, device_manager):
         """
-        Retrieves the device ID of the vision module in a Kinova Gen3 system. It
-        first reads all devices information, then checks if there is only one
-        vision device, and finally returns its device ID.
+        Retrieves the device ID of the vision module from the devices info based
+        on the device handle.
 
         Args:
-            device_manager (DeviceManager): Used to retrieve information about all
-                devices connected to the system.
+            device_manager (DeviceManager | None): Used to represent the device
+                manager object that provides information about the devices registered
+                in the system.
 
         Returns:
-            int: The device identifier of the first vision device found in the
-            devices list or an error message if there are no vision devices
-            registered or more than one vision device is registered.
+            int: The device ID of the first Vision module detected in the system.
 
         """
         vision_device_id = 0
@@ -429,14 +446,14 @@ class KinovaGen3():
     #
     def example_routed_vision_get_extrinsics(self, vision_config, vision_device_id):
         """
-        Retrieves extrinsic parameters for a given vision device ID using the
-        `VisionConfigService`. It then prints the retrieved extrinsics to the console.
+        Retrieves extrinsic parameters for a specific vision device using the
+        Vision Config Service.
 
         Args:
             vision_config (VisionConfig): Used to retrieve extrinsic parameters
                 for a specific vision device ID.
-            vision_device_id (int): Used to identify a specific vision device for
-                which extrinsic parameters are being retrieved.
+            vision_device_id (str): Used to identify the specific vision device
+                for which the extrinsic parameters are being retrieved.
 
         """
         print("\n\n** Example showing how to retrieve the extrinsic parameters **")
@@ -462,13 +479,14 @@ class KinovaGen3():
     #
     def print_intrinsic_parameters(self, intrinsics):
         """
-        Within the KinovaGen3 class prints out various parameters associated with
-        intrinsics.
+        Prints out various parameters of an intrinsic camera model, including
+        sensor ID, resolution, principal point coordinates, focal length coordinates,
+        and distortion coefficients.
 
         Args:
-            intrinsics (IntrinsicParameters): Represented as a object that contains
-                the intrinsic parameters of the camera sensor, including the
-                principal point, resolution, focal length, and distortion coefficients.
+            intrinsics (IntrinsicParams): Used to access the intrinsic parameters
+                of a camera sensor, including the principal point, resolution,
+                focal length, and distortion coefficients.
 
         """
         print("Sensor: {0} ({1})".format(intrinsics.sensor, self.sensor_to_string(intrinsics.sensor)))
@@ -490,14 +508,13 @@ class KinovaGen3():
     def example_routed_vision_get_intrinsics(self, vision_config, vision_device_id):
         """
         Retrieves intrinsic parameters of Color and Depth sensors using the Vision
-        Config Service, and also retrieves intrinsic parameters for specific
-        resolutions of Color and Depth sensors.
+        Config Service, and prints the retrieved values.
 
         Args:
-            vision_config (VisionConfig_pb2VisionConfig): Used to retrieve intrinsic
-                parameters from the vision config service.
-            vision_device_id (int): Used to specify the device ID for which intrinsic
-                parameters are being retrieved.
+            vision_config (VisionConfig_pb2.VisionConfig): Used to retrieve intrinsic
+                parameters for different sensors and resolutions.
+            vision_device_id (int): Used to identify the specific device to retrieve
+                intrinsic parameters for.
 
         """
         sensor_id = VisionConfig_pb2.SensorIdentifier()
@@ -529,8 +546,8 @@ class KinovaGen3():
 
     def get_camera_info(self):
         """
-        Retrieves device information and extrinsic and intrinsic parameters for a
-        vision device in Kinova Gen3.
+        Retrieves device and intrinsic information for a vision camera connected
+        to the router.
 
         """
         device_manager = DeviceManagerClient(self.router)
@@ -545,25 +562,28 @@ class KinovaGen3():
     def cartesian_move_relative(self, x, y, z, theta_x, theta_y, theta_z):
 
         """
-        Performs Cartesian movement based on user-inputted coordinates and angles,
-        using the Kinova Gen3 robot's base API.
+        Performs a Cartesian movement action relative to a base tool, taking into
+        account the specified x, y, z coordinates and theta angles. It executes
+        the action, waits for it to finish, and returns whether the movement
+        completed successfully or timed out.
 
         Args:
-            x (int): The relative movement of the tool along the x-axis.
-            y (int): Represented as feedback.base.tool_pose_y + y, which indicates
-                an additional movement along the Y axis of the tool's pose.
-            z (32bit): Representing the relative movement of the tool's Z axis.
-            theta_x (float): Part of the target pose's orientation, representing
-                the yaw angle of the tool in the x-y plane.
-            theta_y (float): Represented as the yaw angle of the tool relative to
-                its parent link, indicating the direction of movement along the y-axis.
-            theta_z (float): Representing the z-axis angle of the tool's orientation
-                relative to its starting position, which is used in calculating
-                the target pose of the tool for the Cartesian action movement.
+            x (float): Used to set the x-position of the tool relative to its
+                initial position.
+            y (int): Representing the relative movement along the y-axis of the
+                robot's end effector.
+            z (float): Representing the relative movement of the tool along the z-axis.
+            theta_x (float): Representing the angular movement of the tool around
+                the x-axis, measured in radians.
+            theta_y (float): Representing the angle of rotation around the Y-axis
+                of the tool coordinate system, which determines the orientation
+                of the tool end effector during movement.
+            theta_z (float): Representing the z-axis rotation angle of the tool
+                relative to its current position, which is used by the action
+                movement to achieve the desired orientation in the z-axis direction.
 
         Returns:
-            bool: 1 if the cartesian movement finishes within the given timeout
-            duration, and 0 otherwise.
+            bool: 1 if the cartesian movement was successful and 0 if it timed out.
 
         """
         print("Starting Cartesian action movement ...")
@@ -603,13 +623,13 @@ class KinovaGen3():
     def move_gripper_speed_dest(self, dest_pos):
 
         """
-        Controls the movement of a gripper based on its destination position,
-        moving it at a speed determined by the difference between its current
-        position and the destined position.
+        Calculates the gripper movement speed to reach a destination position,
+        sends a speed command to the gripper, and measures the gripper's movement
+        to ensure it reaches the desired position.
 
         Args:
-            dest_pos (float): Representing the desired position for the gripper
-                to move towards.
+            dest_pos (float): Representing the desired position of the gripper to
+                move it to with the speed command.
 
         """
         gr_pos = self.get_gripper_state()
@@ -648,11 +668,7 @@ class KinovaGen3():
     def close_gripper_speed(self):
 
         """
-        Controls the speed of a gripper using a speed command. It sets the value
-        of the gripper to -0.1 and sends the command to the base using the
-        `SendGripperCommand` method. The function then sleeps for 0.1 seconds
-        before continuing to monitor the gripper's movement using the
-        `GetMeasuredGripperMovement` method.
+        Controls the speed of the gripper using a speed command.
 
         """
         gripper_command = Base_pb2.GripperCommand()
@@ -681,9 +697,8 @@ class KinovaGen3():
     def open_gripper_speed(self):
 
         """
-        Controls the speed and position of a gripper using a Basebot2 interface.
-        It creates a gripper command message, sends it to the Basebot2, and retrieves
-        the measured movement response from the Basebot2.
+        Controls the gripper's speed using a command, and then measures its position
+        to determine when it has reached the desired open state.
 
         """
         gripper_command = Base_pb2.GripperCommand()

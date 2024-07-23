@@ -40,16 +40,17 @@ class KinovaArmI(KinovaArm):
     moving the joints with angle or speed.
 
     Attributes:
-        worker (KinovaArm): Used to interact with the Arm's API for joints movement,
-            gripper opening and closing, and tool positioning.
+        worker
+            (KinovaArmWorker|KinovaArm__closeGripper|KinovaArm_getCenterOfTool|KinovaArm_getGripperState|KinovaArm_getJointsState|KinovaArm_moveJ):
+            Used to provide access to the underlying KinovaArm worker API.
 
     """
     def __init__(self, worker):
         self.worker = worker
 
 
-    def closeGripper(self, position, c):
-        return self.worker.KinovaArm_closeGripper(position)
+    def closeGripper(self, c):
+        return self.worker.KinovaArm_closeGripper()
 
     def getCenterOfTool(self, referencedTo, c):
         return self.worker.KinovaArm_getCenterOfTool(referencedTo)

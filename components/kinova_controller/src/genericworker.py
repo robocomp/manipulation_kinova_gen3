@@ -36,11 +36,38 @@ import RoboCompCommonBehavior
 
 class GenericWorker(QtCore.QObject):
 
+    """
+    Manages a timer and emits a signal to stop itself after a specified period.
+    It also has a slot function to set the period of the timer.
+
+    Attributes:
+        kill (QtCoreQObjectSignal): Used to emit a signal indicating that the
+            worker should be terminated.
+        contactile_proxy (ContactileProxy|NoneType): Used to represent a proxy
+            object for contacting the contactile service.
+        mutex (QMutex): Used to protect access to the internal state of the worker,
+            allowing only one thread to access it at a time.
+        Period (int): 30 milliseconds by default, used for setting the time interval
+            for emitting the `kill` signal.
+        timer (QtCoreQTimer): Used to start a timer that emits the `kill` signal
+            after a specified period.
+
+    """
     kill = QtCore.Signal()
 
     def __init__(self, mprx):
+        """
+        Initializes instance variables, including a contactile proxy and a timer
+        for periodic work.
+
+        Args:
+            mprx (Dict[str, Any]): Passed as an instance variable `contactile_proxy`
+                as a reference to a ContactileProxy object.
+
+        """
         super(GenericWorker, self).__init__()
 
+        self.contactile_proxy = mprx["ContactileProxy"]
 
         self.mutex = QtCore.QMutex(QtCore.QMutex.Recursive)
         self.Period = 30
@@ -49,6 +76,10 @@ class GenericWorker(QtCore.QObject):
 
     @QtCore.Slot()
     def killYourSelf(self):
+        """
+        Emits the `kill` signal, indicating that the instance should be terminated.
+
+        """
         rDebug("Killing myself")
         self.kill.emit()
 
@@ -56,6 +87,15 @@ class GenericWorker(QtCore.QObject):
     # @param per Period in ms
     @QtCore.Slot(int)
     def setPeriod(self, p):
+        """
+        Updates the ` Period` attribute and starts the timer using its value,
+        printing a message to indicate the change.
+
+        Args:
+            p (int): Used to represent the new period value for which the function
+                will set the timer.
+
+        """
         print("Period changed", p)
         self.Period = p
         self.timer.start(self.Period)
