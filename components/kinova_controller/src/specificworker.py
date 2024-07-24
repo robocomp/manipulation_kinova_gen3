@@ -55,6 +55,7 @@ class SpecificWorker(GenericWorker):
             self.speeds = ifaces.RoboCompKinovaArm.TJointSpeeds()
             self.speeds.jointSpeeds = [0, 0, 0, 0, 0, 0, 0]
             self.moveWithSpeed = False
+            self.timestamp = time.time()*1000
 
     def __del__(self):
         """Destructor"""
@@ -103,6 +104,8 @@ class SpecificWorker(GenericWorker):
         # self.kinova.gripper_move_speed(-0.005)
 
         # print("timer end", time.time()*1000)
+        print(time.time()*1000 - self.timestamp)
+        print("Contactile data:", self.contactile_proxy.getValues())
 
         return True
 
@@ -127,7 +130,7 @@ class SpecificWorker(GenericWorker):
     #
     def KinovaArm_closeGripper(self):
         force = 0
-        while force < 8 and self.gripper.distance < 0.9:
+        while force < 6 and self.gripper.distance < 0.9:
             self.kinova.gripper_move_speed(-0.005)
             tactileValues = self.contactile_proxy.getValues()
             leftValues = tactileValues.left
