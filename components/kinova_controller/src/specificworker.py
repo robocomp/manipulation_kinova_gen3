@@ -104,8 +104,8 @@ class SpecificWorker(GenericWorker):
         # self.kinova.gripper_move_speed(-0.005)
 
         # print("timer end", time.time()*1000)
-        print(time.time()*1000 - self.timestamp)
-        print("Contactile data:", self.contactile_proxy.getValues())
+        # print(time.time()*1000 - self.timestamp)
+        # print("Contactile data:", self.contactile_proxy.getValues())
 
         return True
 

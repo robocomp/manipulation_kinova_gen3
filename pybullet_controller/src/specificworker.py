@@ -127,10 +127,10 @@ class SpecificWorker(GenericWorker):
                                   targetValue=self.home_angles[i], targetVelocity=0)
 
             # Load a square to place on the table for calibration
-            # self.square = p.loadURDF("./URDFs/cube_and_square/cube_small_square.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
-            # texture_path = "./URDFs/cube_and_square/square_texture.png"
-            # textureIdSquare = p.loadTexture(texture_path)
-            # p.changeVisualShape(self.square, -1, textureUniqueId=textureIdSquare)
+            self.square = p.loadURDF("./URDFs/cube_and_square/cube_small_square.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
+            texture_path = "./URDFs/cube_and_square/square_texture.png"
+            textureIdSquare = p.loadTexture(texture_path)
+            p.changeVisualShape(self.square, -1, textureUniqueId=textureIdSquare)
 
             # # Load a cube to place on the table for calibration
             # self.cube = p.loadURDF("./URDFs/cube_and_square/cube_small.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
@@ -174,6 +174,7 @@ class SpecificWorker(GenericWorker):
 
             # This variable is to store the joint selected in the joystick mode
             self.joy_selected_joint = 0
+
 
             # This variable is to store the mode of the robot
             self.move_mode = 4
@@ -433,6 +434,7 @@ class SpecificWorker(GenericWorker):
                 else:
                     print("Calibration finished", int(time.time()*1000 - self.timestamp))
                     self.move_mode = 6
+                    # self.move_mode = 99
 
             case 6:    #Initialize toolbox
                 # self.showKinovaAngles()
@@ -678,6 +680,12 @@ class SpecificWorker(GenericWorker):
                     self.move_mode = 7
                     self.loopCounter = 0
 
+            case 99:
+                self.timer.stop()
+                cv2.imshow("Kinova camera", self.colorKinova[0][0])
+                self.read_camera_fixed()
+                self.calibrator.square_test(self.robot_id, self.colorKinova[0][0].copy())
+                cv2.waitKey(3)
 
 
     # =============== Methods ==================
@@ -1071,8 +1079,10 @@ class SpecificWorker(GenericWorker):
             rgb = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
 
             ## sum in one frame rgb and self.colorKinova[0][0]
+            cv2.imshow("Pybullet", rgb)
+
             sum = cv2.addWeighted(rgb, 0.5, self.colorKinova[0][0], 0.5, 0)
-            cv2.imshow("Pybullet", sum)
+            # cv2.imshow("Pybullet", sum)
             # print("Showing Pybullet image", time.time() * 1000 - self.timestamp)
             cv2.waitKey(3)
 
