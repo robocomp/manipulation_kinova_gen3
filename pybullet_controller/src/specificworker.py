@@ -108,6 +108,11 @@ class SpecificWorker(GenericWorker):
             self.robot_id = p.loadURDF(self.robot_urdf, self.robot_launch_pos, self.robot_launch_orien,
                                        flags=p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT)
 
+            self.robot_launch_pos_2 = [0.35, 0.04, 0.64]
+            self.robot_launch_orien_2 = p.getQuaternionFromEuler([0, 0, np.pi])
+            self.robot_id_2 = p.loadURDF(self.robot_urdf, self.robot_launch_pos_2, self.robot_launch_orien_2,
+                                       flags=p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT)
+
             # Angles for the home position of the robot
             self.home_angles = [0, -0.34, np.pi, -2.54, 0, -0.87, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                 0.0,
@@ -119,18 +124,20 @@ class SpecificWorker(GenericWorker):
                                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
             # Coordenates for the center of the table
-            self.table_center = [0.374, 0.0, 0.27]
+            self.table_center = [0.374, 0.0, 0.28]
 
             # Set the initial joint angles of the pybullet arm
             for i in range(7):
                 p.resetJointState(bodyUniqueId=self.robot_id, jointIndex=i+1,
                                   targetValue=self.home_angles[i], targetVelocity=0)
+                p.resetJointState(bodyUniqueId=self.robot_id_2, jointIndex=i+1,
+                                  targetValue=self.home_angles[i], targetVelocity=0)
 
             # Load a square to place on the table for calibration
-            self.square = p.loadURDF("./URDFs/cube_and_square/cube_small_square.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
-            texture_path = "./URDFs/cube_and_square/square_texture.png"
-            textureIdSquare = p.loadTexture(texture_path)
-            p.changeVisualShape(self.square, -1, textureUniqueId=textureIdSquare)
+            # self.square = p.loadURDF("./URDFs/cube_and_square/cube_small_square.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
+            # texture_path = "./URDFs/cube_and_square/square_texture.png"
+            # textureIdSquare = p.loadTexture(texture_path)
+            # p.changeVisualShape(self.square, -1, textureUniqueId=textureIdSquare)
 
             # # Load a cube to place on the table for calibration
             # self.cube = p.loadURDF("./URDFs/cube_and_square/cube_small.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
@@ -148,6 +155,8 @@ class SpecificWorker(GenericWorker):
             # Queues to store the images from the real arm camera
             self.colorKinova = collections.deque(maxlen=5)
             self.depthKinova = collections.deque(maxlen=5)
+            self.colorKinova2 = collections.deque(maxlen=5)
+            self.depthKinova2 = collections.deque(maxlen=5)
 
             # Wait for half a second
             time.sleep(0.5)
@@ -175,9 +184,8 @@ class SpecificWorker(GenericWorker):
             # This variable is to store the joint selected in the joystick mode
             self.joy_selected_joint = 0
 
-
             # This variable is to store the mode of the robot
-            self.move_mode = 4
+            self.move_mode = -1#4
 
             # This variable is to store the state of the real arm
             self.ext_joints = self.kinovaarm_proxy.getJointsState()
@@ -269,7 +277,7 @@ class SpecificWorker(GenericWorker):
             self.right_force_series = [0]
             self.graphTimes = [0]
 
-            self.ax.set_ylim(0, 5)
+            self.ax.set_ylim(0, 10)
 
             plt.tight_layout()
             plt.draw()
@@ -294,6 +302,23 @@ class SpecificWorker(GenericWorker):
     def compute(self):
 
         match self.move_mode:
+
+            case -1:
+                speeds_joints, speeds_joints_2 = ([0.0] * len(self.ext_joints.joints),
+                                                  [0.0] * len(self.ext_joints.joints))
+
+                for i in range(len(self.ext_joints.joints)):
+                    speeds_joints[i] = self.ext_joints.joints[i].velocity
+                    speeds_joints_2[i] = self.ext_joints_2.joints[i].velocity
+
+                speeds_joints = np.deg2rad(speeds_joints)
+                speeds_joints_2 = np.deg2rad(speeds_joints_2)
+
+                for i in range(7):
+                    p.setJointMotorControl2(self.robot_id, i + 1, p.VELOCITY_CONTROL, targetVelocity=speeds_joints[i])
+                    p.setJointMotorControl2(self.robot_id_2, i + 1, p.VELOCITY_CONTROL, targetVelocity=speeds_joints_2[i])
+
+
             #Move joints
             case 0:
                 self.target_angles[7:] = [0.0] * len(self.target_angles[7:])
@@ -439,9 +464,6 @@ class SpecificWorker(GenericWorker):
             case 6:    #Initialize toolbox
                 # self.showKinovaAngles()
                 self.timer.stop()
-                # self.calibrator.get_kinova_images(self.robot_id, self.kinovaarm_proxy, self.camerargbdsimple_proxy)
-                # self.calibrator.calibrate4(self.robot_id)
-                # self.move_mode = -1
 
                 target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
                 target_position[0] = target_position[0] - self.pybullet_offset[0]
@@ -507,7 +529,7 @@ class SpecificWorker(GenericWorker):
                         print("Adjusting pose for target adjustment")
                         self.target_position = list(p.getLinkState(self.robot_id, self.end_effector_link_index)[0])
                         self.target_position[0] = self.target_position[0] - self.pybullet_offset[0]
-                        self.target_position[2] = 0.55
+                        self.target_position[2] = 0.65
                         self.move_mode = 8
 
                     if gripper_position[2] - target_position[2] < 0.1 or self.loopCounter > 20:
@@ -578,15 +600,18 @@ class SpecificWorker(GenericWorker):
 
                     if self.arrived == True:
                         # print("Arrived")
+                        self.timer.stop()
                         self.target_velocities = [0.0] * 7
                         self.movePybulletWithToolbox()
                         self.moveKinovaWithSpeeds()
                         self.kinovaarm_proxy.closeGripper()
+                        time.sleep(0.5)
                         self.changePybulletGripper(self.ext_gripper.distance)
                         self.move_mode = 10
                         self.target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
                         self.target_position[0] = self.target_position[0] - self.pybullet_offset[0]
                         self.target_position[2] = self.target_position[2] - self.pybullet_offset[2] + 0.25
+                        self.timer.start(self.Period)
 
                 except Ice.Exception as e:
                     print(e)
@@ -648,12 +673,15 @@ class SpecificWorker(GenericWorker):
                     self.poses.append(jointsState)
 
                     if self.arrived == True:
+                        self.timer.stop()
                         self.target_velocities = [0.0] * 7
                         self.movePybulletWithToolbox()
                         self.moveKinovaWithSpeeds()
                         self.kinovaarm_proxy.openGripper()
+                        time.sleep(0.5)
                         self.changePybulletGripper(self.ext_gripper.distance)
                         self.move_mode = 12
+                        self.timer.start(self.Period)
 
                 except Ice.Exception as e:
                     print(e)
@@ -701,6 +729,28 @@ class SpecificWorker(GenericWorker):
         test = ifaces.RoboCompCameraRGBDSimple.TDepth()
         print(f"Testing RoboCompCameraRGBDSimple.TRGBD from ifaces.RoboCompCameraRGBDSimple")
         test = ifaces.RoboCompCameraRGBDSimple.TRGBD()
+        print(f"Testing RoboCompCameraRGBDSimple.Point3D from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.Point3D()
+        print(f"Testing RoboCompCameraRGBDSimple.TPoints from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.TPoints()
+        print(f"Testing RoboCompCameraRGBDSimple.TImage from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.TImage()
+        print(f"Testing RoboCompCameraRGBDSimple.TDepth from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.TDepth()
+        print(f"Testing RoboCompCameraRGBDSimple.TRGBD from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.TRGBD()
+        print(f"Testing RoboCompKinovaArm.TPose from ifaces.RoboCompKinovaArm")
+        test = ifaces.RoboCompKinovaArm.TPose()
+        print(f"Testing RoboCompKinovaArm.TGripper from ifaces.RoboCompKinovaArm")
+        test = ifaces.RoboCompKinovaArm.TGripper()
+        print(f"Testing RoboCompKinovaArm.TJoint from ifaces.RoboCompKinovaArm")
+        test = ifaces.RoboCompKinovaArm.TJoint()
+        print(f"Testing RoboCompKinovaArm.TJoints from ifaces.RoboCompKinovaArm")
+        test = ifaces.RoboCompKinovaArm.TJoints()
+        print(f"Testing RoboCompKinovaArm.TJointSpeeds from ifaces.RoboCompKinovaArm")
+        test = ifaces.RoboCompKinovaArm.TJointSpeeds()
+        print(f"Testing RoboCompKinovaArm.TJointAngles from ifaces.RoboCompKinovaArm")
+        test = ifaces.RoboCompKinovaArm.TJointAngles()
         print(f"Testing RoboCompKinovaArm.TPose from ifaces.RoboCompKinovaArm")
         test = ifaces.RoboCompKinovaArm.TPose()
         print(f"Testing RoboCompKinovaArm.TGripper from ifaces.RoboCompKinovaArm")
@@ -775,7 +825,7 @@ class SpecificWorker(GenericWorker):
         plt.cla()
         print("Drawing graph", int(time.time()*1000) - self.timestamp)
 
-        self.ax.set_ylim(0, 5)
+        self.ax.set_ylim(0, 10)
 
         self.ax.plot(self.graphTimes, self.jointsErrorMap.get(0), label="joint 1 error")
         self.ax.plot(self.graphTimes, self.jointsErrorMap.get(1), label="joint 2 error")
@@ -829,10 +879,13 @@ class SpecificWorker(GenericWorker):
 
         error = np.abs(resKinova[0][1] - resPybullet[0][1] + resKinova[0][0] - resPybullet[0][0])
 
-        if resKinova[0][5] > 0.85 and resPybullet[0][5] > 0.90:
+        print("Error: ", error, "Kinova: ", resKinova, "Pybullet: ", resPybullet)
+
+        if resKinova[0][5] > 0.85 and resPybullet[0][5] > 0.85:
             position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
             position[0] = position[0] - 0.0002 * (resKinova[0][0] - resPybullet[0][0])
             position[1] = position[1] - 0.0002 * (resKinova[0][1] - resPybullet[0][1])
+            print()
             p.resetBasePositionAndOrientation(self.cylinderId, tuple(position), p.getQuaternionFromEuler([0, 0, 0]))
 
         if len(resKinova) > 0:
@@ -1079,10 +1132,10 @@ class SpecificWorker(GenericWorker):
             rgb = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
 
             ## sum in one frame rgb and self.colorKinova[0][0]
-            cv2.imshow("Pybullet", rgb)
+            # cv2.imshow("Pybullet", rgb)
 
             sum = cv2.addWeighted(rgb, 0.5, self.colorKinova[0][0], 0.5, 0)
-            # cv2.imshow("Pybullet", sum)
+            cv2.imshow("Pybullet", sum)
             # print("Showing Pybullet image", time.time() * 1000 - self.timestamp)
             cv2.waitKey(3)
 
@@ -1099,15 +1152,37 @@ class SpecificWorker(GenericWorker):
 
     def readKinovaCamera(self):
         try:
-            both = self.camerargbdsimple_proxy.getAll("CameraRGBDViewer")
-            depthImage = (np.frombuffer(both.depth.depth, dtype=np.int16)
-                                .reshape(both.depth.height, both.depth.width))
-            depthImage = cv2.normalize(src=depthImage, dst=None, alpha=0, beta=255,
-                                             norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-            self.depthKinova.append([depthImage, both.depth.alivetime])
-            kinovaImage = (np.frombuffer(both.image.image, np.uint8)
-                                .reshape(both.image.height, both.image.width, both.image.depth))
-            self.colorKinova.append([kinovaImage, both.image.alivetime])
+            # both = self.camerargbdsimple_proxy.getImage("CameraRGBDViewer")                      # The depth flow slow down the queue then at the moment we are only using color flow
+            # depthImage = (np.frombuffer(both.depth.depth, dtype=np.int16)
+            #                     .reshape(both.depth.height, both.depth.width))
+            # depthImage = cv2.normalize(src=depthImage, dst=None, alpha=0, beta=255,
+            #                                  norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            # self.depthKinova.append([depthImage, both.depth.alivetime])
+            # kinovaImage = (np.frombuffer(both.image.image, np.uint8)
+            #                     .reshape(both.image.height, both.image.width, both.image.depth))
+
+            image = self.camerargbdsimple_proxy.getImage("CameraRGBDViewer")
+            kinovaImage = (np.frombuffer(image.image, np.uint8)
+                                .reshape(image.height, image.width, image.depth))
+            self.colorKinova.append([kinovaImage, image.alivetime])
+            cv2.imshow("Kinova camera", kinovaImage)
+
+            # both = self.camerargbdsimple1_proxy.getImage("CameraRGBDViewer")
+            # depthImage = (np.frombuffer(both.depth.depth, dtype=np.int16)
+            #               .reshape(both.depth.height, both.depth.width))
+            # depthImage = cv2.normalize(src=depthImage, dst=None, alpha=0, beta=255,
+            #                            norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+            # self.depthKinova2.append([depthImage, both.depth.alivetime])
+            # kinovaImage = (np.frombuffer(both.image.image, np.uint8)
+            #                .reshape(both.image.height, both.image.width, both.image.depth))
+
+            image = self.camerargbdsimple1_proxy.getImage("CameraRGBDViewer")
+            kinovaImage = (np.frombuffer(image.image, np.uint8)
+                           .reshape(image.height, image.width, image.depth))
+            self.colorKinova2.append([kinovaImage, image.alivetime])
+
+            cv2.imshow("Kinova camera 2", kinovaImage)
+            cv2.waitKey(3)
 
         except Ice.Exception as e:
             print(e)
@@ -1149,7 +1224,9 @@ class SpecificWorker(GenericWorker):
             self.ext_joints = self.kinovaarm_proxy.getJointsState()
             self.ext_gripper = self.kinovaarm_proxy.getGripperState()
             self.ext_gripper.distance = self.ext_gripper.distance * 0.8
-            #print("ext_joints", self.ext_joints.joints)
+            self.ext_joints_2 = self.kinovaarm1_proxy.getJointsState()
+            self.ext_gripper_2 = self.kinovaarm1_proxy.getGripperState()
+            self.ext_gripper_2.distance = self.ext_gripper_2.distance * 0.8
 
             time.sleep(0.05)
 
@@ -1335,6 +1412,21 @@ class SpecificWorker(GenericWorker):
     # RoboCompCameraRGBDSimple.TRGBD
 
     ######################
+    # From the RoboCompCameraRGBDSimple you can call this methods:
+    # self.camerargbdsimple1_proxy.getAll(...)
+    # self.camerargbdsimple1_proxy.getDepth(...)
+    # self.camerargbdsimple1_proxy.getImage(...)
+    # self.camerargbdsimple1_proxy.getPoints(...)
+
+    ######################
+    # From the RoboCompCameraRGBDSimple you can use this types:
+    # RoboCompCameraRGBDSimple.Point3D
+    # RoboCompCameraRGBDSimple.TPoints
+    # RoboCompCameraRGBDSimple.TImage
+    # RoboCompCameraRGBDSimple.TDepth
+    # RoboCompCameraRGBDSimple.TRGBD
+
+    ######################
     # From the RoboCompKinovaArm you can call this methods:
     # self.kinovaarm_proxy.closeGripper(...)
     # self.kinovaarm_proxy.getCenterOfTool(...)
@@ -1344,6 +1436,26 @@ class SpecificWorker(GenericWorker):
     # self.kinovaarm_proxy.moveJointsWithSpeed(...)
     # self.kinovaarm_proxy.openGripper(...)
     # self.kinovaarm_proxy.setCenterOfTool(...)
+
+    ######################
+    # From the RoboCompKinovaArm you can use this types:
+    # RoboCompKinovaArm.TPose
+    # RoboCompKinovaArm.TGripper
+    # RoboCompKinovaArm.TJoint
+    # RoboCompKinovaArm.TJoints
+    # RoboCompKinovaArm.TJointSpeeds
+    # RoboCompKinovaArm.TJointAngles
+
+    ######################
+    # From the RoboCompKinovaArm you can call this methods:
+    # self.kinovaarm1_proxy.closeGripper(...)
+    # self.kinovaarm1_proxy.getCenterOfTool(...)
+    # self.kinovaarm1_proxy.getGripperState(...)
+    # self.kinovaarm1_proxy.getJointsState(...)
+    # self.kinovaarm1_proxy.moveJointsWithAngle(...)
+    # self.kinovaarm1_proxy.moveJointsWithSpeed(...)
+    # self.kinovaarm1_proxy.openGripper(...)
+    # self.kinovaarm1_proxy.setCenterOfTool(...)
 
     ######################
     # From the RoboCompKinovaArm you can use this types:
