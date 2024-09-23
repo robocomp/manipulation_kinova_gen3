@@ -22,6 +22,7 @@ import sys
 
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
+from orca.debug import pidOf
 from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
@@ -38,82 +39,57 @@ console = Console(highlight=False)
 
 class SpecificWorker(GenericWorker):
     """
-    Manages two video streams (color and depth) from a robotic camera, queues the
-    frames for processing, and provides methods to retrieve the frames as `TImage`
-    or `TDepth` objects.
+    Captures and processes RGB-D video streams from a camera, storing frames in
+    queues for further processing or retrieval by other components. It manages
+    threads for color and depth stream capture and provides methods to retrieve
+    images and depth data.
 
     Attributes:
-        Period (int): 100, which represents the interval between consecutive updates
-            of the worker's internal state.
-        hide (instance): Used to hide or show the worker's GUI element when it is
-            not needed, which helps improve performance by reducing flickering and
-            minimizing CPU usage.
-        depth_queue (queueQueue): Used to store depth images read from a video
-            capture device.
-        color_queue (queueQueue): Used to store the color frames read from the
-            video capture devices.
-        color_stream (cv2VideoCapture): Used to capture color video streams.
-        depth_stream (cv2VideoCapture): Used to capture depth stream from a RTSP
-            source.
-        color_thread (threadingThread): Used to represent a thread that runs in
-            parallel with the main thread of the program, handling the color stream
-            of the camera.
-        video_color_thread (threadingThread): Responsible for processing the color
-            stream of the camera in a separate thread.
-        depth_thread (threadingThread): Used to start a separate thread for
-            processing depth images.
-        video_depth_thread (threadingThread): Used to run a separate thread for
-            reading depth frames from the camera.
-        startup_check (algorithm): Called when the object is initialized. It tests
-            if the RoboCompCameraRGBDSimple interfaces are available.
-        timer (QTimer): Used to schedule a function call every `Period` milliseconds
-            to update the worker's state.
-        compute (Python): Defined as a slot function that is called by the timer.
-            It performs no operation for now.
+        Period (int): 1000, indicating a period or interval (in milliseconds) for
+            various operations to be performed by the worker, such as connecting
+            to streams and processing frames.
+        hide (bool): Set to `self.hide()` in the `__init__` method, but its exact
+            purpose or effect is not clear without additional context.
+        depth_queue (queueQueue[int]): Initialized with a maximum size of 1, which
+            allows it to store one frame from the depth stream at a time.
+        color_queue (Queue[Any]): Used to hold color frames from a video stream,
+            with a maximum size of one frame at a time. It follows first-in-first-out
+            (FIFO) order.
+        init_timestamp (int): Initialized with the current time (in milliseconds)
+            at the instance creation, obtained using `int(time.time()*1000)`.
+        startup_check (bool): Used to determine whether a startup check should be
+            performed when initializing the worker. The check tests various data
+            structures from the RoboComp library.
+        timer (QTimer): Connected to the compute method, which it calls every
+            Period milliseconds.
+        compute (None|Callable[[],None]): Annotated with @QtCore.Slot(). It
+            represents a slot that gets called when a timer event occurs. The
+            function does not contain any operation, it only passes.
 
     """
     def __init__(self, proxy_map, startup_check=False):
         """
-        Initializes member variables and starts two threads to handle video streams
-        for color and depth sensors, respectively.
+        Initializes object properties, such as time period and queues for depth
+        and color data, sets up event handling, and starts the worker process upon
+        initialization or startup check.
 
         Args:
-            proxy_map (dict): Used to store a mapping of proxy servers for each
-                worker instance, allowing for flexible configuration of proxy
-                servers for different workers.
-            startup_check (bool): Used to check if the worker has started correctly
-                or not.
+            proxy_map (Dict[str, Any]): Passed to the parent class's constructor
+                using `super(SpecificWorker, self).__init__(proxy_map)`, indicating
+                it serves as a configuration or setup map.
+            startup_check (bool): Optional, with a default value of False. It
+                determines whether to run startup checks or not when the worker
+                is initialized.
 
         """
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 100
+        self.Period = 1000
         self.hide()
 
         #set  queue size
         self.depth_queue = queue.Queue(maxsize=1)
         self.color_queue = queue.Queue(maxsize=1)
-
-        self.color_stream = cv2.VideoCapture(
-           "gst-launch-1.0 rtspsrc location=rtsp://192.168.1.10/color latency=30 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert n-threads=2 ! video/x-raw,format=BGR ! queue ! appsink drop=true",cv2.CAP_GSTREAMER)
-
-        self.depth_stream = cv2.VideoCapture(
-            "gst-launch-1.0 rtspsrc location=rtsp://192.168.1.10/depth latency=30 ! rtpgstdepay ! videoconvert n-threads=2 ! video/x-raw,format=GRAY16_LE ! queue ! appsink drop=true",cv2.CAP_GSTREAMER)
-        #print(self.depth_stream.isOpened())
-
-        # create a thread to capture the stream and start it
-        self.color_thread = threading.Thread(target=self.video_color_thread, args=(self.color_stream, self.color_queue))
-        if(not self.color_stream.isOpened()):
-            print("color stream not opened")
-            sys.exit()
-        self.color_thread.start()
-
-        self.depth_thread = threading.Thread(target=self.video_depth_thread, args=(self.depth_stream, self.depth_queue))
-        if(not self.depth_stream.isOpened()):
-            print("depth stream not opened")
-            sys.exit()
-        self.depth_thread.start()
-
-        print("Reading threads started")
+        self.init_timestamp = int(time.time()*1000)
 
         if startup_check:
             self.startup_check()
@@ -123,15 +99,74 @@ class SpecificWorker(GenericWorker):
 
     def __del__(self):
         """Destructor"""
+
+        self.killThreads()
+        self.color_stream.release()
+        self.depth_stream.release()
+
         print("Destructor")
 
 
     def setParams(self, params):
+        """
+        Initializes parameters for video stream capture, starts capturing color
+        stream from an IP address, and creates a thread to process the captured
+        frames. It also checks if the stream is opened successfully before proceeding.
+
+        Args:
+            params (Dict[str, str | int | bool]): Expected to contain key-value
+                pairs representing various settings such as IP address, latency
+                and others necessary for connecting to an RTSP stream.
+
+        Returns:
+            bool: Set to True when the execution is successful, indicating that
+            the video streams have been successfully opened and a thread has been
+            created to capture them.
+
+        """
+        self.ip = params["ip"]
+        self.run = True
+        # create the video capture objects
+        print(f"Connecting to {self.ip}")
+        # self.color_stream = cv2.VideoCapture(
+        #     f"gst-launch-1.0 rtspsrc location=rtsp://{self.ip}/color latency=30 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert n-threads=2 ! video/x-raw,format=BGR ! queue ! appsink drop=true",
+        #     cv2.CAP_GSTREAMER)
+        self.color_stream = cv2.VideoCapture(
+            f"gst-launch-1.0 rtspsrc location=rtsp://{self.ip}/color latency=30 ! rtph264depay ! h264parse ! nvh264dec ! videoconvert n-threads=2 ! video/x-raw,format=BGR ! queue ! appsink drop=true",
+            cv2.CAP_GSTREAMER)
+
+        # self.depth_stream = cv2.VideoCapture(
+        #     f"gst-launch-1.0 rtspsrc location=rtsp://{self.ip}/depth latency=30 ! rtpgstdepay ! videoconvert n-threads=2 ! video/x-raw,format=GRAY16_LE ! queue ! appsink drop=true",
+        #     cv2.CAP_GSTREAMER)
+        # print(self.depth_stream.isOpened())
+
+        # create a thread to capture the stream and start it
+        self.color_thread = threading.Thread(target=self.video_color_thread, args=(self.color_stream, self.color_queue))
+        if (not self.color_stream.isOpened()):
+            print("color stream not opened")
+            sys.exit()
+        self.color_thread.start()
+
+        # self.depth_thread = threading.Thread(target=self.video_depth_thread, args=(self.depth_stream, self.depth_queue))
+        # if (not self.depth_stream.isOpened()):
+        #     print("depth stream not opened")
+        #     sys.exit()
+        # self.depth_thread.start()
+
+        print("Reading threads started")
+
         return True
 
 
     @QtCore.Slot()
     def compute(self):
+        """
+        Computes color and depth pixel values, but these lines are currently
+        commented out, rendering them inactive. The method also checks if the
+        worker is hidden and returns True immediately if so. This could be used
+        to implement lazy computation.
+
+        """
         # print('SpecificWorker.compute...')
         #
         # color_frame = self.color_queue.get()
@@ -149,28 +184,26 @@ class SpecificWorker(GenericWorker):
         # if self.isHidden():
         #     sys.exit()
         #return True
-        """
-        Processes two image-like objects, `pix_color` and `pix_depth`, scaling
-        them to the size of the widgets `ui.color` and `ui.depth`. If the object
-        is hidden, it returns `True`.
-
-        """
         pass
 
 ################################################################################################################
     def video_color_thread(self, cap, inqueue):
         """
-        Reads frames from an opened camera and adds them to a queue for processing,
-        while handling exceptions and keyboard interrupts.
+        Captures video frames from an OpenCV camera, puts them into a queue, and
+        releases the camera when it finishes or is interrupted by a keyboard signal.
 
         Args:
-            cap (Capture): Represented by the object `cap`.
-            inqueue (Queue): Used to store the frames read from the video capture
-                device during the video processing thread execution.
+            cap (cv2.VideoCapture): Referenced as an object, likely representing
+                a video capture device or a video file. It provides functionality
+                for reading frames from the captured video.
+            inqueue (Queue[Any]): Used to store frames from the camera for further
+                processing, allowing for efficient handling of video data and
+                preventing buffer overflows due to full queue condition.
 
         """
         try:
-            while cap.isOpened():
+            while cap.isOpened() and self.run:
+                # print("color", int(time.time()*1000)-self.init_timestamp)
                 ret, frame = cap.read()
                 if ret:
                     # inqueue.put_nowait(frame)
@@ -181,27 +214,32 @@ class SpecificWorker(GenericWorker):
                         # Si la cola está llena, descarta la imagen más antigua y agrega la nueva
                         inqueue.get_nowait()
                         inqueue.put_nowait(frame)
+            print("color finish")
         except KeyboardInterrupt:
             print("hilo finish")
         cap.release()
-
 
     def video_depth_thread(self, cap, inqueue):
-        #print("inicio bucle")
         """
-        Reads frames from a given video capture object `cap` and enqueues them in
-        a queue `inqueue`. It repeatedly reads frames until the `cap` is closed,
-        then releases the resource.
+        Reads frames from an opened camera capture object (cap), converts them
+        into depth data, and pushes them into a shared queue for processing. It
+        runs until the camera is closed or the thread is stopped.
 
         Args:
-            cap (OpenCVVideoCapture): Used to capture video frames from a video
-                file or device.
-            inqueue (queueQueue): Used to store frames read from the video capture
-                device.
+            cap (cv2.VideoCapture | None): A video capture object that provides
+                read access to video frames from the device's camera or other video
+                source.
+            inqueue (Queue): Used to store frames from the camera capture (`cap`)
+                as they are read, enabling thread-safe input queuing.
+                
+                Used for handling full queue conditions by removing an item before
+                adding the new one.
 
         """
+        #print("inicio bucle")
         try:
-            while cap.isOpened():
+            while cap.isOpened() and self.run:
+                print("depth", int(time.time()*1000)-self.init_timestamp)
                 ret, frame = cap.read()
                 if ret:
                     # inqueue.put_nowait(frame)
@@ -212,16 +250,29 @@ class SpecificWorker(GenericWorker):
                         # Si la cola está llena, descarta la imagen más antigua y agrega la nueva
                         inqueue.get_nowait()
                         inqueue.put_nowait(frame)
+            print("depth finish")
         except KeyboardInterrupt:
             print("hilo finish")
         cap.release()
+
+    def killThreads(self):
+        """
+        Terminates two threads, color_thread and depth_thread, when its run variable
+        is set to False, allowing the program to exit safely by joining these
+        threads before proceeding.
+
+        """
+        self.run = False
+        self.color_thread.join()
+        self.depth_thread.join()
+        print("threads killed")
 
 
     def startup_check(self):
         """
-        Tests various components of a class called `ifaces.RoboCompCameraRGBDSimple`.
-        These include the `TImage`, `TDepth`, and `TRGBD` classes, as well as the
-        `QApplication.instance().quit()` method.
+        Tests three types of images from the ifaces module, printing a message for
+        each. After testing, it schedules a single shot to quit the application
+        after 200 milliseconds using QTimer and QApplication's instance.
 
         """
         print(f"Testing RoboCompCameraRGBDSimple.TImage from ifaces.RoboCompCameraRGBDSimple")
@@ -242,16 +293,19 @@ class SpecificWorker(GenericWorker):
     #
     def CameraRGBDSimple_getAll(self, camera):
         """
-        Retrieves RGB-D data from a camera and stores it in a queue for processing.
-        It returns the entire RGB-D data or `None` if the queue is empty.
+        Retrieves data from two queues and returns it in a structured format,
+        specifically an instance of TRGBD from the RoboComp library. It handles
+        exceptions where either queue is empty.
 
         Args:
-            camera (ifacesRoboCompCameraRGBDSimple): Used to retrieve RGB-D data
-                from a RoboComp camera.
+            camera (CameraRGBDSimple): Not used within the function itself. It
+                seems to be an unused parameter possibly intended for future use
+                or method overriding.
 
         Returns:
-            RoboCompCameraRGBDSimple: A RGB-D image representing the depth and
-            color information of a camera.
+            TRGBD|None: An object containing depth and image data along with their
+            corresponding timestamps, unless a queue is empty. In that case it
+            returns None.
 
         """
         try:
@@ -264,25 +318,29 @@ class SpecificWorker(GenericWorker):
             ret.image.image = self.color_queue.get_nowait()
             ret.image.height, ret.image.width, ret.image.depth = ret.image.image.shape
             ret.image.alivetime = int(time.time()*1000)
+            print("get all")
             return ret
         except queue.Empty:
+            print("Empty queue")
             return None
     #
     # IMPLEMENTATION of getDepth method from CameraRGBDSimple interface
     #
     def CameraRGBDSimple_getDepth(self, camera):
         """
-        Retrieves depth data from a queue and returns it in the form of a `TDepth`
-        object with dimensions and depth value.
+        Dequeues an image from a queue, extracts its dimensions and pixel data,
+        and returns them as a TDepth object representing depth information.
 
         Args:
-            camera (ifacesRoboCompCameraRGBDSimple): An instance of the
-                RoboCompCameraRGBDSimple class, which represents a camera for depth
-                sensing.
+            camera (RoboCompCameraRGBDSimple): Passed to the method as an argument,
+                however its usage within the method is unclear and appears redundant
+                since it's not used.
 
         Returns:
-            ifacesRoboCompCameraRGBDSimpleTDepth: A struct containing height, width
-            and depth information of a image.
+            ifacesRoboCompCameraRGBDSimpleTDepth: A structured data object containing
+            three elements: ret.height, ret.width and ret.depth where ret.height
+            and ret.width represent the image dimensions and ret.depth represents
+            the depth image itself.
 
         """
         try:
@@ -300,16 +358,18 @@ class SpecificWorker(GenericWorker):
     #
     def CameraRGBDSimple_getImage(self, camera):
         """
-        Retrieves an image from a color queue and returns a `TImage` object with
-        the appropriate dimensions and contents.
+        Retrieves an image from a color queue, packages it into a TImage object,
+        and returns the packaged image along with its height, width, depth, and
+        alivetime stamp. It handles empty queues by returning None.
 
         Args:
-            camera (ifacesRoboCompCameraRGBDSimple): An instance of a class
-                representing a camera device.
+            camera (RoboCompCameraRGBDSimple.Camera): Used to pass a camera object
+                to the function.
 
         Returns:
-            ifacesRoboCompCameraRGBDSimpleTImage: A struct containing height,
-            width, depth and image values of a RGB-D camera frame.
+            RoboCompCameraRGBDSimpleTImage: An object containing image data along
+            with its dimensions, alive time and the image itself represented as a
+            numpy array.
 
         """
         try:
@@ -318,6 +378,7 @@ class SpecificWorker(GenericWorker):
             ret = ifaces.RoboCompCameraRGBDSimple.TImage()
             ret.height, ret.width, ret.depth = img.shape
             ret.image = img
+            ret.alivetime = int(time.time()*1000)
 
             return ret
         except queue.Empty:
