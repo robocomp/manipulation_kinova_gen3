@@ -1,8 +1,7 @@
 # Endpoints for implements interfaces
 CameraRGBDSimple.Endpoints=tcp -p 16022
 
-
-
+ip = 192.168.1.10
 
 
 Ice.Warn.Connections=0
