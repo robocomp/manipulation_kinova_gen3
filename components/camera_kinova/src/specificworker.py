@@ -22,6 +22,7 @@ import sys
 
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
+from orca.debug import pidOf
 from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
@@ -39,34 +40,13 @@ console = Console(highlight=False)
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 50
+        self.Period = 1000
         self.hide()
 
         #set  queue size
         self.depth_queue = queue.Queue(maxsize=1)
         self.color_queue = queue.Queue(maxsize=1)
-
-        self.color_stream = cv2.VideoCapture(
-           "gst-launch-1.0 rtspsrc location=rtsp://192.168.1.10/color latency=30 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert n-threads=2 ! video/x-raw,format=BGR ! queue ! appsink drop=true",cv2.CAP_GSTREAMER)
-
-        self.depth_stream = cv2.VideoCapture(
-            "gst-launch-1.0 rtspsrc location=rtsp://192.168.1.10/depth latency=30 ! rtpgstdepay ! videoconvert n-threads=2 ! video/x-raw,format=GRAY16_LE ! queue ! appsink drop=true",cv2.CAP_GSTREAMER)
-        #print(self.depth_stream.isOpened())
-
-        # create a thread to capture the stream and start it
-        self.color_thread = threading.Thread(target=self.video_color_thread, args=(self.color_stream, self.color_queue))
-        if(not self.color_stream.isOpened()):
-            print("color stream not opened")
-            sys.exit()
-        self.color_thread.start()
-
-        self.depth_thread = threading.Thread(target=self.video_depth_thread, args=(self.depth_stream, self.depth_queue))
-        if(not self.depth_stream.isOpened()):
-            print("depth stream not opened")
-            sys.exit()
-        self.depth_thread.start()
-
-        print("Reading threads started")
+        self.init_timestamp = int(time.time()*1000)
 
         if startup_check:
             self.startup_check()
@@ -76,10 +56,46 @@ class SpecificWorker(GenericWorker):
 
     def __del__(self):
         """Destructor"""
+
+        self.killThreads()
+        self.color_stream.release()
+        self.depth_stream.release()
+
         print("Destructor")
 
 
     def setParams(self, params):
+        self.ip = params["ip"]
+        self.run = True
+        # create the video capture objects
+        print(f"Connecting to {self.ip}")
+        # self.color_stream = cv2.VideoCapture(
+        #     f"gst-launch-1.0 rtspsrc location=rtsp://{self.ip}/color latency=30 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert n-threads=2 ! video/x-raw,format=BGR ! queue ! appsink drop=true",
+        #     cv2.CAP_GSTREAMER)
+        self.color_stream = cv2.VideoCapture(
+            f"gst-launch-1.0 rtspsrc location=rtsp://{self.ip}/color latency=30 ! rtph264depay ! h264parse ! nvh264dec ! videoconvert n-threads=2 ! video/x-raw,format=BGR ! queue ! appsink drop=true",
+            cv2.CAP_GSTREAMER)
+
+        # self.depth_stream = cv2.VideoCapture(
+        #     f"gst-launch-1.0 rtspsrc location=rtsp://{self.ip}/depth latency=30 ! rtpgstdepay ! videoconvert n-threads=2 ! video/x-raw,format=GRAY16_LE ! queue ! appsink drop=true",
+        #     cv2.CAP_GSTREAMER)
+        # print(self.depth_stream.isOpened())
+
+        # create a thread to capture the stream and start it
+        self.color_thread = threading.Thread(target=self.video_color_thread, args=(self.color_stream, self.color_queue))
+        if (not self.color_stream.isOpened()):
+            print("color stream not opened")
+            sys.exit()
+        self.color_thread.start()
+
+        # self.depth_thread = threading.Thread(target=self.video_depth_thread, args=(self.depth_stream, self.depth_queue))
+        # if (not self.depth_stream.isOpened()):
+        #     print("depth stream not opened")
+        #     sys.exit()
+        # self.depth_thread.start()
+
+        print("Reading threads started")
+
         return True
 
 
@@ -107,7 +123,8 @@ class SpecificWorker(GenericWorker):
 ################################################################################################################
     def video_color_thread(self, cap, inqueue):
         try:
-            while cap.isOpened():
+            while cap.isOpened() and self.run:
+                # print("color", int(time.time()*1000)-self.init_timestamp)
                 ret, frame = cap.read()
                 if ret:
                     # inqueue.put_nowait(frame)
@@ -118,15 +135,16 @@ class SpecificWorker(GenericWorker):
                         # Si la cola está llena, descarta la imagen más antigua y agrega la nueva
                         inqueue.get_nowait()
                         inqueue.put_nowait(frame)
+            print("color finish")
         except KeyboardInterrupt:
             print("hilo finish")
         cap.release()
-
 
     def video_depth_thread(self, cap, inqueue):
         #print("inicio bucle")
         try:
-            while cap.isOpened():
+            while cap.isOpened() and self.run:
+                print("depth", int(time.time()*1000)-self.init_timestamp)
                 ret, frame = cap.read()
                 if ret:
                     # inqueue.put_nowait(frame)
@@ -137,9 +155,16 @@ class SpecificWorker(GenericWorker):
                         # Si la cola está llena, descarta la imagen más antigua y agrega la nueva
                         inqueue.get_nowait()
                         inqueue.put_nowait(frame)
+            print("depth finish")
         except KeyboardInterrupt:
             print("hilo finish")
         cap.release()
+
+    def killThreads(self):
+        self.run = False
+        self.color_thread.join()
+        self.depth_thread.join()
+        print("threads killed")
 
 
     def startup_check(self):
@@ -170,8 +195,10 @@ class SpecificWorker(GenericWorker):
             ret.image.image = self.color_queue.get_nowait()
             ret.image.height, ret.image.width, ret.image.depth = ret.image.image.shape
             ret.image.alivetime = int(time.time()*1000)
+            print("get all")
             return ret
         except queue.Empty:
+            print("Empty queue")
             return None
     #
     # IMPLEMENTATION of getDepth method from CameraRGBDSimple interface
@@ -197,6 +224,7 @@ class SpecificWorker(GenericWorker):
             ret = ifaces.RoboCompCameraRGBDSimple.TImage()
             ret.height, ret.width, ret.depth = img.shape
             ret.image = img
+            ret.alivetime = int(time.time()*1000)
 
             return ret
         except queue.Empty:
