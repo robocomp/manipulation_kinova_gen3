@@ -1,7 +1,8 @@
 # Proxies for required interfaces
-KinovaArmProxy = kinovaarm:tcp -h localhost -p 17954
 CameraRGBDSimpleProxy = camerargbdsimple:tcp -h localhost -p 16022
-
+CameraRGBDSimple1Proxy = camerargbdsimple:tcp -h localhost -p 16023
+KinovaArmProxy = kinovaarm:tcp -h localhost -p 17954
+KinovaArm1Proxy = kinovaarm:tcp -h localhost -p 17955
 
 JoystickAdapterTopic.Endpoints=tcp -p 14837
 

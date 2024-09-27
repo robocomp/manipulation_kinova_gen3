@@ -199,7 +199,11 @@ class Requires:
 
         self.CameraRGBDSimple = self.create_proxy("CameraRGBDSimpleProxy", RoboCompCameraRGBDSimple.CameraRGBDSimplePrx)
 
+        self.CameraRGBDSimple1 = self.create_proxy("CameraRGBDSimple1Proxy", RoboCompCameraRGBDSimple.CameraRGBDSimplePrx)
+
         self.KinovaArm = self.create_proxy("KinovaArmProxy", RoboCompKinovaArm.KinovaArmPrx)
+
+        self.KinovaArm1 = self.create_proxy("KinovaArm1Proxy", RoboCompKinovaArm.KinovaArmPrx)
 
     def get_proxies_map(self):
         return self.mprx

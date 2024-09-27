@@ -49,9 +49,8 @@ all_resolution_strings = {
 }
 
 class KinovaGen3():
-    def __init__(self):
+    def __init__(self, ip):
 
-        ip = "192.168.1.10"
         username = "admin"
         psw = "admin"
 

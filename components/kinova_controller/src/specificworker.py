@@ -46,7 +46,6 @@ class SpecificWorker(GenericWorker):
         if startup_check:
             self.startup_check()
         else:
-            self.kinova = KinovaGen3()
             self.flag = True
             self.timer.timeout.connect(self.compute)
             self.timer.start(self.Period)
@@ -66,6 +65,8 @@ class SpecificWorker(GenericWorker):
         # except:
         #	traceback.print_exc()
         #	print("Error reading config params")
+        self.ip = params["ip"]
+        self.kinova = KinovaGen3(self.ip)
         return True
 
 

@@ -185,7 +185,7 @@ class SpecificWorker(GenericWorker):
             self.joy_selected_joint = 0
 
             # This variable is to store the mode of the robot
-            self.move_mode = -1#4
+            self.move_mode = -2#4
 
             # This variable is to store the state of the real arm
             self.ext_joints = self.kinovaarm_proxy.getJointsState()
@@ -304,6 +304,8 @@ class SpecificWorker(GenericWorker):
         match self.move_mode:
 
             case -1:
+                print("###########################################################################")
+                print("time start: ", int(time.time()*1000 - self.timestamp))
                 speeds_joints, speeds_joints_2 = ([0.0] * len(self.ext_joints.joints),
                                                   [0.0] * len(self.ext_joints.joints))
 
@@ -318,6 +320,42 @@ class SpecificWorker(GenericWorker):
                     p.setJointMotorControl2(self.robot_id, i + 1, p.VELOCITY_CONTROL, targetVelocity=speeds_joints[i])
                     p.setJointMotorControl2(self.robot_id_2, i + 1, p.VELOCITY_CONTROL, targetVelocity=speeds_joints_2[i])
 
+                target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
+                target_position[0] = target_position[0] - self.pybullet_offset[0]
+                target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.17
+
+                self.robot2LinksInfo = []
+                for i in range(7):
+                    state = p.getLinkState(self.robot_id_2, i+1)
+                    fixed_state = list(state[0])
+                    fixed_state[0] = fixed_state[0] - self.pybullet_offset[0]
+                    fixed_state[1] = fixed_state[1] - self.pybullet_offset[1]
+                    fixed_state[2] = fixed_state[2] - self.pybullet_offset[2]
+                    self.robot2LinksInfo.append([fixed_state,p.getEulerFromQuaternion(state[1])])
+
+                # for state in self.robot2LinksInfo:
+                #     print("Link position: ", state[0], " Link orientation: ", state[1])
+
+                print("toolbox compute start: ", int(time.time()*1000-self.timestamp))
+                self.toolbox_compute(target_position)
+                print("time end: ", int(time.time() * 1000 - self.timestamp))
+
+            case -2:
+                self.timer.stop()
+
+                target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
+                target_position[0] = target_position[0] - self.pybullet_offset[0]
+                target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.17
+
+                print("initilizing toolbox", time.time() * 1000 - self.timestamp)
+                self.initialize_toolbox(target_position)
+                print("toolbox initialized", time.time() * 1000 - self.timestamp)
+                # self.showKinovaStateTimer.start(1000)
+                # self.gainsTimer.start(1000)
+
+                print("Moving to fixed cup")
+                self.move_mode = -1
+                self.timer.start(self.Period)
 
             #Move joints
             case 0:
@@ -928,6 +966,7 @@ class SpecificWorker(GenericWorker):
 
         # self.cup = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.4, 0.4, 0), color=(0, 0, 1))
         # self.env.add(self.cup)
+        self.collisions = []
 
         # Set the desired end-effector pose
         self.rot = self.kinova.fkine(self.kinova.q).R
@@ -950,6 +989,13 @@ class SpecificWorker(GenericWorker):
         self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], target_position[2]])  # green = x-axis, red = y-axis, blue = z-axis
         # Transform from the end-effector to desired pose
         self.eTep = self.Te.inv() * self.Tep
+
+        print("adding cylinders", int(time.time()*1000-self.timestamp))
+        for link in self.robot2LinksInfo:
+            cylinder = sg.Cylinder(0.04, 0.20, pose=sm.SE3.Trans(link[0][0], link[0][1], link[0][2])*sm.SE3.EulerVec(link[1]))
+            self.env.add(cylinder)
+            # self.collisions.append(cylinder)
+        print("cylinders added: ",int(time.time()*1000-self.timestamp))
 
         # Spatial error
         self.e = np.sum(np.abs(np.r_[self.eTep.t, self.eTep.rpy() * np.pi / 180]))
@@ -989,6 +1035,30 @@ class SpecificWorker(GenericWorker):
         # Form the joint limit velocity damper
         self.Ain[:self.n, :self.n], self.bin[:self.n] = self.kinova.joint_velocity_damper(self.ps, self.pi, self.n)
 
+        # For each collision in the scene
+        for collision in self.collisions:
+
+            # Form the velocity damper inequality contraint for each collision
+            # object on the robot to the collision in the scene
+            c_Ain, c_bin = self.kinova.link_collision_damper(
+                collision,
+                self.kinova.q[:self.n],
+                0.3,
+                0.05,
+                1.0,
+                start=self.kinova.link_dict["half_arm_1_link"],
+                end=self.kinova.link_dict["end_effector_link"],
+            )
+
+            # If there are any parts of the robot within the influence distance
+            # to the collision in the scene
+            if c_Ain is not None and c_bin is not None:
+                c_Ain = np.c_[c_Ain, np.zeros((c_Ain.shape[0], 6))]
+
+                # Stack the inequality constraints
+                self.Ain = np.r_[self.Ain, c_Ain]
+                self.bin = np.r_[self.bin, c_bin]
+
         # Linear component of objective function: the manipulability Jacobian
         c = np.r_[-self.kinova.jacobm().reshape((self.n,)), np.zeros(6)]
 
@@ -1011,8 +1081,9 @@ class SpecificWorker(GenericWorker):
 
         error = np.sum(np.rad2deg(np.abs(np.array(joints_angle) - np.array(self.kinova.q))))
         # print("Error joints", np.rad2deg(self.kinova.q-joints_angle), "Error: ", error)
-        if error > 1:
-            self.kinova.q = joints_angle
+
+        # if error > 1:                                    ### DISCOMMENT TO CORRECT THE CONTROLLER'S KINOVA POSITION
+        #     self.kinova.q = joints_angle
 
         # print("/////////////////////////////////////////////////////////////////////////////////////////////////////")
 

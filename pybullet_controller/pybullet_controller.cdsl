@@ -6,7 +6,7 @@ Component pybullet_controller
 {
     Communications
     {
-        requires KinovaArm, CameraRGBDSimple;
+        requires KinovaArm, KinovaArm, CameraRGBDSimple, CameraRGBDSimple;
         subscribesTo JoystickAdapter;
     };
     language python;

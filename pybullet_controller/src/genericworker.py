@@ -48,7 +48,9 @@ class GenericWorker(QtWidgets.QWidget):
         super(GenericWorker, self).__init__()
 
         self.camerargbdsimple_proxy = mprx["CameraRGBDSimpleProxy"]
+        self.camerargbdsimple1_proxy = mprx["CameraRGBDSimple1Proxy"]
         self.kinovaarm_proxy = mprx["KinovaArmProxy"]
+        self.kinovaarm1_proxy = mprx["KinovaArm1Proxy"]
 
         self.ui = Ui_guiDlg()
         self.ui.setupUi(self)
