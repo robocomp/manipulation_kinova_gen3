@@ -131,7 +131,7 @@ class SpecificWorker(GenericWorker):
     #
     def KinovaArm_closeGripper(self):
         force = 0
-        while force < 6 and self.gripper.distance < 0.9:
+        while force < 4 and self.gripper.distance < 0.9:
             self.kinova.gripper_move_speed(-0.005)
             tactileValues = self.contactile_proxy.getValues()
             leftValues = tactileValues.left
@@ -140,7 +140,12 @@ class SpecificWorker(GenericWorker):
                      + abs(righValues.x) + abs(righValues.y) + abs(righValues.z))
 
         print("Gripper closed")
+        print("force: ", force)
         self.kinova.gripper_move_speed(0)
+        if force >= 2:
+            return True
+        else:
+            return False
 
     #
     # IMPLEMENTATION of getCenterOfTool method from KinovaArm interface
@@ -194,7 +199,7 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of moveJointsWithAngle method from KinovaArm interface
     #
     def KinovaArm_moveJointsWithAngle(self, angles):
-        print(angles.jointAngles)
+        # print(angles.jointAngles)
         self.kinova.move_joints_to(angles.jointAngles)
         pass
     # ===================================================================

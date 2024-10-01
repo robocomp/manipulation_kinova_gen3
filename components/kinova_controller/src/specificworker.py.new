@@ -104,13 +104,11 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of closeGripper method from KinovaArm interface
     #
     def KinovaArm_closeGripper(self):
-    
+        ret = bool()
         #
         # write your CODE here
         #
-        pass
-
-
+        return ret
     #
     # IMPLEMENTATION of getCenterOfTool method from KinovaArm interface
     #

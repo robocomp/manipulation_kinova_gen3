@@ -125,7 +125,7 @@ class KinovaGen3():
         finger = gripper_command.gripper.finger.add()
 
         # Close the gripper with position increments
-        print("Performing gripper test in position...")
+        # print("Performing gripper test in position...")
         gripper_command.mode = Base_pb2.GRIPPER_POSITION
         position = 0.00
         finger.finger_identifier = 1
@@ -144,7 +144,7 @@ class KinovaGen3():
         finger = gripper_command.gripper.finger.add()
 
         # Close the gripper with speed increments
-        print("Performing gripper test in speed...")
+        # print("Performing gripper test in speed...")
         gripper_command.mode = Base_pb2.GRIPPER_SPEED
         finger.finger_identifier = 1
         finger.value = speed
