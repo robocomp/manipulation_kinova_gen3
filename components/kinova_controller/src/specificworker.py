@@ -75,6 +75,7 @@ class SpecificWorker(GenericWorker):
         # print("timer init", time.time()*1000)
         if self.flag:
             # self.kinova.get_camera_info()
+            # self.kinova.gripper_force_test()
             self.flag = False
 
         ret = ifaces.RoboCompKinovaArm.TJoints()
@@ -101,6 +102,9 @@ class SpecificWorker(GenericWorker):
                 self.speeds.jointSpeeds = [0, 0, 0, 0, 0, 0, 0]
                 self.moveWithSpeed = False
             self.kinova.move_joints_with_speeds(self.speeds.jointSpeeds)
+
+        tactileValues = self.contactile_proxy.getValues()
+        print(tactileValues)
 
         # self.kinova.gripper_move_speed(-0.005)
 

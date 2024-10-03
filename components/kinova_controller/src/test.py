@@ -156,6 +156,64 @@ class KinovaGen3():
         self.base.SendGripperCommand(gripper_command)
         return True
 
+    def gripper_force_test(self):
+        base_command = BaseCyclic_pb2.Command()
+        base_command.frame_id = 0
+        base_command.interconnect.command_id.identifier = 0
+        base_command.interconnect.gripper_command.command_id.identifier = 0
+
+        motorcmd = base_command.interconnect.gripper_command.motor_cmd.add()
+
+        base_feedback = self.base_cyclic.RefreshFeedback()
+        motorcmd.position = base_feedback.interconnect.gripper_feedback.motor[0].position
+        motorcmd.velocity = 0
+        motorcmd.force = 0
+
+        for actuator in base_feedback.actuators:
+            actuator_command = base_command.actuators.add()
+            actuator_command.position = actuator.position
+            actuator_command.velocity = 0.0
+            actuator_command.torque_joint = 0.0
+            actuator_command.command_id = 0
+            print("Position = ", actuator.position)
+
+        previous_servoing_mode = self.base.GetServoingMode()
+
+        servoing_mode_info = Base_pb2.ServoingModeInformation()
+        servoing_mode_info.servoing_mode = Base_pb2.LOW_LEVEL_SERVOING
+        self.base.SetServoingMode(servoing_mode_info)
+
+        target_position = 100.0
+
+        while True:
+            try:
+                base_feedback = self.base_cyclic.Refresh(base_command)
+                # Calculate speed according to position error (target position VS current position)
+                position_error = target_position - base_feedback.interconnect.gripper_feedback.motor[0].position
+                print("position error: ", base_feedback.interconnect.gripper_feedback)
+
+                # If positional error is small, stop gripper
+                if abs(position_error) < 1.5:
+                    position_error = 0
+                    motorcmd.velocity = 0
+                    self.base_cyclic.Refresh(base_command)
+                    return True
+                else:
+                    motorcmd.velocity = 2.0 * abs(position_error)
+                    if motorcmd.velocity > 10.0:
+                        motorcmd.velocity = 10.0
+                    motorcmd.position = target_position
+
+            except Exception as e:
+                print("Error in refresh: " + str(e))
+                return False
+            time.sleep(0.001)
+
+        ### Final
+        self.base.SetServoingMode(previous_servoing_mode)
+
+        return True
+
     def cartesian_move_to(self, x, y, z, theta_x, theta_y, theta_z):
 
         print("Starting Cartesian Especific Movement ...")
