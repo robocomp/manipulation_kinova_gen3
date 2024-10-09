@@ -248,6 +248,7 @@ class SpecificWorker(GenericWorker):
             self.drawGraphTimer.start(1000)
 
             self.pybullet_offset = [-0.3, 0.0, 0.6]
+            self.last_error = 0
 
             num_joints = p.getNumJoints(self.robot_id)
 
@@ -306,40 +307,72 @@ class SpecificWorker(GenericWorker):
 
             case -1:
                 print("###########################################################################")
-                print("time start: ", int(time.time()*1000 - self.timestamp))
+                # print("time start: ", int(time.time()*1000 - self.timestamp))
                 speeds_joints, speeds_joints_2 = ([0.0] * len(self.ext_joints.joints),
                                                   [0.0] * len(self.ext_joints.joints))
 
                 for i in range(len(self.ext_joints.joints)):
                     speeds_joints[i] = self.ext_joints.joints[i].velocity
-                    speeds_joints_2[i] = self.ext_joints_2.joints[i].velocity
+                    # speeds_joints_2[i] = self.ext_joints_2.joints[i].velocity
 
                 speeds_joints = np.deg2rad(speeds_joints)
                 speeds_joints_2 = np.deg2rad(speeds_joints_2)
 
                 for i in range(7):
                     p.setJointMotorControl2(self.robot_id, i + 1, p.VELOCITY_CONTROL, targetVelocity=speeds_joints[i])
-                    p.setJointMotorControl2(self.robot_id_2, i + 1, p.VELOCITY_CONTROL, targetVelocity=speeds_joints_2[i])
+                    # p.setJointMotorControl2(self.robot_id_2, i + 1, p.VELOCITY_CONTROL, targetVelocity=speeds_joints_2[i])
 
-                target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
-                target_position[0] = target_position[0] - self.pybullet_offset[0]
-                target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.17
+                pybullet_image, actual_time = self.read_camera_fixed()
 
-                self.robot2LinksInfo = []
-                for i in range(7):
-                    state = p.getLinkState(self.robot_id_2, i+1)
-                    fixed_state = list(state[0])
-                    fixed_state[0] = fixed_state[0] - self.pybullet_offset[0]
-                    fixed_state[1] = fixed_state[1] - self.pybullet_offset[1]
-                    fixed_state[2] = fixed_state[2] - self.pybullet_offset[2]
-                    self.robot2LinksInfo.append([fixed_state,p.getEulerFromQuaternion(state[1])])
+                # best_diff = abs(actual_time - self.colorKinova[0][1])
+                # best_data = self.colorKinova[0]
+                # for data in self.colorKinova:
+                #     diff = abs(actual_time - data[1])
+                #     if diff < best_diff:
+                #         best_diff = diff
+                #         best_data = data
+                #
+                # print("real image time:", best_data[1], "pybullet image time: ", actual_time, "diff: ",best_diff)
+                #
+                # cv2.imshow("Real image",best_data[0])
+                print("real image 0 time:", self.colorKinova[0][1], "pybullet image time: ", actual_time, "diff: ",
+                      self.colorKinova[0][1] - actual_time)
+                print("real image 1 time:", self.colorKinova[1][1], "pybullet image time: ", actual_time, "diff: ",
+                      self.colorKinova[1][1] - actual_time)
+                print("real image 2 time:", self.colorKinova[2][1], "pybullet image time: ", actual_time, "diff: ",
+                      self.colorKinova[2][1] - actual_time)
+                print("real image 3 time:", self.colorKinova[3][1], "pybullet image time: ", actual_time, "diff: ",
+                      self.colorKinova[3][1] - actual_time)
+                print("real image 4 time:", self.colorKinova[4][1], "pybullet image time: ", actual_time, "diff: ",
+                      self.colorKinova[4][1] - actual_time)
+
+                cv2.imshow("Real image 0:",self.colorKinova[0][0])
+                cv2.imshow("Real image 1:", self.colorKinova[1][0])
+                cv2.imshow("Real image 2:", self.colorKinova[2][0])
+                cv2.imshow("Real image 3:", self.colorKinova[3][0])
+                cv2.imshow("Real image 4:", self.colorKinova[4][0])
+                cv2.imshow("Pybullet image", pybullet_image)
+                cv2.waitKey(1)
+
+                # target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
+                # target_position[0] = target_position[0] - self.pybullet_offset[0]
+                # target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.17
+                #
+                # self.robot2LinksInfo = []
+                # for i in range(7):
+                #     state = p.getLinkState(self.robot_id_2, i+1)
+                #     fixed_state = list(state[0])
+                #     fixed_state[0] = fixed_state[0] - self.pybullet_offset[0]
+                #     fixed_state[1] = fixed_state[1] - self.pybullet_offset[1]
+                #     fixed_state[2] = fixed_state[2] - self.pybullet_offset[2]
+                #     self.robot2LinksInfo.append([fixed_state,p.getEulerFromQuaternion(state[1])])
 
                 # for state in self.robot2LinksInfo:
                 #     print("Link position: ", state[0], " Link orientation: ", state[1])
 
-                print("toolbox compute start: ", int(time.time()*1000-self.timestamp))
-                self.toolbox_compute(target_position)
-                print("time end: ", int(time.time() * 1000 - self.timestamp))
+                # print("toolbox compute start: ", int(time.time()*1000-self.timestamp))
+                # self.toolbox_compute(target_position)
+                # print("time end: ", int(time.time() * 1000 - self.timestamp))
 
             case -2:
                 self.timer.stop()
@@ -563,7 +596,7 @@ class SpecificWorker(GenericWorker):
                     target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
 
                     # if self.last_error > 50 and (self.loopCounter > 20 or gripper_position[2] - target_position[2] < 0.25):
-                    if self.last_error > 50 and kinovaTarget is False:
+                    if self.last_error > 80 and kinovaTarget is False:
                         print("Adjusting pose for target adjustment")
                         self.target_position = list(p.getLinkState(self.robot_id, self.end_effector_link_index)[0])
                         self.target_position[0] = self.target_position[0] - self.pybullet_offset[0]
@@ -571,7 +604,8 @@ class SpecificWorker(GenericWorker):
                         self.move_mode = 8
                         print("Changing actual move mode to 8")
 
-                    if gripper_position[2] - target_position[2] < 0.1 or self.loopCounter > 20 or self.arrived:
+                    # if gripper_position[2] - target_position[2] < 0.1 or self.loopCounter > 20 or self.arrived:
+                    if self.arrived:
                         # print("Working without visual feedback", " Last error: ", self.last_error)
                         if self.arrived:
                             self.arrived = False
@@ -620,8 +654,8 @@ class SpecificWorker(GenericWorker):
                 try:
                     if not self.arrived:
                         target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
-                        target_position[0] = target_position[0] - self.pybullet_offset[0]
-                        target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.16
+                        target_position[0] = target_position[0] - self.pybullet_offset[0] -0.005
+                        target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.17
                         self.toolbox_compute(target_position)
                         self.movePybulletWithToolbox()
                         self.moveKinovaWithSpeeds()
@@ -927,6 +961,8 @@ class SpecificWorker(GenericWorker):
                 diff = abs(self.colorKinova[i][1] - imageTime)
                 index = i
 
+        print("time difference between two images:", diff)
+
         imgGKinova = cv2.cvtColor(self.colorKinova[index][0], cv2.COLOR_BGR2GRAY)
         imgGKinova = cv2.resize(imgGKinova, (1280//2, 720//2))
         resKinova = np.array(self.aamed.run_AAMED(imgGKinova))
@@ -1024,7 +1060,7 @@ class SpecificWorker(GenericWorker):
 
         # Calulate the required end-effector spatial velocity for the robot
         # to approach the goal. Gain is set to 1.0
-        self.v, self.arrived = rtb.p_servo(self.Te, self.Tep, 1.0, threshold=0.015)
+        self.v, self.arrived = rtb.p_servo(self.Te, self.Tep, 1.0, threshold=0.01)
 
         # Gain term (lambda) for control minimisation
         self.Y = 0.01

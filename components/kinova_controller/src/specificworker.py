@@ -103,10 +103,10 @@ class SpecificWorker(GenericWorker):
                 self.moveWithSpeed = False
             self.kinova.move_joints_with_speeds(self.speeds.jointSpeeds)
 
-        tactileValues = self.contactile_proxy.getValues()
-        print(tactileValues)
-
         # self.kinova.gripper_move_speed(-0.005)
+
+        # tactile_values = self.contactile_proxy.getValues()
+        # print(tactile_values)
 
         # print("timer end", time.time()*1000)
         # print(time.time()*1000 - self.timestamp)
@@ -135,7 +135,7 @@ class SpecificWorker(GenericWorker):
     #
     def KinovaArm_closeGripper(self):
         force = 0
-        while force < 4 and self.gripper.distance < 0.9:
+        while force < 10 and self.gripper.distance < 0.9:
             self.kinova.gripper_move_speed(-0.005)
             tactileValues = self.contactile_proxy.getValues()
             leftValues = tactileValues.left
