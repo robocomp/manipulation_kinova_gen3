@@ -36,7 +36,6 @@ import YoloDetector
 
 from pyquaternion import Quaternion
 
-import numpy
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
 from rich.console import Console
@@ -324,36 +323,6 @@ class SpecificWorker(GenericWorker):
 
                 pybullet_image, actual_time = self.read_camera_fixed()
 
-                # best_diff = abs(actual_time - self.colorKinova[0][1])
-                # best_data = self.colorKinova[0]
-                # for data in self.colorKinova:
-                #     diff = abs(actual_time - data[1])
-                #     if diff < best_diff:
-                #         best_diff = diff
-                #         best_data = data
-                #
-                # print("real image time:", best_data[1], "pybullet image time: ", actual_time, "diff: ",best_diff)
-                #
-                # cv2.imshow("Real image",best_data[0])
-                print("real image 0 time:", self.colorKinova[0][1], "pybullet image time: ", actual_time, "diff: ",
-                      self.colorKinova[0][1] - actual_time)
-                print("real image 1 time:", self.colorKinova[1][1], "pybullet image time: ", actual_time, "diff: ",
-                      self.colorKinova[1][1] - actual_time)
-                print("real image 2 time:", self.colorKinova[2][1], "pybullet image time: ", actual_time, "diff: ",
-                      self.colorKinova[2][1] - actual_time)
-                print("real image 3 time:", self.colorKinova[3][1], "pybullet image time: ", actual_time, "diff: ",
-                      self.colorKinova[3][1] - actual_time)
-                print("real image 4 time:", self.colorKinova[4][1], "pybullet image time: ", actual_time, "diff: ",
-                      self.colorKinova[4][1] - actual_time)
-
-                cv2.imshow("Real image 0:",self.colorKinova[0][0])
-                cv2.imshow("Real image 1:", self.colorKinova[1][0])
-                cv2.imshow("Real image 2:", self.colorKinova[2][0])
-                cv2.imshow("Real image 3:", self.colorKinova[3][0])
-                cv2.imshow("Real image 4:", self.colorKinova[4][0])
-                cv2.imshow("Pybullet image", pybullet_image)
-                cv2.waitKey(1)
-
                 # target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
                 # target_position[0] = target_position[0] - self.pybullet_offset[0]
                 # target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.17
@@ -539,7 +508,7 @@ class SpecificWorker(GenericWorker):
 
                 target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
                 target_position[0] = target_position[0] - self.pybullet_offset[0]
-                target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.17
+                target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.27
 
                 print("initilizing toolbox", time.time()*1000 - self.timestamp)
                 self.initialize_toolbox(target_position)
@@ -567,7 +536,7 @@ class SpecificWorker(GenericWorker):
                     target_position[0] = target_position[0] - self.pybullet_offset[0]
                     target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.27
 
-                    self.toolbox_compute(target_position)
+                    self.toolbox_compute(target_position,error_thresh=0.02)
                     # print("Toolbox compute end", time.time()*1000 - self.timestamp)
                     self.movePybulletWithToolbox()
                     # print("Move pybullet with toolbox end", time.time()*1000 - self.timestamp)
@@ -619,7 +588,7 @@ class SpecificWorker(GenericWorker):
                     self.arrived = False
 
                     self.correctTargetPosition()
-                    self.toolbox_compute(self.target_position)
+                    self.toolbox_compute(self.target_position, error_thresh=0.02)
                     self.movePybulletWithToolbox()
                     self.moveKinovaWithSpeeds()
 
@@ -654,9 +623,9 @@ class SpecificWorker(GenericWorker):
                 try:
                     if not self.arrived:
                         target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
-                        target_position[0] = target_position[0] - self.pybullet_offset[0] -0.005
+                        target_position[0] = target_position[0] - self.pybullet_offset[0] #-0.005
                         target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.17
-                        self.toolbox_compute(target_position)
+                        self.toolbox_compute(target_position,error_thresh=0.01)
                         self.movePybulletWithToolbox()
                         self.moveKinovaWithSpeeds()
 
@@ -708,7 +677,7 @@ class SpecificWorker(GenericWorker):
                 try:
                     self.arrived = False
 
-                    self.toolbox_compute(self.target_position)
+                    self.toolbox_compute(self.target_position, error_thresh=0.02)
                     self.movePybulletWithToolbox()
                     self.moveKinovaWithSpeeds()
 
@@ -742,7 +711,7 @@ class SpecificWorker(GenericWorker):
                 try:
                     self.arrived = False
 
-                    self.toolbox_compute(self.table_center)
+                    self.toolbox_compute(self.table_center, error_thresh=0.01)
                     self.movePybulletWithToolbox()
                     self.moveKinovaWithSpeeds()
 
@@ -776,8 +745,8 @@ class SpecificWorker(GenericWorker):
                 except Ice.Exception as e:
                     print(e)
 
-            case 12:    #Move to the observation angles and repeat the process(modes 7-12)
-                print("Reseting pose")
+            case 12:    #Move to the observation angles to repeat the process(modes 7-13)
+                # print("Reseting pose")
                 self.timer.stop()
                 self.moveKinovaWithAngles(self.observation_angles[:7])
                 for i in range(7):
@@ -797,7 +766,13 @@ class SpecificWorker(GenericWorker):
                 if error < 0.05:
                     p.resetBasePositionAndOrientation(self.cylinderId, [0.074, 0.2, 0.70],
                                                       p.getQuaternionFromEuler([0, 0, 0]))
-                    self.initialize_toolbox(self.target_position)
+                    print("Changing actual move mode to 13")
+                    self.move_mode = 13
+
+
+            case 13:  #Correct the target position to repeat the process
+                error, cupDetected = self.correctTargetPosition()
+                if cupDetected and (error < 5):
                     self.move_mode = 7
                     print("Changing actual move mode to 7")
                     self.loopCounter = 0
@@ -961,7 +936,7 @@ class SpecificWorker(GenericWorker):
                 diff = abs(self.colorKinova[i][1] - imageTime)
                 index = i
 
-        print("time difference between two images:", diff)
+        # print("time difference between two images:", diff)
 
         imgGKinova = cv2.cvtColor(self.colorKinova[index][0], cv2.COLOR_BGR2GRAY)
         imgGKinova = cv2.resize(imgGKinova, (1280//2, 720//2))
@@ -970,7 +945,7 @@ class SpecificWorker(GenericWorker):
             resKinova = np.array(resKinova)
 
         if resKinova.size == 0 or resPybullet.size == 0:
-            print("No keypoints detected")
+            print("No objetive detected")
             return -1, False
 
         error = np.abs(resKinova[0][1] - resPybullet[0][1] + resKinova[0][0] - resPybullet[0][0])
@@ -1038,7 +1013,7 @@ class SpecificWorker(GenericWorker):
         self.env.step(0)
         time.sleep(1)
 
-    def toolbox_compute(self, target_position):
+    def toolbox_compute(self, target_position, error_thresh):
         # The current pose of the kinova's end-effector
         self.Te = self.kinova.fkine(self.kinova.q)
 
@@ -1060,7 +1035,8 @@ class SpecificWorker(GenericWorker):
 
         # Calulate the required end-effector spatial velocity for the robot
         # to approach the goal. Gain is set to 1.0
-        self.v, self.arrived = rtb.p_servo(self.Te, self.Tep, 1.0, threshold=0.01)
+        # self.v, self.arrived = rtb.p_servo(self.Te, self.Tep, 1.0, threshold=0.01)
+        self.v, self.arrived = rtb.p_servo(self.Te, self.Tep, 1.0, threshold=error_thresh)
 
         # Gain term (lambda) for control minimisation
         self.Y = 0.01
@@ -1121,7 +1097,7 @@ class SpecificWorker(GenericWorker):
         c = np.r_[-self.kinova.jacobm().reshape((self.n,)), np.zeros(6)]
 
         # The lower and upper bounds on the joint velocity and slack variable
-        lim = np.deg2rad(10)
+        lim = np.deg2rad(17)
         self.qdlim = [lim, lim, lim, lim, lim, lim, lim]  # inventadas
         lb = -np.r_[self.qdlim, 10 * np.ones(6)]
         ub = np.r_[self.qdlim, 10 * np.ones(6)]
@@ -1140,7 +1116,7 @@ class SpecificWorker(GenericWorker):
         error = np.sum(np.rad2deg(np.abs(np.array(joints_angle) - np.array(self.kinova.q))))
         # print("Error joints", np.rad2deg(self.kinova.q-joints_angle), "Error: ", error)
 
-        if error > 1:                                    ### DISCOMMENT TO CORRECT THE CONTROLLER'S KINOVA POSITION
+        if error > 1:
             self.kinova.q = joints_angle
 
         # print("/////////////////////////////////////////////////////////////////////////////////////////////////////")
