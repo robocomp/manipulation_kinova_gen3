@@ -149,6 +149,8 @@ class SpecificWorker(GenericWorker):
             # Load a cylinder to place on the table
             self.cylinderId = p.loadURDF("./URDFs/cylinder/cylinder.urdf", [0.074, 0.2, 0.70], p.getQuaternionFromEuler([0, 0, 0]))
 
+            # self.arms_base = p.loadURDF("./URDFs/arms_base/arms_base.urdf", [0.0, 0.0, 0.0], p.getQuaternionFromEuler([0, 0, 0]))
+
             # Thread to read the real arm angles from kinova_controller
             self.threadKinovaAngles = threading.Thread(target=self.readDataFromProxy)
             self.threadKinovaAngles.start()

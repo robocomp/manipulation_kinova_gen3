@@ -22,6 +22,7 @@ import numpy
 import numpy as np
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
+from orca.braille import setupKeyRanges
 from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
@@ -90,8 +91,10 @@ class SpecificWorker(GenericWorker):
         ret.joints = joints
         ret.timestamp = int(time.time()*1000)
         self.joints = ret
-        #print(self.kinova.get_state())
-        #print("Joints: ", self.joints)
+        print(self.kinova.get_state())
+        print("Joints: ", self.joints)
+
+        self.kinova.shutdown()
 
         ret = ifaces.RoboCompKinovaArm.TGripper()
         ret.distance = self.kinova.get_gripper_state()
