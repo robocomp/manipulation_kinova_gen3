@@ -1,5 +1,3 @@
-from ftplib import error_temp
-
 import roboticstoolbox as rtb
 import spatialmath as sm
 import numpy as np
@@ -18,7 +16,7 @@ class ToolboxController:
 
         self.n = 7
 
-        self.cube = sg.Cuboid((0.1, 0.1, 0.7), pose=sm.SE3.Trans(0.15, 0.15, 0.3), color=(1, 0, 0))
+        self.cube = sg.Cuboid((0.1, 0.1, 0.7), pose=sm.SE3.Trans(0.15, 0.3, 0.3), color=(1, 0, 0))
         self.collisions = [self.cube]
 
         self.rot = self.kinova.fkine(self.kinova.q).R
@@ -76,9 +74,8 @@ class ToolboxController:
 
         # For each collision in the scene
         for collision in self.collisions:
-
-            # Form the velocity damper inequality contraint for each collision
-            # object on the robot to the collision in the scene
+            # # Form the velocity damper inequality contraint for each collision
+            # # object on the robot to the collision in the scene
             c_Ain, c_bin = self.kinova.link_collision_damper(
                 collision,
                 self.kinova.q[:self.n],

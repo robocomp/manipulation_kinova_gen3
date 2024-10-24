@@ -94,8 +94,6 @@ class SpecificWorker(GenericWorker):
         print(self.kinova.get_state())
         print("Joints: ", self.joints)
 
-        self.kinova.shutdown()
-
         ret = ifaces.RoboCompKinovaArm.TGripper()
         ret.distance = self.kinova.get_gripper_state()
         self.gripper = ret

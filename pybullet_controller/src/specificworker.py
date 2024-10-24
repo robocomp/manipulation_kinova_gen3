@@ -85,6 +85,7 @@ class SpecificWorker(GenericWorker):
             # Set the path to PyBullet data
             p.setAdditionalSearchPath(pybullet_data.getDataPath())
             p.configureDebugVisualizer(p.COV_ENABLE_GUI, 0)
+
             p.setGravity(0, 0, -9.81)
 
             # Set the real time simulation
@@ -103,26 +104,31 @@ class SpecificWorker(GenericWorker):
 
             # Load the arm in the simulation
             self.robot_urdf = "./URDFs/kinova_with_pybullet/gen3_robotiq_2f_85-mod.urdf"
-            self.robot_launch_pos = [-0.3, 0.0, 0.64]
-            self.robot_launch_orien = p.getQuaternionFromEuler([0, 0, 0])
+            self.robot_launch_pos = [-0.85, -0.01, 1.10]
+            self.robot_launch_orien = p.getQuaternionFromEuler([np.pi/2, 0, 0])
             self.end_effector_link_index = 12
             self.robot_id = p.loadURDF(self.robot_urdf, self.robot_launch_pos, self.robot_launch_orien,
                                        flags=p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT)
 
-            self.robot_launch_pos_2 = [0.35, 0.04, 0.64]
-            self.robot_launch_orien_2 = p.getQuaternionFromEuler([0, 0, np.pi])
-            # self.robot_id_2 = p.loadURDF(self.robot_urdf, self.robot_launch_pos_2, self.robot_launch_orien_2,
-            #                            flags=p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT)
+            self.robot_launch_pos_2 = [-0.85, 0.01, 1.10]
+            self.robot_launch_orien_2 = p.getQuaternionFromEuler([-np.pi/2, 0, 0])
+            self.robot_id_2 = p.loadURDF(self.robot_urdf, self.robot_launch_pos_2, self.robot_launch_orien_2,
+                                       flags=p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT)
 
             # Angles for the home position of the robot
             self.home_angles = [0, -0.34, np.pi, -2.54, 0, -0.87, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                0.0,
-                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
             # Angles for the observation position of the robot
-            self.observation_angles = [0, 0, np.pi, -0.96, 0, -2.1, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                0.0,
-                                0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            # self.observation_angles = [0, 0, np.pi, -0.96, 0, -2.1, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            #                     0.0,
+            #                     0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+            self.observation_angles_pedro = [2.00, np.pi/2, np.pi/2, 3.7, 0, 5.41, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+            self.observation_angles_pablo = [1.13, 4.71, np.pi/2, 3.7, 0, 5.41, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
             # Coordenates for the center of the table
             self.table_center = [0.374, 0.0, 0.28]
@@ -130,9 +136,9 @@ class SpecificWorker(GenericWorker):
             # Set the initial joint angles of the pybullet arm
             for i in range(7):
                 p.resetJointState(bodyUniqueId=self.robot_id, jointIndex=i+1,
-                                  targetValue=self.home_angles[i], targetVelocity=0)
-                # p.resetJointState(bodyUniqueId=self.robot_id_2, jointIndex=i+1,
-                #                   targetValue=self.home_angles[i], targetVelocity=0)
+                                  targetValue=self.observation_angles_pablo[i], targetVelocity=0)
+                p.resetJointState(bodyUniqueId=self.robot_id_2, jointIndex=i+1,
+                                  targetValue=self.observation_angles_pedro[i], targetVelocity=0)
 
             # Load a square to place on the table for calibration
             # self.square = p.loadURDF("./URDFs/cube_and_square/cube_small_square.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
@@ -148,12 +154,11 @@ class SpecificWorker(GenericWorker):
 
             # Load a cylinder to place on the table
             self.cylinderId = p.loadURDF("./URDFs/cylinder/cylinder.urdf", [0.074, 0.2, 0.70], p.getQuaternionFromEuler([0, 0, 0]))
-
-            # self.arms_base = p.loadURDF("./URDFs/arms_base/arms_base.urdf", [0.0, 0.0, 0.0], p.getQuaternionFromEuler([0, 0, 0]))
+            self.arms_base = p.loadURDF("./URDFs/arms_base/arms_base.urdf", [-0.85, 0.0, 0.0], p.getQuaternionFromEuler([0, 0, 0]))
 
             # Thread to read the real arm angles from kinova_controller
             self.threadKinovaAngles = threading.Thread(target=self.readDataFromProxy)
-            self.threadKinovaAngles.start()
+            # self.threadKinovaAngles.start()  ################################################################################################ DESCOMENTAR
 
             # Queues to store the images from the real arm camera
             self.colorKinova = collections.deque(maxlen=5)
@@ -188,11 +193,11 @@ class SpecificWorker(GenericWorker):
             self.joy_selected_joint = 0
 
             # This variable is to store the mode of the robot
-            self.move_mode = 4
+            self.move_mode = -99#4
 
             # This variable is to store the state of the real arm
-            self.ext_joints = self.kinovaarm_proxy.getJointsState()
-            self.ext_gripper = self.kinovaarm_proxy.getGripperState()
+            # self.ext_joints = self.kinovaarm_proxy.getJointsState() ############################################################################# DESCOMENTAR
+            # self.ext_gripper = self.kinovaarm_proxy.getGripperState()
 
             # Timer to do the control loop
             self.timer.timeout.connect(self.compute)
@@ -270,12 +275,12 @@ class SpecificWorker(GenericWorker):
             self.fig, self.ax = plt.subplots(1, 1)
             plt.show()
 
-            self.jointsErrorMap = {}
-            for i in range(7):
-                jointError = [
-                    self.ext_joints.joints[i].angle - math.degrees(p.getJointState(self.robot_id, i + 1)[0]) % 360]
-                item = {i: jointError}
-                self.jointsErrorMap.update(item)
+            # self.jointsErrorMap = {} ############################################################################################################ DESCOMENTAR
+            # for i in range(7):
+            #     jointError = [
+            #         self.ext_joints.joints[i].angle - math.degrees(p.getJointState(self.robot_id, i + 1)[0]) % 360]
+            #     item = {i: jointError}
+            #     self.jointsErrorMap.update(item)
 
             self.left_force_series = [0]
             self.right_force_series = [0]
@@ -393,6 +398,9 @@ class SpecificWorker(GenericWorker):
                 self.move_mode = -1
                 self.timer.start(self.Period)
 
+            case -99:
+                pass
+
             #Move joints
             case 0:
                 self.target_angles[7:] = [0.0] * len(self.target_angles[7:])
@@ -498,8 +506,11 @@ class SpecificWorker(GenericWorker):
                 print("Moving to observation angles", int(time.time()*1000) - self.timestamp)
                 self.changePybulletGripper(0.0)
                 self.kinovaarm_proxy.openGripper()
+                self.kinovaarm1_proxy.openGripper()
 
-                self.moveKinovaWithAngles(self.observation_angles[:7])
+                self.moveKinovaPabloWithAngles(self.observation_angles_pablo[:7])
+                self.moveKinovaPedroWithAngles(self.observation_angles_pedro[:7])
+
                 for i in range(7):
                     p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL,
                                             targetPosition=self.observation_angles[i], maxVelocity=np.deg2rad(25))
@@ -1361,10 +1372,15 @@ class SpecificWorker(GenericWorker):
 
             time.sleep(0.05)
 
-    def moveKinovaWithAngles(self, angles):
+    def moveKinovaPabloWithAngles(self, angles):
         array = np.round(np.rad2deg(angles) % 360)
         self.angles.jointAngles = array.tolist()
         self.kinovaarm_proxy.moveJointsWithAngle(self.angles)
+
+    def moveKinovaPedroWithAngles(self, angles):
+        array = np.round(np.rad2deg(angles) % 360)
+        self.angles.jointAngles = array.tolist()
+        self.kinovaarm1_proxy.moveJointsWithAngle(self.angles)
 
     def moveKinovaWithSpeeds(self):
         # print("Kinova move with speeds init", time.time()*1000 - self.timestamp)

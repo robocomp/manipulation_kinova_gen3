@@ -19,9 +19,15 @@
       </geometry>
     </visual>
     <collision>
-      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <origin rpy="0 0 0" xyz="0 0 0.80"/>
       <geometry>
-	 	<mesh filename="arms_base.obj" scale="1 1 1"/>
+	 	<box size="0.08 0.02 1.5"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0.025"/>
+      <geometry>
+	 	<box size="0.365 0.455 0.05"/>
       </geometry>
     </collision>
   </link>

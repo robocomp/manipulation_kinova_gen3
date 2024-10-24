@@ -121,11 +121,6 @@ class KinovaGen3():
         self.cartesian_move_relative(0, 0, 0, 0, 0, 0)
 
 
-    def shutdown(self):
-        servoing_mode_info = Base_pb2.ServoingModeInformation()
-        servoing_mode_info.servoing_mode = Base_pb2.
-        self.base.SetServoingMode(servoing_mode_info)
-
     def gripper_move_to(self, target_position):
         gripper_command = Base_pb2.GripperCommand()
         finger = gripper_command.gripper.finger.add()
