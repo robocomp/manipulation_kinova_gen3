@@ -1,0 +1,11 @@
+import "RoboticsToolboxController.idsl";
+
+Component toolbox_controller
+{
+    Communications
+    {
+        implements RoboticsToolboxController;
+    };
+    language python;
+};
+
