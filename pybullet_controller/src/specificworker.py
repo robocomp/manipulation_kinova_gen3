@@ -107,13 +107,13 @@ class SpecificWorker(GenericWorker):
             self.robot_launch_pos = [-0.85, -0.01, 1.10]
             self.robot_launch_orien = p.getQuaternionFromEuler([np.pi/2, 0, 0])
             self.end_effector_link_index = 12
-            self.robot_id = p.loadURDF(self.robot_urdf, self.robot_launch_pos, self.robot_launch_orien,
-                                       flags=p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT)
+            self.robot_Pedro = p.loadURDF(self.robot_urdf, self.robot_launch_pos, self.robot_launch_orien,
+                                          flags=p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT)
 
             self.robot_launch_pos_2 = [-0.85, 0.01, 1.10]
             self.robot_launch_orien_2 = p.getQuaternionFromEuler([-np.pi/2, 0, 0])
-            self.robot_id_2 = p.loadURDF(self.robot_urdf, self.robot_launch_pos_2, self.robot_launch_orien_2,
-                                       flags=p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT)
+            self.robot_Pablo = p.loadURDF(self.robot_urdf, self.robot_launch_pos_2, self.robot_launch_orien_2,
+                                          flags=p.URDF_USE_SELF_COLLISION_EXCLUDE_PARENT)
 
             # Angles for the home position of the robot
             self.home_angles = [0, -0.34, np.pi, -2.54, 0, -0.87, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
@@ -124,10 +124,10 @@ class SpecificWorker(GenericWorker):
             #                     0.0,
             #                     0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
-            self.observation_angles_pedro = [2.00, np.pi/2, np.pi/2, 3.7, 0, 5.41, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            self.observation_angles_pablo = [2.00, np.pi/2, np.pi/2, 3.7, 0, 5.41, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
-            self.observation_angles_pablo = [1.13, 4.71, np.pi/2, 3.7, 0, 5.41, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+            self.observation_angles_pedro = [1.13, 4.71, np.pi/2, 3.7, 0, 5.41, np.pi/2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                                     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
             # Coordenates for the center of the table
@@ -135,10 +135,10 @@ class SpecificWorker(GenericWorker):
 
             # Set the initial joint angles of the pybullet arm
             for i in range(7):
-                p.resetJointState(bodyUniqueId=self.robot_id, jointIndex=i+1,
-                                  targetValue=self.observation_angles_pablo[i], targetVelocity=0)
-                p.resetJointState(bodyUniqueId=self.robot_id_2, jointIndex=i+1,
+                p.resetJointState(bodyUniqueId=self.robot_Pedro, jointIndex=i + 1,
                                   targetValue=self.observation_angles_pedro[i], targetVelocity=0)
+                p.resetJointState(bodyUniqueId=self.robot_Pablo, jointIndex=i + 1,
+                                  targetValue=self.observation_angles_pablo[i], targetVelocity=0)
 
             # Load a square to place on the table for calibration
             # self.square = p.loadURDF("./URDFs/cube_and_square/cube_small_square.urdf", basePosition=[0.074, 0.0, 0.64], baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
@@ -172,21 +172,21 @@ class SpecificWorker(GenericWorker):
             # Change the mass of the links of the robot to do the simulation more stable
             for i in range(7):
                 if i != 0:
-                    val = p.getDynamicsInfo(self.robot_id, i)[2]
+                    val = p.getDynamicsInfo(self.robot_Pedro, i)[2]
                     nuevo_val = np.array(val) * 1000
-                    p.changeDynamics(self.robot_id, i, localInertiaDiagonal=nuevo_val)
+                    p.changeDynamics(self.robot_Pedro, i, localInertiaDiagonal=nuevo_val)
                 else:
-                    val = p.getDynamicsInfo(self.robot_id, i)[2]
+                    val = p.getDynamicsInfo(self.robot_Pedro, i)[2]
                     nuevo_val = np.array(val) * 1000
-                    p.changeDynamics(self.robot_id, i, localInertiaDiagonal=nuevo_val)
+                    p.changeDynamics(self.robot_Pedro, i, localInertiaDiagonal=nuevo_val)
 
-                print("Kinova", i, p.getDynamicsInfo(self.robot_id, i))
+                print("Kinova", i, p.getDynamicsInfo(self.robot_Pedro, i))
 
 
             # This variables is to store the position of the end effector of the robot
             self.target_angles = self.home_angles
-            self.target_position = p.getLinkState(self.robot_id, self.end_effector_link_index)[0]
-            self.target_orientation = p.getLinkState(self.robot_id, self.end_effector_link_index)[1]
+            self.target_position = p.getLinkState(self.robot_Pedro, self.end_effector_link_index)[0]
+            self.target_orientation = p.getLinkState(self.robot_Pedro, self.end_effector_link_index)[1]
             self.target_velocities = [0.0] * 7
 
             # This variable is to store the joint selected in the joystick mode
@@ -222,7 +222,7 @@ class SpecificWorker(GenericWorker):
             self.poses = []
             joints = []
             for i in range(7):
-                actual_angle = (i, p.getJointState(self.robot_id, i + 1)[0])
+                actual_angle = (i, p.getJointState(self.robot_Pedro, i + 1)[0])
                 joints.append(actual_angle)
                 self.poses.append(joints)
 
@@ -257,14 +257,14 @@ class SpecificWorker(GenericWorker):
             self.pybullet_offset = [-0.3, 0.0, 0.6]
             self.last_error = 0
 
-            num_joints = p.getNumJoints(self.robot_id)
+            num_joints = p.getNumJoints(self.robot_Pedro)
 
             # Iterar sobre todos los enlaces y obtener su información
             for joint_index in range(num_joints):
-                joint_info = p.getJointInfo(self.robot_id, joint_index)
+                joint_info = p.getJointInfo(self.robot_Pedro, joint_index)
                 link_name = joint_info[12].decode("utf-8")  # Nombre del enlace
                 parent_link_index = joint_info[16]  # Índice del enlace padre
-                link_state = p.getLinkState(self.robot_id, joint_index)
+                link_state = p.getLinkState(self.robot_Pedro, joint_index)
 
                 print(f"Link {joint_index}:")
                 print(f"  Name: {link_name}")
@@ -326,7 +326,7 @@ class SpecificWorker(GenericWorker):
                 speeds_joints_2 = np.deg2rad(speeds_joints_2)
 
                 for i in range(7):
-                    p.setJointMotorControl2(self.robot_id, i + 1, p.VELOCITY_CONTROL, targetVelocity=speeds_joints[i])
+                    p.setJointMotorControl2(self.robot_Pedro, i + 1, p.VELOCITY_CONTROL, targetVelocity=speeds_joints[i])
                     # p.setJointMotorControl2(self.robot_id_2, i + 1, p.VELOCITY_CONTROL, targetVelocity=speeds_joints_2[i])
 
                 pybullet_image, actual_time = self.read_camera_fixed()
@@ -407,11 +407,11 @@ class SpecificWorker(GenericWorker):
 
                 jointsState = []
                 for i in range(len(self.target_angles)):
-                    p.setJointMotorControl2(self.robot_id, i+1, p.POSITION_CONTROL,
+                    p.setJointMotorControl2(self.robot_Pedro, i + 1, p.POSITION_CONTROL,
                                             self.target_angles[i], maxVelocity=np.deg2rad(25))
                     if i < 7:
-                        angle_speed = (p.getJointState(self.robot_id, i + 1)[0],
-                                       p.getJointState(self.robot_id, i + 1)[1])
+                        angle_speed = (p.getJointState(self.robot_Pedro, i + 1)[0],
+                                       p.getJointState(self.robot_Pedro, i + 1)[1])
                         print("Joint ", i, "angle: ", angle_speed)
                         jointsState.append(angle_speed)
 
@@ -425,7 +425,7 @@ class SpecificWorker(GenericWorker):
 
             #Cartesian movement
             case 1:
-                joint_positions = p.calculateInverseKinematics(self.robot_id, self.end_effector_link_index,
+                joint_positions = p.calculateInverseKinematics(self.robot_Pedro, self.end_effector_link_index,
                                                                self.target_position, self.target_orientation)
                 #print(joint_positions)
                 joints = np.zeros(22).tolist()
@@ -435,11 +435,11 @@ class SpecificWorker(GenericWorker):
 
                 jointsState = []
                 for i in range(len(joints)):
-                    p.setJointMotorControl2(self.robot_id, i+1, p.POSITION_CONTROL, self.target_angles[i],
+                    p.setJointMotorControl2(self.robot_Pedro, i + 1, p.POSITION_CONTROL, self.target_angles[i],
                                             maxVelocity=np.deg2rad(25))
                     if i < 7:
-                        angle_speed = (p.getJointState(self.robot_id, i + 1)[0],
-                                       p.getJointState(self.robot_id, i + 1)[1])
+                        angle_speed = (p.getJointState(self.robot_Pedro, i + 1)[0],
+                                       p.getJointState(self.robot_Pedro, i + 1)[1])
                         jointsState.append(angle_speed)
 
                 self.posesTimes = np.append(self.posesTimes, int(time.time()*1000))
@@ -456,7 +456,7 @@ class SpecificWorker(GenericWorker):
                     joints[i] = joint_positions[i]
 
                 for i in range(len(joints)):
-                    p.setJointMotorControl2(self.robot_id, i+1, p.POSITION_CONTROL, joints[i], maxVelocity=np.deg2rad(25))
+                    p.setJointMotorControl2(self.robot_Pedro, i + 1, p.POSITION_CONTROL, joints[i], maxVelocity=np.deg2rad(25))
 
 
             case 3:
@@ -496,7 +496,7 @@ class SpecificWorker(GenericWorker):
                     self.target_velocities = joints_velocity
 
                     for i in range(8, len(self.target_angles)):
-                        p.setJointMotorControl2(self.robot_id, i+1, p.POSITION_CONTROL, targetPosition=self.target_angles[i]) #Move the arm with phisics
+                        p.setJointMotorControl2(self.robot_Pedro, i + 1, p.POSITION_CONTROL, targetPosition=self.target_angles[i]) #Move the arm with phisics
 
 
                 except Ice.Exception as e:
@@ -512,12 +512,12 @@ class SpecificWorker(GenericWorker):
                 self.moveKinovaPedroWithAngles(self.observation_angles_pedro[:7])
 
                 for i in range(7):
-                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL,
+                    p.setJointMotorControl2(self.robot_Pedro, i + 1, p.POSITION_CONTROL,
                                             targetPosition=self.observation_angles[i], maxVelocity=np.deg2rad(25))
 
                 angles = []
                 for i in range(7):
-                    angles.append(p.getJointState(self.robot_id, i + 1)[0])
+                    angles.append(p.getJointState(self.robot_Pedro, i + 1)[0])
 
                 error = np.sum(np.abs(np.array(angles) - np.array(self.observation_angles[:7])))
 
@@ -592,7 +592,7 @@ class SpecificWorker(GenericWorker):
                     jointsState = []
 
                     for i in range(7):
-                        state = p.getJointState(self.robot_id, i + 1)
+                        state = p.getJointState(self.robot_Pedro, i + 1)
                         angle_speed = (state[0], state[1])
                         jointsState.append(angle_speed)
 
@@ -605,13 +605,13 @@ class SpecificWorker(GenericWorker):
                     # print("Pybullet poses saved to update gains", time.time()*1000 - self.timestamp)
                     # print("//====================================//")
 
-                    gripper_position = p.getLinkState(self.robot_id, self.end_effector_link_index)[0]
+                    gripper_position = p.getLinkState(self.robot_Pedro, self.end_effector_link_index)[0]
                     target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
 
                     # if self.last_error > 50 and (self.loopCounter > 20 or gripper_position[2] - target_position[2] < 0.25):
                     if self.last_error > 80 and kinovaTarget is False:
                         print("Adjusting pose for target adjustment")
-                        self.target_position = list(p.getLinkState(self.robot_id, self.end_effector_link_index)[0])
+                        self.target_position = list(p.getLinkState(self.robot_Pedro, self.end_effector_link_index)[0])
                         self.target_position[0] = self.target_position[0] - self.pybullet_offset[0]
                         self.target_position[2] = 0.60
                         self.move_mode = 8
@@ -640,7 +640,7 @@ class SpecificWorker(GenericWorker):
 
                     jointsState = []
                     for i in range(7):
-                        state = p.getJointState(self.robot_id, i + 1)
+                        state = p.getJointState(self.robot_Pedro, i + 1)
                         angle_speed = (state[0], state[1])
                         jointsState.append(angle_speed)
                         self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
@@ -679,7 +679,7 @@ class SpecificWorker(GenericWorker):
 
                     jointsState = []
                     for i in range(7):
-                        state = p.getJointState(self.robot_id, i + 1)
+                        state = p.getJointState(self.robot_Pedro, i + 1)
                         angle_speed = (state[0], state[1])
                         jointsState.append(angle_speed)
                         self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
@@ -707,7 +707,7 @@ class SpecificWorker(GenericWorker):
                             self.timer.start(self.Period)
                         else:
                             self.kinovaarm_proxy.openGripper()
-                            self.target_position = list(p.getLinkState(self.robot_id, self.end_effector_link_index)[0])
+                            self.target_position = list(p.getLinkState(self.robot_Pedro, self.end_effector_link_index)[0])
                             self.target_position[0] = self.target_position[0] - self.pybullet_offset[0]
                             self.target_position[2] = 0.60
                             self.move_mode = 8
@@ -731,7 +731,7 @@ class SpecificWorker(GenericWorker):
 
                     jointsState = []
                     for i in range(7):
-                        state = p.getJointState(self.robot_id, i + 1)
+                        state = p.getJointState(self.robot_Pedro, i + 1)
                         angle_speed = (state[0], state[1])
                         jointsState.append(angle_speed)
                         self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
@@ -765,7 +765,7 @@ class SpecificWorker(GenericWorker):
 
                     jointsState = []
                     for i in range(7):
-                        state = p.getJointState(self.robot_id, i + 1)
+                        state = p.getJointState(self.robot_Pedro, i + 1)
                         angle_speed = (state[0], state[1])
                         jointsState.append(angle_speed)
                         self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
@@ -794,13 +794,13 @@ class SpecificWorker(GenericWorker):
                 self.timer.stop()
                 self.moveKinovaWithAngles(self.observation_angles[:7])
                 for i in range(7):
-                    p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL,
+                    p.setJointMotorControl2(self.robot_Pedro, i + 1, p.POSITION_CONTROL,
                                             targetPosition=self.observation_angles[i],
                                             maxVelocity=np.deg2rad(25))
 
                 angles = []
                 for i in range(7):
-                    angles.append(p.getJointState(self.robot_id, i + 1)[0])
+                    angles.append(p.getJointState(self.robot_Pedro, i + 1)[0])
 
                 error = np.sum(np.abs(np.array(angles) - np.array(self.observation_angles[:7])))
 
@@ -819,7 +819,7 @@ class SpecificWorker(GenericWorker):
                 self.timer.stop()
                 cv2.imshow("Kinova camera", self.colorKinova[0][0])
                 self.read_camera_fixed()
-                self.calibrator.square_test(self.robot_id, self.colorKinova[0][0].copy())
+                self.calibrator.square_test(self.robot_Pedro, self.colorKinova[0][0].copy())
                 cv2.waitKey(3)
 
 
@@ -888,7 +888,7 @@ class SpecificWorker(GenericWorker):
         self.target_angles[22] = distance - 0.1
 
         for i in range(8, len(self.target_angles)):
-            p.setJointMotorControl2(self.robot_id, i + 1, p.POSITION_CONTROL,
+            p.setJointMotorControl2(self.robot_Pedro, i + 1, p.POSITION_CONTROL,
                                     targetPosition=self.target_angles[i])
 
     def detectContactPoints(self):
@@ -896,7 +896,7 @@ class SpecificWorker(GenericWorker):
         self.graphTimes.append(int(time.time()*1000)-self.timestamp)
         # Get contact points for the left fingertip
         contact_points_left = []
-        contact_points_left.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=17))
+        contact_points_left.extend(p.getContactPoints(bodyA=self.robot_Pedro, linkIndexA=17))
         # self.left_force_series.append(len(contact_points_left))
 
         force_acum = 0
@@ -908,7 +908,7 @@ class SpecificWorker(GenericWorker):
 
         # Get contact points for the right fingertip
         contact_points_right = []
-        contact_points_right.extend(p.getContactPoints(bodyA=self.robot_id, linkIndexA=22))
+        contact_points_right.extend(p.getContactPoints(bodyA=self.robot_Pedro, linkIndexA=22))
         # self.right_force_series.append(len(contact_points_right))
 
         force_acum = 0
@@ -1148,7 +1148,7 @@ class SpecificWorker(GenericWorker):
 
         joints_angle = []
         for i in range(7):
-            joints_angle.append(p.getJointState(self.robot_id, i + 1)[0])
+            joints_angle.append(p.getJointState(self.robot_Pedro, i + 1)[0])
 
         error = np.sum(np.rad2deg(np.abs(np.array(joints_angle) - np.array(self.kinova.q))))
         # print("Error joints", np.rad2deg(self.kinova.q-joints_angle), "Error: ", error)
@@ -1222,7 +1222,7 @@ class SpecificWorker(GenericWorker):
     def read_camera_fixed(self):
         while True:
             # print("Getting the pose", time.time()*1000-self.timestamp)
-            com_p, com_o, _, _, _, _ = p.getLinkState(self.robot_id, 9)
+            com_p, com_o, _, _, _, _ = p.getLinkState(self.robot_Pedro, 9)
             # print("Pose obtained", time.time()*1000-self.timestamp)
             # Define camera intrinsic parameters
             width = 1280  # image width
@@ -1338,7 +1338,7 @@ class SpecificWorker(GenericWorker):
         for i in range(7):
             ext_angles.append(self.ext_joints.joints[i].angle)
             ext_torques.append(self.ext_joints.joints[i].force)
-            diff_from_pybullet.append((math.degrees(p.getJointState(self.robot_id, i + 1)[0]) % 360) - self.ext_joints.joints[i].angle)
+            diff_from_pybullet.append((math.degrees(p.getJointState(self.robot_Pedro, i + 1)[0]) % 360) - self.ext_joints.joints[i].angle)
         print("Kinova angles", ext_angles)
         print("Kinova torqe", ext_torques)
         print("Diff from pybullet", diff_from_pybullet)
@@ -1351,13 +1351,13 @@ class SpecificWorker(GenericWorker):
         self.target_velocities = numpy.deg2rad(self.target_velocities) * 1.2
 
         for i in range(len(self.target_velocities)):
-            p.setJointMotorControl2(self.robot_id, i+1, p.VELOCITY_CONTROL,
+            p.setJointMotorControl2(self.robot_Pedro, i + 1, p.VELOCITY_CONTROL,
                                     targetVelocity=self.target_velocities[i])
 
     def movePybulletWithToolbox(self):
         # print("Pybullet move with toolbox init", time.time()*1000 - self.timestamp)
         for i in range(len(self.target_velocities)):
-            p.setJointMotorControl2(self.robot_id, i+1, p.VELOCITY_CONTROL,
+            p.setJointMotorControl2(self.robot_Pedro, i + 1, p.VELOCITY_CONTROL,
                                     targetVelocity=self.target_velocities[i])
         # print("Pybullet move with toolbox end", time.time()*1000 - self.timestamp)
 
@@ -1387,11 +1387,11 @@ class SpecificWorker(GenericWorker):
         self.joint_speeds = []
 
         for i in range(7):
-            angle = p.getJointState(self.robot_id, i + 1)[0]
+            angle = p.getJointState(self.robot_Pedro, i + 1)[0]
             error = (np.deg2rad(self.ext_joints.joints[i].angle)
                      - angle + math.pi) % (2 * math.pi) - math.pi
 
-            speed = np.rad2deg(p.getJointState(self.robot_id, i + 1)[1]) * self.gains[i] - np.rad2deg(error) * 0.3
+            speed = np.rad2deg(p.getJointState(self.robot_Pedro, i + 1)[1]) * self.gains[i] - np.rad2deg(error) * 0.3
 
             # print("e", error)
             self.joint_speeds.append(speed)
