@@ -56,6 +56,8 @@ import collections
 from pybullet_utils import urdfEditor as ed
 from pybullet_utils import bullet_client as bc
 import matplotlib.pyplot as plt
+
+
 # from matplotlib.animation import FuncAnimation
 
 # Set the LC_NUMERIC environment variable
@@ -193,7 +195,7 @@ class SpecificWorker(GenericWorker):
             self.joy_selected_joint = 0
 
             # This variable is to store the mode of the robot
-            self.move_mode = -99#4
+            self.move_mode = 7#4
 
             # This variable is to store the state of the real arm
             # self.ext_joints = self.kinovaarm_proxy.getJointsState() ############################################################################# DESCOMENTAR
@@ -571,34 +573,39 @@ class SpecificWorker(GenericWorker):
                     error, kinovaTarget = self.correctTargetPosition()
                     if error != -1:
                         self.last_error = error
-                    else:
-                        self.loopCounter += 1
-
-                    # print("Correct cup position end", time.time()*1000 - self.timestamp)
 
                     target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
                     target_position[0] = target_position[0] - self.pybullet_offset[0]
                     target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.27
 
-                    self.toolbox_compute(target_position)
-                    # print("Toolbox compute end", time.time()*1000 - self.timestamp)
-                    self.movePybulletWithToolbox()
-                    # print("Move pybullet with toolbox end", time.time()*1000 - self.timestamp)
-                    self.moveKinovaWithSpeeds()
-                    # print("Move kinova with speeds end", time.time()*1000 - self.timestamp)
+                    ### Calculate the velocities with the toolbox for Pablo Arm
+                    self.roboticstoolboxcontroller_proxy.calculateVelocities(self.getPabloJointsAngle(), target_position)
+
+
+                    ### Calculate the velocities with the toolbox for Pedro Arm
+                    self.roboticstoolboxcontroller_proxy.calculateVelocities(self.getPedroJointsAngle(), target_position)
+
+                    self.arrived = False
+
+                    # self.toolbox_compute(target_position)
+                    # # print("Toolbox compute end", time.time()*1000 - self.timestamp)
+                    # self.movePybulletWithToolbox()
+                    # # print("Move pybullet with toolbox end", time.time()*1000 - self.timestamp)
+                    # self.moveKinovaWithSpeeds()
+                    # # print("Move kinova with speeds end", time.time()*1000 - self.timestamp)
 
                     self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
 
                     jointsState = []
 
-                    for i in range(7):
-                        state = p.getJointState(self.robot_Pedro, i + 1)
-                        angle_speed = (state[0], state[1])
-                        jointsState.append(angle_speed)
-
-                        self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
-
-                    self.graphTimes.append(int(time.time()*1000 - self.timestamp))
+                    # for i in range(7):
+                    #     state = p.getJointState(self.robot_Pedro, i + 1)
+                    #     angle_speed = (state[0], state[1])
+                    #     jointsState.append(angle_speed)
+                    #
+                    #     self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
+                    #
+                    # self.graphTimes.append(int(time.time()*1000 - self.timestamp))
 
                     self.poses.append(jointsState)
 
@@ -870,6 +877,8 @@ class SpecificWorker(GenericWorker):
         test = ifaces.RoboCompKinovaArm.TJointSpeeds()
         print(f"Testing RoboCompKinovaArm.TJointAngles from ifaces.RoboCompKinovaArm")
         test = ifaces.RoboCompKinovaArm.TJointAngles()
+        print(f"Testing RoboCompRoboticsToolboxController.JointStates from ifaces.RoboCompRoboticsToolboxController")
+        test = ifaces.RoboCompRoboticsToolboxController.JointStates()
         print(f"Testing RoboCompJoystickAdapter.AxisParams from ifaces.RoboCompJoystickAdapter")
         test = ifaces.RoboCompJoystickAdapter.AxisParams()
         print(f"Testing RoboCompJoystickAdapter.ButtonParams from ifaces.RoboCompJoystickAdapter")
@@ -1002,6 +1011,18 @@ class SpecificWorker(GenericWorker):
             kinovaTargetDetected = False
 
         return error, kinovaTargetDetected
+
+    def getPabloJointsAngle(self):
+        joints = []
+        for i in range(7):
+            joints.append(p.getJointState(self.robot_Pablo, i + 1)[0])
+        return joints
+
+    def getPedroJointsAngle(self):
+        joints = []
+        for i in range(7):
+            joints.append(p.getJointState(self.robot_Pedro, i + 1)[0])
+        return joints
 
     def initialize_toolbox(self, target_position):
         ## Launch the simulator Swift
@@ -1360,15 +1381,24 @@ class SpecificWorker(GenericWorker):
             p.setJointMotorControl2(self.robot_Pedro, i + 1, p.VELOCITY_CONTROL,
                                     targetVelocity=self.target_velocities[i])
         # print("Pybullet move with toolbox end", time.time()*1000 - self.timestamp)
+    def movePybulletPabloArmWithToolbox(self, velocities):
+        for i in range(len(velocities)):
+            p.setJointMotorControl2(self.robot_Pablo, i + 1, p.VELOCITY_CONTROL,
+                                    targetVelocity=velocities[i])
+
+    def movePybulletPedroArmWithToolbox(self, velocities):
+        for i in range(len(velocities)):
+            p.setJointMotorControl2(self.robot_Pedro, i + 1, p.VELOCITY_CONTROL,
+                                    targetVelocity=velocities[i])
 
     def readDataFromProxy(self):
         while True:
             self.ext_joints = self.kinovaarm_proxy.getJointsState()
             self.ext_gripper = self.kinovaarm_proxy.getGripperState()
             self.ext_gripper.distance = self.ext_gripper.distance * 0.8
-            # self.ext_joints_2 = self.kinovaarm1_proxy.getJointsState()
-            # self.ext_gripper_2 = self.kinovaarm1_proxy.getGripperState()
-            # self.ext_gripper_2.distance = self.ext_gripper_2.distance * 0.8
+            self.ext_joints_2 = self.kinovaarm1_proxy.getJointsState()
+            self.ext_gripper_2 = self.kinovaarm1_proxy.getGripperState()
+            self.ext_gripper_2.distance = self.ext_gripper_2.distance * 0.8
 
             time.sleep(0.05)
 
@@ -1612,6 +1642,14 @@ class SpecificWorker(GenericWorker):
     # RoboCompKinovaArm.TJoints
     # RoboCompKinovaArm.TJointSpeeds
     # RoboCompKinovaArm.TJointAngles
+
+    ######################
+    # From the RoboCompRoboticsToolboxController you can call this methods:
+    # self.roboticstoolboxcontroller_proxy.calculateVelocities(...)
+
+    ######################
+    # From the RoboCompRoboticsToolboxController you can use this types:
+    # RoboCompRoboticsToolboxController.JointStates
 
     ######################
     # From the RoboCompJoystickAdapter you can use this types:

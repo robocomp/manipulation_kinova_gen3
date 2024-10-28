@@ -25,13 +25,12 @@ from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
 
+import swift
 import roboticstoolbox as rtb
 import spatialmath as sm
 import numpy as np
 import qpsolvers as qp
 import spatialgeometry as sg
-
-from pybullet_controller.src.pybullet_toolbox_text import target_position
 
 sys.path.append('/opt/robocomp/lib')
 console = Console(highlight=False)
@@ -50,8 +49,13 @@ class SpecificWorker(GenericWorker):
         if startup_check:
             self.startup_check()
         else:
+            self.env = swift.Swift()
+            self.env.launch(realtime=True)
+
             self.kinova = rtb.models.KinovaGen3()
             self.kinova.q = self.kinova.qr
+
+            self.env.add(self.kinova)
 
             self.goal_axes = sg.Axes(0.1)
             self.ee_axes = sg.Axes(0.1)
@@ -62,6 +66,10 @@ class SpecificWorker(GenericWorker):
             self.rot = self.kinova.fkine(self.kinova.q).R
             self.Tep = sm.SE3.Rt(self.rot, [0.3, 0.3, 0.1])
             self.goal_axes.T = self.Tep
+
+            cube = sg.Cuboid((0.1, 0.1, 0.7), pose=sm.SE3.Trans(0.15, 0.15, 0.3), color=(1, 0, 0))
+            self.env.add(cube)
+            self.collisions = [cube]
 
             self.timer.timeout.connect(self.compute)
             self.timer.start(self.Period)
@@ -80,8 +88,6 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
-        print('SpecificWorker.compute...')
-
         return True
 
     def startup_check(self):
@@ -101,13 +107,13 @@ class SpecificWorker(GenericWorker):
         ret = ifaces.RoboCompRoboticsToolboxController.JointStates()
 
         error = np.sum(np.rad2deg(np.abs(np.array(angles) - np.array(self.kinova.q))))
-        if error > 1:
-            self.kinova.q = np.array(angles)
+        # if error > 1:
+        #     self.kinova.q = np.array(angles)
 
         Te = self.kinova.fkine(self.kinova.q)
 
         self.Tep = sm.SE3.Rt(self.rot, [targetPosition[0], targetPosition[1],
-                                        target_position[2]])  # green = x-axis, red = y-axis, blue = z-axis
+                                        targetPosition[2]])  # green = x-axis, red = y-axis, blue = z-axis
         self.goal_axes.T = self.Tep
         # Transform from the end-effector to desired pose
         eTep = Te.inv() * self.Tep
@@ -179,13 +185,17 @@ class SpecificWorker(GenericWorker):
         ub = np.r_[qdlim, 10 * np.ones(6)]
 
         # Solve for the joint velocities dq
-        qd = qp.solve_qp(Q, c, Ain, bin, Aeq, beq, lb=lb, ub=ub, solver='piqp')
+        try:
+            qd = qp.solve_qp(Q, c, Ain, bin, Aeq, beq, lb=lb, ub=ub, solver='piqp')
+        except e:
+            print(e)
 
-        # Apply the joint velocities to the kinova
         self.kinova.qd[:self.n] = qd[:self.n]
 
-        ret.jointVelocities = self.kinova.qd
+        ret.jointVelocities = self.kinova.qd.tolist()
         ret.arrived = arrived
+
+        self.env.step(0.05)
 
         return ret
     # ===================================================================

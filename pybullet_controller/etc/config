@@ -3,6 +3,7 @@ CameraRGBDSimpleProxy = camerargbdsimple:tcp -h localhost -p 16022
 CameraRGBDSimple1Proxy = camerargbdsimple:tcp -h localhost -p 16023
 KinovaArmProxy = kinovaarm:tcp -h localhost -p 17954
 KinovaArm1Proxy = kinovaarm:tcp -h localhost -p 17955
+RoboticsToolboxControllerProxy = roboticstoolboxcontroller:tcp -h localhost -p 15668
 
 JoystickAdapterTopic.Endpoints=tcp -p 14837
 

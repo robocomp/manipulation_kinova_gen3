@@ -3,4 +3,4 @@ PROJECT(  pybullet_controller )
 
 INCLUDE( /home/robocomp/robocomp/cmake/robocomp.cmake )
 
-ROBOCOMP_IDSL_TO_ICE( CommonBehavior CameraRGBDSimple CameraRGBDSimple JoystickAdapter KinovaArm KinovaArm )
+ROBOCOMP_IDSL_TO_ICE( CommonBehavior CameraRGBDSimple CameraRGBDSimple JoystickAdapter KinovaArm KinovaArm RoboticsToolboxController )
