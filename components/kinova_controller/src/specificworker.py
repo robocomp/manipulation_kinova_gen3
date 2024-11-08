@@ -68,6 +68,11 @@ class SpecificWorker(GenericWorker):
         #	print("Error reading config params")
         self.ip = params["ip"]
         self.kinova = KinovaGen3(self.ip)
+        # self.kinova.create_protection_zone()
+        # self.kinova.print_protection_zones()
+        # self.kinova.move_in_front_of_protection_zone()
+        # self.kinova.list_posibles_actions()
+        self.kinova.move_to_selected_position("Home")
         return True
 
 
@@ -204,9 +209,8 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of moveJointsWithAngle method from KinovaArm interface
     #
     def KinovaArm_moveJointsWithAngle(self, angles):
-        # print(angles.jointAngles)
+
         self.kinova.move_joints_to(angles.jointAngles)
-        pass
     # ===================================================================
     # ===================================================================
 

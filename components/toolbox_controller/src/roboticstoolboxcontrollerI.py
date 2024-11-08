@@ -38,5 +38,14 @@ class RoboticsToolboxControllerI(RoboticsToolboxController):
         self.worker = worker
 
 
-    def calculateVelocities(self, angles, targetPosition, c):
-        return self.worker.RoboticsToolboxController_calculateVelocities(angles, targetPosition)
+    def calculateVelocitiesPablo(self, angles, targetPosition, c):
+        return self.worker.RoboticsToolboxController_calculateVelocitiesPablo(angles, targetPosition)
+
+    def calculateVelocitiesPedro(self, angles, targetPosition, c):
+        return self.worker.RoboticsToolboxController_calculateVelocitiesPedro(angles, targetPosition)
+
+    def setStatePablo(self, angles, c):
+        return self.worker.RoboticsToolboxController_setStatePablo(angles)
+
+    def setStatePedro(self, angles, c):
+        return self.worker.RoboticsToolboxController_setStatePedro(angles)
