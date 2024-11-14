@@ -58,6 +58,13 @@ class SpecificWorker(GenericWorker):
             self.timestamp = time.time()*1000
 
     def __del__(self):
+        angles = ifaces.RoboCompKinovaArm.TJointAngles()
+        if self.ip == "192.168.1.10":
+            angles.jointAngles = [250, 90, 180, 0, 270, 110, 90]
+            self.KinovaArm_moveJointsWithAngle(angles)
+        else:
+            angles.jointAngles = [290, 270, 180, 360, 90, 250, 270]
+            self.KinovaArm_moveJointsWithAngle(angles)
         """Destructor"""
 
     def setParams(self, params):
@@ -111,8 +118,8 @@ class SpecificWorker(GenericWorker):
 
         # self.kinova.gripper_move_speed(-0.005)
 
-        # tactile_values = self.contactile_proxy.getValues()
-        # print(tactile_values)
+        tactile_values = self.contactile_proxy.getValues()
+        print(tactile_values)
 
         # print("timer end", time.time()*1000)
         # print(time.time()*1000 - self.timestamp)

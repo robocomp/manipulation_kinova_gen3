@@ -103,6 +103,10 @@ class SpecificWorker(GenericWorker):
             # Load a cube to place the cups on
             self.cube = p.loadURDF("./URDFs/cube_and_square/cube_box.urdf", basePosition=[0.455, 0.0, 0.225],
                                    baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
+            # self.cube = p.loadURDF("./URDFs/cube_and_square/cube_box_2.urdf", basePosition=[0.6, 0.0, 0.4],
+            #                        baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
+
+            self.cube_center = [0.455, 0.0, 0.81]
 
             # Load the arm in the simulation
             self.robot_urdf = "./URDFs/kinova_with_pybullet/gen3_robotiq_2f_85-mod.urdf"
@@ -149,7 +153,9 @@ class SpecificWorker(GenericWorker):
                                   targetValue=self.rest_angles_pablo[i], targetVelocity=0)
 
             # Load a cylinder to place on the table
-            self.cylinder_pablo = p.loadURDF("./URDFs/cylinder/cylinder.urdf", [0.455, 0.1, 0.5], p.getQuaternionFromEuler([0, 0, 0]))
+            # self.cylinder_pablo = p.loadURDF("./URDFs/cylinder/cylinder.urdf", [0.455, 0.1, 0.55], p.getQuaternionFromEuler([0, 0, 0]))
+            self.cylinder_pablo = p.loadURDF("./URDFs/cylinder/cylinder.urdf", [0.455, 0.1, 0.90], p.getQuaternionFromEuler([0, 0, 0]))
+
             # self.cylinder_pedro = p.loadURDF("./URDFs/cylinder/cylinder.urdf", [0.455, -0.1, 0.5], p.getQuaternionFromEuler([0, 0, 0]))
             self.arms_base = p.loadURDF("./URDFs/arms_base/arms_base.urdf", [0, 0.0, 0.0], p.getQuaternionFromEuler([0, 0, 0]))
 
@@ -320,13 +326,12 @@ class SpecificWorker(GenericWorker):
                 self.moveKinovaPabloWithAngles(self.observation_angles_pablo[:7])
                 self.move_mode = -100
             case -100:
-                self.read_camera_fixed(self.robot_Pedro)
-                self.read_camera_fixed(self.robot_Pablo)
+                self.movePybulletPabloArmWithAngles(self.getPabloJointsAngle())
+                # self.read_camera_fixed(self.robot_Pedro)
+                # self.read_camera_fixed(self.robot_Pablo)
 
             #Move joints
             case 0:
-                self.target_angles[7:] = [0.0] * len(self.target_angles[7:])
-
                 jointsState = []
                 for i in range(len(self.target_angles)):
                     p.setJointMotorControl2(self.robot_Pedro, i + 1, p.POSITION_CONTROL,
@@ -456,18 +461,9 @@ class SpecificWorker(GenericWorker):
                     self.move_mode = 5
                     # self.move_mode = -100
             case 5:    #Detect real cup and correct pybullet cup position
-                # self.calibrator.calibrate3(self.robot_id, self.colorKinova)
-                # self.calibrator.cube_test(self.robot_id, self.colorKinova.copy())
-                # self.calibrator.square_test(self.robot_id, self.colorKinova.copy())
+                error, kinova_target = self.correctTargetPosition()
 
-                # yolodetector = YoloDetector.YoloDetector()
-                # results = yolodetector.detect(self.colorKinova)
-                # yolodetector.plot(results)
-                # print(self.threadPybulletImage.is_alive())
-
-                error, kinovaTarget = self.correctTargetPosition()
-
-                if error > 5 or kinovaTarget is False:
+                if error > 5 or kinova_target is False:
                     print("Correcting cup position", int(time.time()*1000) - self.timestamp)
 
                 else:
@@ -476,7 +472,6 @@ class SpecificWorker(GenericWorker):
                     # self.move_mode = -100
 
             case 6:    #Initialize toolbox
-                # self.showKinovaAngles()
                 self.timer.stop()
 
                 target_position = list(p.getBasePositionAndOrientation(self.cylinder_pablo)[0])
@@ -491,41 +486,39 @@ class SpecificWorker(GenericWorker):
                 # self.gainsTimer.start(1000)
 
                 print("Moving to fixed cup")
-                # self.move_mode = 7
-                self.move_mode = -100
+                self.move_mode = 7
+                # self.move_mode = -100
                 print("Changing actual move mode to 7")
                 self.timer.start(self.Period)
-                self.loopCounter = 0
 
             case 7:    #Move to cup with camera feedback
                 try:
-                    error, kinovaTarget = self.correctTargetPosition()
+                    # print("#====================================#", time.time()*1000 - self.timestamp)
+                    error, kinova_target = self.correctTargetPosition()
                     if error != -1:
                         self.last_error = error
 
-                    target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
-                    target_position[0] = target_position[0] - self.pybullet_offset[0]
-                    target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.27
+                    # print("Getting cup position", time.time()*1000 - self.timestamp)
+                    target_position = list(p.getBasePositionAndOrientation(self.cylinder_pablo)[0])
+                    # target_position[0] = target_position[0] - self.pybullet_offset[0]
+                    # target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.27
+                    target_position[2] = target_position[2] + 0.42
 
+
+                    # print("Toolbox request", time.time() * 1000 - self.timestamp)
                     ### Calculate the velocities with the toolbox for Pablo Arm
-                    self.roboticstoolboxcontroller_proxy.calculateVelocities(self.getPabloJointsAngle(), target_position)
+                    new_state_pablo = self.roboticstoolboxcontroller_proxy.calculateVelocitiesPablo(self.getPabloJointsAngle(), target_position)
+                    # print("Toolbox response", time.time() * 1000 - self.timestamp)
 
+                    self.movePybulletPabloArmWithVelocities(new_state_pablo.jointVelocities)
+                    # print("Pybullet Pablo arm moved", time.time() * 1000 - self.timestamp)
 
-                    ### Calculate the velocities with the toolbox for Pedro Arm
-                    self.roboticstoolboxcontroller_proxy.calculateVelocities(self.getPedroJointsAngle(), target_position)
+                    self.moveKinovaPabloWithSpeeds()
+                    # print("Kinova Pablo arm moved", time.time() * 1000 - self.timestamp)
 
-                    self.arrived = False
-
-                    # self.toolbox_compute(target_position)
-                    # # print("Toolbox compute end", time.time()*1000 - self.timestamp)
-                    # self.movePybulletWithToolbox()
-                    # # print("Move pybullet with toolbox end", time.time()*1000 - self.timestamp)
-                    # self.moveKinovaWithSpeeds()
-                    # # print("Move kinova with speeds end", time.time()*1000 - self.timestamp)
-
-                    self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
-
-                    jointsState = []
+                    # self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
+                    #
+                    # jointsState = []
 
                     # for i in range(7):
                     #     state = p.getJointState(self.robot_Pedro, i + 1)
@@ -536,29 +529,24 @@ class SpecificWorker(GenericWorker):
                     #
                     # self.graphTimes.append(int(time.time()*1000 - self.timestamp))
 
-                    self.poses.append(jointsState)
+                    # self.poses.append(jointsState)
 
                     # print("Pybullet poses saved to update gains", time.time()*1000 - self.timestamp)
                     # print("//====================================//")
 
-                    gripper_position = p.getLinkState(self.robot_Pedro, self.end_effector_link_index)[0]
-                    target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
+                    # if self.last_error > 80 and kinova_target is False:
+                    #     print("Adjusting pose for target adjustment")
+                    #     self.target_position = list(p.getLinkState(self.robot_Pablo, self.end_effector_link_index)[0])
+                    #     self.target_position[2] = self.target_position[2] + 0.2
+                    #     self.move_mode = 8
+                    #     print("Changing actual move mode to 8")
 
-                    # if self.last_error > 50 and (self.loopCounter > 20 or gripper_position[2] - target_position[2] < 0.25):
-                    if self.last_error > 80 and kinovaTarget is False:
-                        print("Adjusting pose for target adjustment")
-                        self.target_position = list(p.getLinkState(self.robot_Pedro, self.end_effector_link_index)[0])
-                        self.target_position[0] = self.target_position[0] - self.pybullet_offset[0]
-                        self.target_position[2] = 0.60
-                        self.move_mode = 8
-                        print("Changing actual move mode to 8")
-
-                    # if gripper_position[2] - target_position[2] < 0.1 or self.loopCounter > 20 or self.arrived:
-                    if self.arrived:
-                        # print("Working without visual feedback", " Last error: ", self.last_error)
-                        if self.arrived:
-                            self.arrived = False
+                    if new_state_pablo.arrived:
+                        print("Working without visual feedback", " Last error: ", self.last_error)
+                        # if self.arrived:
+                        #     self.arrived = False
                         self.move_mode = 9
+                        # self.move_mode = -100
                         print("Changing actual move mode to 9")
                 except Ice.Exception as e:
                     print(e)
@@ -601,52 +589,62 @@ class SpecificWorker(GenericWorker):
 
             case 9:    #Move to cup without camera feedback and close the gripper
                 try:
-                    if not self.arrived:
-                        target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
-                        target_position[0] = target_position[0] - self.pybullet_offset[0] -0.005
-                        target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.17
-                        self.toolbox_compute(target_position)
-                        self.movePybulletWithToolbox()
-                        self.moveKinovaWithSpeeds()
+                    target_position = list(p.getBasePositionAndOrientation(self.cylinder_pablo)[0])
+                    target_position[0] = target_position[0] #- 0.005
+                    target_position[1] = target_position[1] + 0.01
+                    target_position[2] = target_position[2] + 0.27#0.17
 
-                    imgPybullet, imageTime = self.read_camera_fixed()
+                    # print("Toolbox request", time.time() * 1000 - self.timestamp)
+                    new_state_pablo = self.roboticstoolboxcontroller_proxy.calculateVelocitiesPablo(
+                        self.getPabloJointsAngle(), target_position)
 
-                    self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
+                    if not new_state_pablo.arrived:
 
-                    jointsState = []
-                    for i in range(7):
-                        state = p.getJointState(self.robot_Pedro, i + 1)
-                        angle_speed = (state[0], state[1])
-                        jointsState.append(angle_speed)
-                        self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
+                        self.movePybulletPabloArmWithVelocities(new_state_pablo.jointVelocities)
+                        self.moveKinovaPabloWithSpeeds()
 
-                    self.graphTimes.append(int(time.time() * 1000 - self.timestamp))
+                        imgPybullet, imageTime = self.read_camera_fixed(self.robot_Pablo)
 
-                    self.poses.append(jointsState)
+                    # self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
+                    #
+                    # jointsState = []
+                    # for i in range(7):
+                    #     state = p.getJointState(self.robot_Pedro, i + 1)
+                    #     angle_speed = (state[0], state[1])
+                    #     jointsState.append(angle_speed)
+                    #     self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
+                    #
+                    # self.graphTimes.append(int(time.time() * 1000 - self.timestamp))
+                    #
+                    # self.poses.append(jointsState)
 
-                    if self.arrived == True:
-                        # print("Arrived")
+                    if new_state_pablo.arrived:
+                        # self.move_mode = -100
+
+                        print("Arrived")
                         self.timer.stop()
                         self.target_velocities = [0.0] * 7
-                        self.movePybulletWithToolbox()
-                        self.moveKinovaWithSpeeds()
+                        self.movePybulletPabloArmWithVelocities(self.target_velocities)
+                        self.movePybulletPabloArmWithAngles(self.getPabloJointsAngle())
+                        self.moveKinovaPabloWithSpeeds()
                         cup_grapped = self.kinovaarm_proxy.closeGripper()
                         time.sleep(0.5)
-                        print(cup_grapped)
+                        print("Cup grapped:", cup_grapped)
                         if cup_grapped:
-                            self.changePybulletGripper(self.ext_gripper.distance)
+                            self.changePybulletGripper(self.ext_gripper.distance, self.robot_Pablo)
                             self.move_mode = 10
+                            # self.move_mode = -100
                             print("Changing actual move mode to 10")
-                            self.target_position = list(p.getBasePositionAndOrientation(self.cylinderId)[0])
-                            self.target_position[0] = self.target_position[0] - self.pybullet_offset[0]
-                            self.target_position[2] = self.target_position[2] - self.pybullet_offset[2] + 0.27
+                            self.target_position = list(p.getBasePositionAndOrientation(self.cylinder_pablo)[0])
+                            self.target_position[0] = self.target_position[0]
+                            self.target_position[2] = self.target_position[2] + 0.42
                             self.timer.start(self.Period)
                         else:
                             self.kinovaarm_proxy.openGripper()
                             self.target_position = list(p.getLinkState(self.robot_Pedro, self.end_effector_link_index)[0])
-                            self.target_position[0] = self.target_position[0] - self.pybullet_offset[0]
-                            self.target_position[2] = 0.60
-                            self.move_mode = 8
+                            self.target_position[0] = self.target_position[0]
+                            self.target_position[2] = self.target_position[2] + 0.60
+                            self.move_mode = 7#8
                             print("Error at grappling, please replace the cup. Changing actual move mode to 8")
                             self.timer.start(self.Period)
 
@@ -655,33 +653,35 @@ class SpecificWorker(GenericWorker):
 
             case 10:    #Move to a top position before moving to the center of the table
                 try:
-                    self.arrived = False
+                    new_state_pablo = self.roboticstoolboxcontroller_proxy.calculateVelocitiesPablo(
+                        self.getPabloJointsAngle(), self.target_position)
 
-                    self.toolbox_compute(self.target_position)
-                    self.movePybulletWithToolbox()
-                    self.moveKinovaWithSpeeds()
+                    self.movePybulletPabloArmWithVelocities(new_state_pablo.jointVelocities)
+                    self.moveKinovaPabloWithSpeeds()
 
-                    imgPybullet, imageTime = self.read_camera_fixed()
+                    imgPybullet, imageTime = self.read_camera_fixed(self.robot_Pablo)
 
-                    self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
+                    # self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
+                    #
+                    # jointsState = []
+                    # for i in range(7):
+                    #     state = p.getJointState(self.robot_Pedro, i + 1)
+                    #     angle_speed = (state[0], state[1])
+                    #     jointsState.append(angle_speed)
+                    #     self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
+                    #
+                    # self.graphTimes.append(int(time.time() * 1000 - self.timestamp))
+                    #
+                    # self.poses.append(jointsState)
 
-                    jointsState = []
-                    for i in range(7):
-                        state = p.getJointState(self.robot_Pedro, i + 1)
-                        angle_speed = (state[0], state[1])
-                        jointsState.append(angle_speed)
-                        self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
-
-                    self.graphTimes.append(int(time.time() * 1000 - self.timestamp))
-
-                    self.poses.append(jointsState)
-
-                    if self.arrived == True:
+                    if new_state_pablo.arrived:
                         # print("Arrived")
                         self.target_velocities = [0.0] * 7
-                        self.movePybulletWithToolbox()
-                        self.moveKinovaWithSpeeds()
+                        self.movePybulletPabloArmWithVelocities(self.target_velocities)
+                        self.movePybulletPabloArmWithAngles(self.getPabloJointsAngle())
+                        self.moveKinovaPabloWithSpeeds()
                         self.move_mode = 11
+                        # self.move_mode = -100
                         print("Changing actual move mode to 11")
 
                 except Ice.Exception as e:
@@ -689,36 +689,38 @@ class SpecificWorker(GenericWorker):
 
             case 11:    #Move to the center of the table and open the gripper
                 try:
-                    self.arrived = False
+                    new_state_pablo = self.roboticstoolboxcontroller_proxy.calculateVelocitiesPablo(
+                        self.getPabloJointsAngle(), self.cube_center)
 
-                    self.toolbox_compute(self.table_center)
-                    self.movePybulletWithToolbox()
-                    self.moveKinovaWithSpeeds()
+                    self.movePybulletPabloArmWithVelocities(new_state_pablo.jointVelocities)
+                    self.moveKinovaPabloWithSpeeds()
 
-                    imgPybullet, imageTime = self.read_camera_fixed()
+                    imgPybullet, imageTime = self.read_camera_fixed(self.robot_Pablo)
 
-                    self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
+                    # self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
+                    #
+                    # jointsState = []
+                    # for i in range(7):
+                    #     state = p.getJointState(self.robot_Pedro, i + 1)
+                    #     angle_speed = (state[0], state[1])
+                    #     jointsState.append(angle_speed)
+                    #     self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
+                    #
+                    # self.graphTimes.append(int(time.time() * 1000 - self.timestamp))
+                    #
+                    # self.poses.append(jointsState)
 
-                    jointsState = []
-                    for i in range(7):
-                        state = p.getJointState(self.robot_Pedro, i + 1)
-                        angle_speed = (state[0], state[1])
-                        jointsState.append(angle_speed)
-                        self.jointsErrorMap[i].append(abs(self.ext_joints.joints[i].angle - math.degrees(state[0]) % 360))
-
-                    self.graphTimes.append(int(time.time() * 1000 - self.timestamp))
-
-                    self.poses.append(jointsState)
-
-                    if self.arrived == True:
+                    if new_state_pablo.arrived:
                         self.timer.stop()
                         self.target_velocities = [0.0] * 7
-                        self.movePybulletWithToolbox()
-                        self.moveKinovaWithSpeeds()
+                        self.movePybulletPabloArmWithVelocities(self.target_velocities)
+                        self.movePybulletPabloArmWithAngles(self.getPabloJointsAngle())
+                        self.moveKinovaPabloWithSpeeds()
                         self.kinovaarm_proxy.openGripper()
                         time.sleep(0.5)
-                        self.changePybulletGripper(self.ext_gripper.distance)
-                        self.move_mode = 12
+                        self.changePybulletGripper(self.ext_gripper.distance, self.robot_Pablo)
+                        # self.move_mode = 12
+                        self.move_mode = -100
                         print("Changing actual move mode to 12")
                         self.timer.start(self.Period)
 
@@ -728,28 +730,27 @@ class SpecificWorker(GenericWorker):
             case 12:    #Move to the observation angles and repeat the process(modes 7-12)
                 print("Reseting pose")
                 self.timer.stop()
-                self.moveKinovaWithAngles(self.observation_angles[:7])
+                self.moveKinovaPabloWithAngles(self.observation_angles_pablo[:7])
                 for i in range(7):
-                    p.setJointMotorControl2(self.robot_Pedro, i + 1, p.POSITION_CONTROL,
-                                            targetPosition=self.observation_angles[i],
+                    p.setJointMotorControl2(self.robot_Pablo, i + 1, p.POSITION_CONTROL,
+                                            targetPosition=self.observation_angles_pablo[i],
                                             maxVelocity=np.deg2rad(25))
 
                 angles = []
                 for i in range(7):
-                    angles.append(p.getJointState(self.robot_Pedro, i + 1)[0])
+                    angles.append(p.getJointState(self.robot_Pablo, i + 1)[0])
 
-                error = np.sum(np.abs(np.array(angles) - np.array(self.observation_angles[:7])))
+                error = np.sum(np.abs(np.array(angles) - np.array(self.observation_angles_pablo[:7])))
 
                 time.sleep(0.1)
                 self.timer.start(self.Period)
 
                 if error < 0.05:
-                    p.resetBasePositionAndOrientation(self.cylinderId, [0.074, 0.2, 0.70],
+                    p.resetBasePositionAndOrientation(self.cylinder_pablo, [0.074, 0.2, 0.70],
                                                       p.getQuaternionFromEuler([0, 0, 0]))
-                    self.initialize_toolbox(self.target_position)
                     self.move_mode = 7
+                    # self.move_mode = -100
                     print("Changing actual move mode to 7")
-                    self.loopCounter = 0
 
             case 99:
                 self.timer.stop()
@@ -898,10 +899,14 @@ class SpecificWorker(GenericWorker):
         # plt.pause(0.001)
 
     def correctTargetPosition(self):
+        # print("################## Correcting target position ##################", int(time.time()*1000) - self.timestamp)
         pybulletImage, imageTime = self.read_camera_fixed(self.robot_Pablo)
+        # print("Pybullet image generated", int(time.time()*1000) - self.timestamp)
         pybulletImage = cv2.resize(pybulletImage, (1280//2, 720//2))
         imgGPybullet = cv2.cvtColor(pybulletImage, cv2.COLOR_BGR2GRAY)
+        # print("Pybullet image resized", int(time.time()*1000) - self.timestamp)
         resPybullet = self.aamed.run_AAMED(imgGPybullet)
+        # print("Pybullet keypoints detected", int(time.time()*1000) - self.timestamp)
         if isinstance(resPybullet, list):
             resPybullet = np.array(resPybullet)
 
@@ -912,7 +917,7 @@ class SpecificWorker(GenericWorker):
                 diff = abs(self.colorKinova[i][1] - imageTime)
                 index = i
 
-        print("time difference between two images:", diff)
+        # print("time difference between two images:", diff)
 
         imgGKinova = cv2.cvtColor(self.colorKinova[index][0], cv2.COLOR_BGR2GRAY)
         imgGKinova = cv2.resize(imgGKinova, (1280//2, 720//2))
@@ -934,6 +939,7 @@ class SpecificWorker(GenericWorker):
             position[1] = position[1] - 0.0002 * (resKinova[0][1] - resPybullet[0][1])
             p.resetBasePositionAndOrientation(self.cylinder_pablo, tuple(position), p.getQuaternionFromEuler([0, 0, 0]))
 
+        # print("################## Target position corrected ##################", int(time.time()*1000) - self.timestamp)
         if len(resKinova) > 0:
             kinovaTargetDetected = True
         else:
@@ -952,167 +958,6 @@ class SpecificWorker(GenericWorker):
         for i in range(7):
             joints.append(p.getJointState(self.robot_Pedro, i + 1)[0])
         return joints
-
-    def initialize_toolbox(self, target_position):
-        ## Launch the simulator Swift
-        self.env = swift.Swift()
-        self.env.launch(realtime=True)
-
-        # Create a KionovaGen3 robot object
-        self.kinova = rtb.models.KinovaGen3()
-        print(self.kinova.grippers)
-
-        # Set joint angles to ready configuration
-        self.kinova.q = self.kinova.qr
-
-        # Add the robot to the simulator
-        self.env.add(self.kinova)
-
-        # axes
-        self.goal_axes = sg.Axes(0.1)
-        self.ee_axes = sg.Axes(0.1)
-
-        # Add the axes to the environment
-        self.env.add(self.ee_axes)
-        self.env.add(self.goal_axes)
-        self.ee_axes.T = self.kinova.fkine(self.kinova.q)
-
-        # Number of joint in the Kinova which we are controlling
-        self.n = 7
-
-        # objects
-        # self.cup = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(cup_position[0], cup_position[1], 0), color=(0, 0, 1))
-        # self.cup = sg.Cylinder(0.036, 0.168, pose=sm.SE3.Trans(target_position[0], target_position[1], 0), color=(0, 1, 0))
-
-        # self.cup = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.4, 0.4, 0), color=(0, 0, 1))
-        # self.env.add(self.cup)
-        self.collisions = []
-
-        # Set the desired end-effector pose
-        self.rot = self.kinova.fkine(self.kinova.q).R
-        self.rot = sm.SO3.OA([1, 0, 0], [0, 0, -1])
-        # self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], 0.60])
-        self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], target_position[2]])  # green = x-axis, red = y-axis, blue = z-axis
-        self.goal_axes.T = self.Tep
-
-        self.arrived = False
-        self.dt = 0.05
-
-        self.env.step(0)
-        time.sleep(1)
-
-    def toolbox_compute(self, target_position):
-        # The current pose of the kinova's end-effector
-        self.Te = self.kinova.fkine(self.kinova.q)
-
-        # self.Tep = sm.SE3.Rt(self.rot, [cup_position[0], cup_position[1], 0.60])  # green = x-axis, red = y-axis, blue = z-axis
-        self.Tep = sm.SE3.Rt(self.rot, [target_position[0], target_position[1], target_position[2]])  # green = x-axis, red = y-axis, blue = z-axis
-        self.goal_axes.T = self.Tep
-        # Transform from the end-effector to desired pose
-        self.eTep = self.Te.inv() * self.Tep
-
-        # print("adding cylinders", int(time.time()*1000-self.timestamp))
-        # for link in self.robot2LinksInfo:
-        #     cylinder = sg.Cylinder(0.04, 0.20, pose=sm.SE3.Trans(link[0][0], link[0][1], link[0][2])*sm.SE3.EulerVec(link[1]))
-        #     self.env.add(cylinder)
-        #     # self.collisions.append(cylinder)
-        # print("cylinders added: ",int(time.time()*1000-self.timestamp))
-
-        # Spatial error
-        self.e = np.sum(np.abs(np.r_[self.eTep.t, self.eTep.rpy() * np.pi / 180]))
-
-        # Calulate the required end-effector spatial velocity for the robot
-        # to approach the goal. Gain is set to 1.0
-        self.v, self.arrived = rtb.p_servo(self.Te, self.Tep, 1.0, threshold=0.01)
-
-        # Gain term (lambda) for control minimisation
-        self.Y = 0.01
-
-        # Quadratic component of objective function
-        self.Q = np.eye(self.n + 6)
-
-        # Joint velocity component of Q
-        self.Q[:self.n, :self.n] *= self.Y
-
-        # Slack component of Q
-        self.Q[self.n:, self.n:] = (1 / self.e) * np.eye(6)
-
-        # The equality contraints
-        self.Aeq = np.c_[self.kinova.jacobe(self.kinova.q), np.eye(6)]
-        beq = self.v.reshape((6,))
-
-        # The inequality constraints for joint limit avoidance
-        self.Ain = np.zeros((self.n + 6, self.n + 6))
-        self.bin = np.zeros(self.n + 6)
-
-        # The minimum angle (in radians) in which the joint is allowed to approach
-        # to its limit
-        self.ps = 0.05
-
-        # The influence angle (in radians) in which the velocity damper
-        # becomes active
-        self.pi = 0.9
-
-        # Form the joint limit velocity damper
-        self.Ain[:self.n, :self.n], self.bin[:self.n] = self.kinova.joint_velocity_damper(self.ps, self.pi, self.n)
-
-        # For each collision in the scene
-        for collision in self.collisions:
-
-            # Form the velocity damper inequality contraint for each collision
-            # object on the robot to the collision in the scene
-            c_Ain, c_bin = self.kinova.link_collision_damper(
-                collision,
-                self.kinova.q[:self.n],
-                0.3,
-                0.05,
-                1.0,
-                start=self.kinova.link_dict["half_arm_1_link"],
-                end=self.kinova.link_dict["end_effector_link"],
-            )
-
-            # If there are any parts of the robot within the influence distance
-            # to the collision in the scene
-            if c_Ain is not None and c_bin is not None:
-                c_Ain = np.c_[c_Ain, np.zeros((c_Ain.shape[0], 6))]
-
-                # Stack the inequality constraints
-                self.Ain = np.r_[self.Ain, c_Ain]
-                self.bin = np.r_[self.bin, c_bin]
-
-        # Linear component of objective function: the manipulability Jacobian
-        c = np.r_[-self.kinova.jacobm().reshape((self.n,)), np.zeros(6)]
-
-        # The lower and upper bounds on the joint velocity and slack variable
-        lim = np.deg2rad(10)
-        self.qdlim = [lim, lim, lim, lim, lim, lim, lim]  # inventadas
-        lb = -np.r_[self.qdlim, 10 * np.ones(6)]
-        ub = np.r_[self.qdlim, 10 * np.ones(6)]
-
-        # Solve for the joint velocities dq
-        qd = qp.solve_qp(self.Q, c, self.Ain, self.bin, self.Aeq, beq, lb=lb, ub=ub, solver='piqp')
-
-        # Apply the joint velocities to the kinova
-        self.kinova.qd[:self.n] = qd[:self.n]
-        self.target_velocities = qd[:self.n]
-
-        joints_angle = []
-        for i in range(7):
-            joints_angle.append(p.getJointState(self.robot_Pedro, i + 1)[0])
-
-        error = np.sum(np.rad2deg(np.abs(np.array(joints_angle) - np.array(self.kinova.q))))
-        # print("Error joints", np.rad2deg(self.kinova.q-joints_angle), "Error: ", error)
-
-        if error > 1:                                    ### DISCOMMENT TO CORRECT THE CONTROLLER'S KINOVA POSITION
-            self.kinova.q = joints_angle
-
-        # print("/////////////////////////////////////////////////////////////////////////////////////////////////////")
-
-        # Update the ee axes
-        self.ee_axes.T = self.Te
-
-        # Step the simulator by 50 ms
-        self.env.step(self.dt)
 
     def cvK2BulletP(self, K, w, h, near, far):
         """
@@ -1177,13 +1022,13 @@ class SpecificWorker(GenericWorker):
             # Define camera intrinsic parameters
             width = 1280  # image width
             height =  720  # image height
-            f_in_pixels = 1298 #1298
+            f_in_pixels = 1298 #optimized
             near = 0.01  # near clipping plane
             far = 100  # far clipping plane
 
             # Optical center in pixel coordinates
-            optical_center_x_pixels = 646.23 #620  # example x-coordinate in pixels
-            optical_center_y_pixels = 267.62 #238  # example y-coordinate in pixels
+            optical_center_x_pixels = 646.23 #620  # optimized
+            optical_center_y_pixels = 267.62 #238  # optimized
 
             fov = 2 * np.degrees(np.arctan(width / (2 * f_in_pixels)))
 
@@ -1229,13 +1074,13 @@ class SpecificWorker(GenericWorker):
             if robot == self.robot_Pablo:
                 sum = cv2.addWeighted(rgb, 0.5, self.colorKinova[0][0], 0.5, 0)
                 cv2.imshow("Pybullet Pablo", sum)
-                print("Showing Pybullet Pablo image", time.time() * 1000 - self.timestamp)
-                cv2.waitKey(3)
+                # print("Showing Pybullet Pablo image", time.time() * 1000 - self.timestamp)
+                cv2.waitKey(1)
             if robot == self.robot_Pedro:
                 sum = cv2.addWeighted(rgb, 0.5, self.colorKinova2[0][0], 0.5, 0)
                 cv2.imshow("Pybullet Pedro", sum)
-                print("Showing Pybullet Pedro image", time.time() * 1000 - self.timestamp)
-                cv2.waitKey(3)
+                # print("Showing Pybullet Pedro image", time.time() * 1000 - self.timestamp)
+                cv2.waitKey(1)
 
             # print("Returning the image", time.time() * 1000 - self.timestamp)
 
@@ -1316,13 +1161,26 @@ class SpecificWorker(GenericWorker):
             p.setJointMotorControl2(self.robot_Pedro, i + 1, p.VELOCITY_CONTROL,
                                     targetVelocity=self.target_velocities[i])
         # print("Pybullet move with toolbox end", time.time()*1000 - self.timestamp)
-    def movePybulletPabloArmWithToolbox(self, velocities):
-        for i in range(len(velocities)):
+
+    def movePybulletPabloArmWithAngles(self, angles):
+        for i in range(7):
+            p.setJointMotorControl2(self.robot_Pablo, i + 1, p.POSITION_CONTROL,
+                                    targetPosition=angles[i],
+                                    maxVelocity=np.deg2rad(25))
+
+    def movePybulletPedroArmWithAngles(self, angles):
+        for i in range(7):
+            p.setJointMotorControl2(self.robot_Pedro, i + 1, p.POSITION_CONTROL,
+                                    targetPosition=angles[i],
+                                    maxVelocity=np.deg2rad(25))
+
+    def movePybulletPabloArmWithVelocities(self, velocities):
+        for i in range(7):
             p.setJointMotorControl2(self.robot_Pablo, i + 1, p.VELOCITY_CONTROL,
                                     targetVelocity=velocities[i])
 
-    def movePybulletPedroArmWithToolbox(self, velocities):
-        for i in range(len(velocities)):
+    def movePybulletPedroArmWithVelocities(self, velocities):
+        for i in range(7):
             p.setJointMotorControl2(self.robot_Pedro, i + 1, p.VELOCITY_CONTROL,
                                     targetVelocity=velocities[i])
 
@@ -1348,25 +1206,38 @@ class SpecificWorker(GenericWorker):
         self.kinovaarm1_proxy.moveJointsWithAngle(self.angles)
         print("Kinova Pedro angles", array)
 
-    def moveKinovaWithSpeeds(self):
-        # print("Kinova move with speeds init", time.time()*1000 - self.timestamp)
+
+    def moveKinovaPabloWithSpeeds(self):
         self.joint_speeds = []
 
         for i in range(7):
-            angle = p.getJointState(self.robot_Pedro, i + 1)[0]
+            angle = p.getJointState(self.robot_Pablo, i + 1)[0]
             error = (np.deg2rad(self.ext_joints.joints[i].angle)
                      - angle + math.pi) % (2 * math.pi) - math.pi
 
-            speed = np.rad2deg(p.getJointState(self.robot_Pedro, i + 1)[1]) * self.gains[i] - np.rad2deg(error) * 0.3
+            speed = np.rad2deg(p.getJointState(self.robot_Pablo, i + 1)[1]) * self.gains[i] - np.rad2deg(error) * 0.3
 
-            # print("e", error)
             self.joint_speeds.append(speed)
 
         self.speeds.jointSpeeds = self.joint_speeds
 
-        # print("Kinova move with speeds proxy action start", time.time()*1000 - self.timestamp)
         self.kinovaarm_proxy.moveJointsWithSpeed(self.speeds)
-        # print("Kinova move with speeds end", time.time()*1000 - self.timestamp)
+
+    def moveKinovaPedroWithSpeeds(self):
+        self.joint_speeds = []
+
+        for i in range(7):
+            angle = p.getJointState(self.robot_Pedro, i + 1)[0]
+            error = (np.deg2rad(self.ext_joints_2.joints[i].angle)
+                     - angle + math.pi) % (2 * math.pi) - math.pi
+
+            speed = np.rad2deg(p.getJointState(self.robot_Pedro, i + 1)[1]) * self.gains[i] - np.rad2deg(error) * 0.3
+
+            self.joint_speeds.append(speed)
+
+        self.speeds.jointSpeeds = self.joint_speeds
+
+        self.kinovaarm1_proxy.moveJointsWithSpeed(self.speeds)
 
     def updateGains(self):
         self.posesTimes = self.posesTimes - self.ext_joints.timestamp
