@@ -101,12 +101,12 @@ class SpecificWorker(GenericWorker):
             self.plane = p.loadURDF("./URDFs/plane/plane.urdf")
 
             # Load a cube to place the cups on
-            self.cube = p.loadURDF("./URDFs/cube_and_square/cube_box.urdf", basePosition=[0.455, 0.0, 0.225],
+            self.cube = p.loadURDF("./URDFs/cube_and_square/cube_box.urdf", basePosition=[0.455, 0.0, 0.24],
                                    baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
             # self.cube = p.loadURDF("./URDFs/cube_and_square/cube_box_2.urdf", basePosition=[0.6, 0.0, 0.4],
             #                        baseOrientation=p.getQuaternionFromEuler([0, 0, 0]), flags=flags)
 
-            self.cube_center = [0.455, 0.0, 0.81]
+            self.cube_center = [0.455, 0.0, 0.82]
 
             # Load the arm in the simulation
             self.robot_urdf = "./URDFs/kinova_with_pybullet/gen3_robotiq_2f_85-mod.urdf"
@@ -153,8 +153,8 @@ class SpecificWorker(GenericWorker):
                                   targetValue=self.rest_angles_pablo[i], targetVelocity=0)
 
             # Load a cylinder to place on the table
-            # self.cylinder_pablo = p.loadURDF("./URDFs/cylinder/cylinder.urdf", [0.455, 0.1, 0.55], p.getQuaternionFromEuler([0, 0, 0]))
-            self.cylinder_pablo = p.loadURDF("./URDFs/cylinder/cylinder.urdf", [0.455, 0.1, 0.90], p.getQuaternionFromEuler([0, 0, 0]))
+            self.cylinder_pablo = p.loadURDF("./URDFs/cylinder/cylinder.urdf", [0.455, 0.1, 0.55], p.getQuaternionFromEuler([0, 0, 0]))
+            # self.cylinder_pablo = p.loadURDF("./URDFs/cylinder/cylinder.urdf", [0.455, 0.1, 0.90], p.getQuaternionFromEuler([0, 0, 0]))
 
             # self.cylinder_pedro = p.loadURDF("./URDFs/cylinder/cylinder.urdf", [0.455, -0.1, 0.5], p.getQuaternionFromEuler([0, 0, 0]))
             self.arms_base = p.loadURDF("./URDFs/arms_base/arms_base.urdf", [0, 0.0, 0.0], p.getQuaternionFromEuler([0, 0, 0]))
@@ -327,8 +327,9 @@ class SpecificWorker(GenericWorker):
                 self.move_mode = -100
             case -100:
                 self.movePybulletPabloArmWithAngles(self.getPabloJointsAngle())
-                # self.read_camera_fixed(self.robot_Pedro)
-                # self.read_camera_fixed(self.robot_Pablo)
+                self.movePybulletPabloArmWithVelocities(0.0 * np.ones(7))
+                self.read_camera_fixed(self.robot_Pablo)
+                self.read_camera_fixed(self.robot_Pedro)
 
             #Move joints
             case 0:
@@ -502,7 +503,7 @@ class SpecificWorker(GenericWorker):
                     target_position = list(p.getBasePositionAndOrientation(self.cylinder_pablo)[0])
                     # target_position[0] = target_position[0] - self.pybullet_offset[0]
                     # target_position[2] = target_position[2] - self.pybullet_offset[2] + 0.27
-                    target_position[2] = target_position[2] + 0.42
+                    target_position[2] = target_position[2] + 0.37#0.42
 
 
                     # print("Toolbox request", time.time() * 1000 - self.timestamp)
@@ -590,13 +591,17 @@ class SpecificWorker(GenericWorker):
             case 9:    #Move to cup without camera feedback and close the gripper
                 try:
                     target_position = list(p.getBasePositionAndOrientation(self.cylinder_pablo)[0])
-                    target_position[0] = target_position[0] #- 0.005
+                    target_position[0] = target_position[0] - 0.005
                     target_position[1] = target_position[1] + 0.01
-                    target_position[2] = target_position[2] + 0.27#0.17
+                    target_position[2] = target_position[2] + 0.22#0.17
 
                     # print("Toolbox request", time.time() * 1000 - self.timestamp)
                     new_state_pablo = self.roboticstoolboxcontroller_proxy.calculateVelocitiesPablo(
                         self.getPabloJointsAngle(), target_position)
+
+                    # print("<=============================>")
+                    # for i in range(7):
+                    #     print(np.rad2deg(p.getJointState(self.robot_Pablo, i + 1)[0]), self.ext_joints.joints[i].angle)
 
                     if not new_state_pablo.arrived:
 
@@ -618,6 +623,10 @@ class SpecificWorker(GenericWorker):
                     #
                     # self.poses.append(jointsState)
 
+                    # error = p.getLinkState(self.robot_Pablo, self.end_effector_link_index)[0] - target_position
+
+                    # print("Error: ", error, p.getLinkState(self.robot_Pablo, self.end_effector_link_index)[0], target_position)
+
                     if new_state_pablo.arrived:
                         # self.move_mode = -100
 
@@ -632,6 +641,7 @@ class SpecificWorker(GenericWorker):
                         print("Cup grapped:", cup_grapped)
                         if cup_grapped:
                             self.changePybulletGripper(self.ext_gripper.distance, self.robot_Pablo)
+                            time.sleep(1)
                             self.move_mode = 10
                             # self.move_mode = -100
                             print("Changing actual move mode to 10")
@@ -673,6 +683,8 @@ class SpecificWorker(GenericWorker):
                     # self.graphTimes.append(int(time.time() * 1000 - self.timestamp))
                     #
                     # self.poses.append(jointsState)
+                    for i in range(7):
+                        print(p.getJointState(self.robot_Pablo, i + 1)[0], self.ext_joints.joints[i].angle)
 
                     if new_state_pablo.arrived:
                         # print("Arrived")

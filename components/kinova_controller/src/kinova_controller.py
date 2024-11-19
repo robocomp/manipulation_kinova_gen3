@@ -67,8 +67,9 @@ from specificworker import *
 
 #SIGNALS handler
 def sigint_handler(*args):
-    QtCore.QCoreApplication.quit()
     worker.__del__()
+    QtCore.QCoreApplication.quit()
+
 
 
 if __name__ == '__main__':

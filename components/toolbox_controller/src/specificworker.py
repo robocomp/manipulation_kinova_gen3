@@ -55,7 +55,7 @@ class SpecificWorker(GenericWorker):
             self.n = 7
             self.cup1 = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.455, -0.1, 0.50), color=(0, 0, 1))
             self.cup2 = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.455, 0.1, 0.50), color=(0, 0, 1))
-            self.cube = sg.Cuboid((0.334, 0.468, 0.45), pose=sm.SE3.Trans(0.455, 0.0, 0.225), color=(1, 0, 0))
+            self.cube = sg.Cuboid((0.334, 0.468, 0.48), pose=sm.SE3.Trans(0.455, 0.0, 0.24), color=(1, 0, 0))
             # self.env.add(self.cup1)
             # self.env.add(self.cup2)
             self.env.add(self.cube)
@@ -126,11 +126,11 @@ class SpecificWorker(GenericWorker):
     #
     # IMPLEMENTATION of calculateVelocities method from RoboticsToolboxController interface
     #
-    def RoboticsToolboxController_calculateVelocitiesPablo(self, angles, targetPosition=[0.455, 0.1, 0.60]):
+    def RoboticsToolboxController_calculateVelocitiesPablo(self, angles, targetPosition):
         ret = ifaces.RoboCompRoboticsToolboxController.JointStates()
 
         error = np.sum(np.rad2deg(np.abs(np.array(angles) - np.array(self.kinova_pablo.q))))
-        if error > 2.1:
+        if error > 2.8:
             self.kinova_pablo.q = np.array(angles)
 
         Te = self.kinova_pablo.fkine(self.kinova_pablo.q)
@@ -143,7 +143,7 @@ class SpecificWorker(GenericWorker):
 
         e = np.sum(np.abs(np.r_[eTep.t, eTep.rpy() * np.pi / 180]))
 
-        v, arrived = rtb.p_servo(Te, self.Tep_pablo, 1.0, threshold=0.02)
+        v, arrived = rtb.p_servo(Te, self.Tep_pablo, 1.0, threshold=0.01)
 
         # Gain term (lambda) for control minimisation
         Y = 0.01
@@ -203,7 +203,7 @@ class SpecificWorker(GenericWorker):
         c = np.r_[-self.kinova_pablo.jacobm().reshape((self.n,)), np.zeros(6)]
 
         # The lower and upper bounds on the joint velocity and slack variable
-        lim = np.deg2rad(5)
+        lim = np.deg2rad(10)
         qdlim = [lim, lim, lim, lim, lim, lim, lim]  # inventadas
         lb = -np.r_[qdlim, 10 * np.ones(6)]
         ub = np.r_[qdlim, 10 * np.ones(6)]
@@ -237,7 +237,7 @@ class SpecificWorker(GenericWorker):
         ret = ifaces.RoboCompRoboticsToolboxController.JointStates()
 
         error = np.sum(np.rad2deg(np.abs(np.array(angles) - np.array(self.kinova_pedro.q))))
-        if error > 1:
+        if error > 2.8:
             self.kinova_pedro.q = np.array(angles)
 
         Te = self.kinova_pedro.fkine(self.kinova_pedro.q)
@@ -250,7 +250,7 @@ class SpecificWorker(GenericWorker):
 
         e = np.sum(np.abs(np.r_[eTep.t, eTep.rpy() * np.pi / 180]))
 
-        v, arrived = rtb.p_servo(Te, self.Tep_pedro, 1.0, threshold=0.015)
+        v, arrived = rtb.p_servo(Te, self.Tep_pedro, 1.0, threshold=0.01)
 
         # Gain term (lambda) for control minimisation
         Y = 0.01
