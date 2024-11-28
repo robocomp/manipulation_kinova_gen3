@@ -1,0 +1,15 @@
+import "KinovaArm.idsl";
+import "Contactile.idsl";
+
+Component kinova_controller_cpp
+{
+    Communications
+    {
+        implements KinovaArm;
+        requires Contactile;
+    };
+    language Cpp11;
+    gui Qt(QMainWindow);
+    options dsr;
+};
+

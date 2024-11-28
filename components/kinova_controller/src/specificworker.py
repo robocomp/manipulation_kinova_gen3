@@ -43,7 +43,7 @@ from test import KinovaGen3
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 1
+        self.Period = 1000
         if startup_check:
             self.startup_check()
         else:
@@ -58,13 +58,13 @@ class SpecificWorker(GenericWorker):
             self.timestamp = time.time()*1000
 
     def __del__(self):
-        angles = ifaces.RoboCompKinovaArm.TJointAngles()
-        if self.ip == "192.168.1.10":
-            angles.jointAngles = [250, 90, 180, 0, 270, 110, 90]
-            self.KinovaArm_moveJointsWithAngle(angles)
-        else:
-            angles.jointAngles = [290, 270, 180, 360, 90, 250, 270]
-            self.KinovaArm_moveJointsWithAngle(angles)
+        # angles = ifaces.RoboCompKinovaArm.TJointAngles()
+        # if self.ip == "192.168.1.10":
+        #     angles.jointAngles = [250, 90, 180, 0, 270, 110, 90]
+        #     self.KinovaArm_moveJointsWithAngle(angles)
+        # else:
+        #     angles.jointAngles = [290, 270, 180, 360, 90, 250, 270]
+        #     self.KinovaArm_moveJointsWithAngle(angles)
         """Destructor"""
 
     def setParams(self, params):
@@ -80,6 +80,7 @@ class SpecificWorker(GenericWorker):
         # self.kinova.move_in_front_of_protection_zone()
         # self.kinova.list_posibles_actions()
         self.kinova.move_to_selected_position("Home")
+        self.kinova.example_forward_kinematics()
         return True
 
 

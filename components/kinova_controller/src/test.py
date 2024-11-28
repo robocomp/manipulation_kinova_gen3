@@ -202,6 +202,38 @@ class KinovaGen3():
 
         self.base.Unsubscribe(notification_handle)
 
+    def example_forward_kinematics(self):
+        # Current arm's joint angles (in home position)
+        try:
+            print("Getting Angles for every joint...")
+            input_joint_angles = self.base.GetMeasuredJointAngles()
+        except KServerException as ex:
+            print("Unable to get joint angles")
+            print("Error_code:{} , Sub_error_code:{} ".format(ex.get_error_code(), ex.get_error_sub_code()))
+            print("Caught expected error: {}".format(ex))
+            return False
+
+        print("Joint ID : Joint Angle")
+        for joint_angle in input_joint_angles.joint_angles:
+            print(joint_angle.joint_identifier, " : ", joint_angle.value)
+        print()
+
+        # Computing Foward Kinematics (Angle -> cartesian convert) from arm's current joint angles
+        try:
+            print("Computing Foward Kinematics using joint angles...")
+            pose = self.base.ComputeForwardKinematics(input_joint_angles)
+        except KServerException as ex:
+            print("Unable to compute forward kinematics")
+            print("Error_code:{} , Sub_error_code:{} ".format(ex.get_error_code(), ex.get_error_sub_code()))
+            print("Caught expected error: {}".format(ex))
+            return False
+
+        print("Pose calculated : ")
+        print("Coordinate (x, y, z)  : ({}, {}, {})".format(pose.x, pose.y, pose.z))
+        print("Theta (theta_x, theta_y, theta_z)  : ({}, {}, {})".format(pose.theta_x, pose.theta_y, pose.theta_z))
+        print()
+        return True
+
     def get_state(self):
         feedback = self.base_cyclic.RefreshFeedback()
         # for j in feedback.actuators:
