@@ -38,6 +38,11 @@
 #include <thread>
 #include <mutex>
 
+#include <sys/socket.h>  // Para la estructura sockaddr
+#include <netinet/in.h> // Para sockaddr_in y definiciones relacionadas con Internet
+#include <arpa/inet.h>  // Para funciones como inet_pton y htons
+
+
 #include <string>
 #include <functional>
 #include <exception>

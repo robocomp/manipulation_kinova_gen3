@@ -80,7 +80,7 @@ private:
 	QHBoxLayout mainLayout;
 	bool startup_check_flag;
 
-	api_kinova_controller api_controller;
+	api_kinova_controller *api_controller;
 };
 
 #endif

@@ -45,6 +45,8 @@ SpecificWorker::~SpecificWorker()
 		G->delete_node(grid);
 	}
 	G.reset();
+
+	delete api_controller;
 }
 
 bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
@@ -58,8 +60,9 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 //		innerModel = std::make_shared(innermodel_path);
 //	}
 //	catch(const std::exception &e) { qFatal("Error reading config params"); }
-
-	api_controller = new api_kinova_controller(params.ip);
+	cout << "Trying to create the api_controller" << endl;
+	api_controller = new api_kinova_controller();
+	cout << "api_controller created" << endl;
 
 	try
 	{
@@ -130,7 +133,7 @@ void SpecificWorker::initialize(int period)
 		***/
 		//graph_viewer->add_custom_widget_to_dock("CustomWidget", &custom_widget);
 
-		api_controller.move_to_selected_position("Home");
+		api_controller->move_to_selected_position("Home");
 
 		timer.start(Period);
 	}
