@@ -101,7 +101,18 @@ std::function<void(k_api::Base::ActionNotification)>
     };
 }
 
-bool api_kinova_controller::move_to_selected_position(std::string pos) {
+
+void api_kinova_controller::list_poses() {
+    std::cout << "List Positions" << std::endl;
+    auto action_type = k_api::Base::RequestedActionType();
+    action_type.set_action_type(k_api::Base::REACH_JOINT_ANGLES);
+    auto action_list = base->ReadAllActions(action_type);
+    for (auto action_name : action_list.action_list()) {
+        std::cout << "[" << action_name.name() << "]" << std::endl;
+    }
+}
+
+bool api_kinova_controller::move_to_selected_pose(std::string pos) {
     auto servoingMode = k_api::Base::ServoingModeInformation();
     servoingMode.set_servoing_mode(k_api::Base::ServoingMode::SINGLE_LEVEL_SERVOING);
     base->SetServoingMode(servoingMode);
@@ -114,12 +125,18 @@ bool api_kinova_controller::move_to_selected_position(std::string pos) {
     auto action_list = base->ReadAllActions(action_type);
     auto action_handle = k_api::Base::ActionHandle();
     action_handle.set_identifier(0);
+    bool pos_found = false;
     for (auto action : action_list.action_list())
     {
-        if (action.name() == "Home")
+        if (action.name() == pos)
         {
             action_handle = action.handle();
+            pos_found = true;
         }
+    }
+    if (!pos_found){
+        list_poses();
+        return false;
     }
 
     if (action_handle.identifier() == 0)
@@ -156,5 +173,33 @@ bool api_kinova_controller::move_to_selected_position(std::string pos) {
         return true;
     }
 }
+
+api_kinova_controller::Joints_info api_kinova_controller::get_joints_info() {
+    Joints_info joints_info;
+    auto feedback = base_cyclic->RefreshFeedback();
+    int actuator_id = 0;
+    for (auto actuator : feedback.actuators()) {
+        joints_info.push_back(Joint_info({actuator_id ,actuator.position(), actuator.velocity(), actuator.torque(),
+            actuator.current_motor(), actuator.voltage(), actuator.temperature_motor(), actuator.temperature_core()}));
+        actuator_id++;
+    }
+    return joints_info;
+}
+
+void api_kinova_controller::print_joints_info() {
+    std::cout << std::endl << "Printing Joints info" << std::endl << std::endl;
+    auto joints_info = get_joints_info();
+    for (auto joint: joints_info) {
+        std::cout << "----Joint " << joint.id << "----" << std::endl;
+        std::cout << "Position: " << joint.position << std::endl;
+        std::cout << "Velocity: " << joint.velocity << std::endl;
+        std::cout << "Torque: " << joint.torque << std::endl;
+        std::cout << "Current: " << joint.current << std::endl;
+        std::cout << "Voltage: " << joint.voltage << std::endl;
+        std::cout << "Motor temperature: " << joint.motor_temperature << std::endl;
+        std::cout << "Motor core: " << joint.core_temperature << std::endl << std::endl;
+    }
+}
+
 
 

@@ -18,6 +18,8 @@
  */
 #include "specificworker.h"
 
+#include <ranges>
+
 #include "api_kinova_controller.h"
 
 /**
@@ -133,7 +135,9 @@ void SpecificWorker::initialize(int period)
 		***/
 		//graph_viewer->add_custom_widget_to_dock("CustomWidget", &custom_widget);
 
-		api_controller->move_to_selected_position("Home");
+		api_controller->move_to_selected_pose("Home");
+		api_kinova_controller::Joints_info info = api_controller->get_joints_info();
+		api_controller->print_joints_info();
 
 		timer.start(Period);
 	}
