@@ -23,7 +23,6 @@
 #include <Ice/Ice.h>
 #include <KinovaArm.h>
 
-#include <config.h>
 #include "genericworker.h"
 
 

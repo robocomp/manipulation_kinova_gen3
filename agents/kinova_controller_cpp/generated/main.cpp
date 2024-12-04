@@ -70,29 +70,40 @@
 #include <IceStorm/IceStorm.h>
 #include <Ice/Application.h>
 
-#include <rapplication/rapplication.h>
-#include <sigwatch/sigwatch.h>
-#include <qlog/qlog.h>
+#include <ConfigLoader/ConfigLoader.h>
 
-#include "config.h"
-#include "genericmonitor.h"
+#include <sigwatch/sigwatch.h>
+
 #include "genericworker.h"
-#include "specificworker.h"
-#include "specificmonitor.h"
-#include "commonbehaviorI.h"
+#include "../src/specificworker.h"
 
 #include <kinovaarmI.h>
 
 
+#define USE_QTGUI
+
+#define PROGRAM_NAME    "kinova_controller_cpp"
+#define SERVER_FULL_NAME   "RoboComp kinova_controller_cpp::kinova_controller_cpp"
 
 
-class kinova_controller_cpp : public RoboComp::Application
+class kinova_controller_cpp : public Ice::Application
 {
 public:
-	kinova_controller_cpp (QString prfx, bool startup_check) { prefix = prfx.toStdString(); this->startup_check_flag=startup_check; }
+	kinova_controller_cpp (QString configFile, QString prfx, bool startup_check) { 
+		this->configFile = configFile.toStdString();
+		this->prefix = prfx.toStdString();
+		this->startup_check_flag=startup_check; 
+
+		this->configLoader.load(this->configFile);
+		this->configLoader.printConfig();
+		}
+
+	Ice::InitializationData getInitializationDataIce();
+
 private:
 	void initialize();
-	std::string prefix;
+	std::string prefix, configFile;
+	ConfigLoader configLoader;
 	TuplePrx tprx;
 	bool startup_check_flag = false;
 
@@ -100,14 +111,23 @@ public:
 	virtual int run(int, char*[]);
 };
 
-void ::kinova_controller_cpp::initialize()
-{
-	// Config file properties read example
-	// configGetString( PROPERTY_NAME_1, property1_holder, PROPERTY_1_DEFAULT_VALUE );
-	// configGetInt( PROPERTY_NAME_2, property1_holder, PROPERTY_2_DEFAULT_VALUE );
+Ice::InitializationData kinova_controller_cpp::getInitializationDataIce(){
+        Ice::InitializationData initData;
+        initData.properties = Ice::createProperties();
+        initData.properties->setProperty("Ice.Warn.Connections", this->configLoader.get<std::string>("Ice.Warn.Connections"));
+        initData.properties->setProperty("Ice.Trace.Network", this->configLoader.get<std::string>("Ice.Trace.Network"));
+        initData.properties->setProperty("Ice.Trace.Protocol", this->configLoader.get<std::string>("Ice.Trace.Protocol"));
+        initData.properties->setProperty("Ice.MessageSizeMax", this->configLoader.get<std::string>("Ice.MessageSizeMax"));
+		return initData;
 }
 
-int ::kinova_controller_cpp::run(int argc, char* argv[])
+void kinova_controller_cpp::initialize()
+{
+    this->configLoader.load(this->configFile);
+	this->configLoader.printConfig();
+}
+
+int kinova_controller_cpp::run(int argc, char* argv[])
 {
 #ifdef USE_QTGUI
 	QApplication a(argc, argv);  // GUI application
@@ -132,84 +152,46 @@ int ::kinova_controller_cpp::run(int argc, char* argv[])
 
 	RoboCompContactile::ContactilePrxPtr contactile_proxy;
 
-	string proxy, tmp;
+	std::string proxy, tmp;
 	initialize();
 
 	try
 	{
-		if (not GenericMonitor::configGetString(communicator(), prefix, "ContactileProxy", proxy, ""))
-		{
-			cout << "[" << PROGRAM_NAME << "]: Can't read configuration for proxy ContactileProxy\n";
-		}
-		contactile_proxy = Ice::uncheckedCast<RoboCompContactile::ContactilePrx>( communicator()->stringToProxy( proxy ) );
+	    proxy = configLoader.get<std::string>("Proxies.Contactile");
+		contactile_proxy = Ice::uncheckedCast<RoboCompContactile::ContactilePrx>(communicator()->stringToProxy(proxy));
 	}
 	catch(const Ice::Exception& ex)
 	{
-		cout << "[" << PROGRAM_NAME << "]: Exception creating proxy Contactile: " << ex;
+		std::cout << "[" << PROGRAM_NAME << "]: Exception creating proxy Contactile: " << ex;
 		return EXIT_FAILURE;
 	}
-	rInfo("ContactileProxy initialized Ok!");
+	qInfo("ContactileProxy initialized Ok!");
 
 
 	tprx = std::make_tuple(contactile_proxy);
-	SpecificWorker *worker = new SpecificWorker(tprx, startup_check_flag);
-	//Monitor thread
-	SpecificMonitor *monitor = new SpecificMonitor(worker,communicator());
-	QObject::connect(monitor, SIGNAL(kill()), &a, SLOT(quit()));
+	SpecificWorker *worker = new SpecificWorker(this->configLoader, tprx, startup_check_flag);
 	QObject::connect(worker, SIGNAL(kill()), &a, SLOT(quit()));
-	monitor->start();
-
-	if ( !monitor->isRunning() )
-		return status;
-
-	while (!monitor->ready)
-	{
-		usleep(10000);
-	}
 
 	try
 	{
-		try {
-			// Server adapter creation and publication
-			if (not GenericMonitor::configGetString(communicator(), prefix, "CommonBehavior.Endpoints", tmp, "")) {
-				cout << "[" << PROGRAM_NAME << "]: Can't read configuration for proxy CommonBehavior\n";
-			}
-			Ice::ObjectAdapterPtr adapterCommonBehavior = communicator()->createObjectAdapterWithEndpoints("commonbehavior", tmp);
-			auto commonbehaviorI = std::make_shared<CommonBehaviorI>(monitor);
-			adapterCommonBehavior->add(commonbehaviorI, Ice::stringToIdentity("commonbehavior"));
-			adapterCommonBehavior->activate();
-		}
-		catch(const Ice::Exception& ex)
-		{
-			status = EXIT_FAILURE;
-
-			cout << "[" << PROGRAM_NAME << "]: Exception raised while creating CommonBehavior adapter: " << endl;
-			cout << ex;
-
-		}
-
-
 
 		try
 		{
 			// Server adapter creation and publication
-			if (not GenericMonitor::configGetString(communicator(), prefix, "KinovaArm.Endpoints", tmp, ""))
-			{
-				cout << "[" << PROGRAM_NAME << "]: Can't read configuration for proxy KinovaArm";
-			}
-			Ice::ObjectAdapterPtr adapterKinovaArm = communicator()->createObjectAdapterWithEndpoints("KinovaArm", tmp);
+		    tmp = configLoader.get<std::string>("Endpoints.KinovaArm");
+		    Ice::ObjectAdapterPtr adapterKinovaArm = communicator()->createObjectAdapterWithEndpoints("KinovaArm", tmp);
 			auto kinovaarm = std::make_shared<KinovaArmI>(worker);
 			adapterKinovaArm->add(kinovaarm, Ice::stringToIdentity("kinovaarm"));
 			adapterKinovaArm->activate();
-			cout << "[" << PROGRAM_NAME << "]: KinovaArm adapter created in port " << tmp << endl;
+			std::cout << "[" << PROGRAM_NAME << "]: KinovaArm adapter created in port " << tmp << std::endl;
 		}
 		catch (const IceStorm::TopicExists&){
-			cout << "[" << PROGRAM_NAME << "]: ERROR creating or activating adapter for KinovaArm\n";
+			std::cout << "[" << PROGRAM_NAME << "]: ERROR creating or activating adapter for KinovaArm\n";
 		}
 
 
 		// Server adapter creation and publication
-		cout << SERVER_FULL_NAME " started" << endl;
+		std::cout << SERVER_FULL_NAME " started" << std::endl;
 
 		// User defined QtGui elements ( main window, dialogs, etc )
 
@@ -227,8 +209,8 @@ int ::kinova_controller_cpp::run(int argc, char* argv[])
 	{
 		status = EXIT_FAILURE;
 
-		cout << "[" << PROGRAM_NAME << "]: Exception raised on main thread: " << endl;
-		cout << ex;
+		std::cerr << "[" << PROGRAM_NAME << "]: Exception raised on main thread: " << std::endl;
+		std::cerr << ex;
 
 	}
 	#ifdef USE_QTGUI
@@ -236,16 +218,13 @@ int ::kinova_controller_cpp::run(int argc, char* argv[])
 	#endif
 
 	status = EXIT_SUCCESS;
-	monitor->terminate();
-	monitor->wait();
 	delete worker;
-	delete monitor;
 	return status;
 }
 
 int main(int argc, char* argv[])
 {
-	string arg;
+	std::string arg;
 
 	// Set config file
 	QString configFile("etc/config");
@@ -264,7 +243,7 @@ int main(int argc, char* argv[])
 			if (arg.find(startup.toStdString(), 0) != std::string::npos)
 			{
 				startup_check_flag = true;
-				cout << "Startup check = True"<< endl;
+				std::cout << "Startup check = True"<< std::endl;
 			}
 			else if (arg.find(prfx.toStdString(), 0) != std::string::npos)
 			{
@@ -286,7 +265,7 @@ int main(int argc, char* argv[])
 		}
 
 	}
-	::kinova_controller_cpp app(prefix, startup_check_flag);
+	kinova_controller_cpp app(configFile, prefix, startup_check_flag);
 
-	return app.main(argc, argv, configFile.toLocal8Bit().data());
+	return app.main(argc, argv, app.getInitializationDataIce());
 }

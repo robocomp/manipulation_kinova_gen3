@@ -33,7 +33,6 @@
 
 #include <genericworker.h>
 
-#include "api_kinova_controller.h"
 
 /**
  * \brief Class SpecificWorker implements the core functionality of the component.
@@ -42,7 +41,7 @@ class SpecificWorker : public GenericWorker
 {
 Q_OBJECT
 public:
-	/**
+    /**
      * \brief Constructor for SpecificWorker.
      * \param configLoader Configuration loader for the component.
      * \param tprx Tuple of proxies required for the component.
@@ -54,6 +53,7 @@ public:
      * \brief Destructor for SpecificWorker.
      */
 	~SpecificWorker();
+
 
 	bool KinovaArm_closeGripper();
 	RoboCompKinovaArm::TPose KinovaArm_getCenterOfTool(RoboCompKinovaArm::ArmJoints referencedTo);
@@ -92,25 +92,19 @@ public slots:
      * \return An integer representing the result of the checks.
      */
 	int startup_check();
+
 	void modify_node_slot(std::uint64_t, const std::string &type){};
 	void modify_node_attrs_slot(std::uint64_t id, const std::vector<std::string>& att_names){};
 	void modify_edge_slot(std::uint64_t from, std::uint64_t to,  const std::string &type){};
 	void modify_edge_attrs_slot(std::uint64_t from, std::uint64_t to, const std::string &type, const std::vector<std::string>& att_names){};
 	void del_edge_slot(std::uint64_t from, std::uint64_t to, const std::string &edge_tag){};
-	void del_node_slot(std::uint64_t from){};
+	void del_node_slot(std::uint64_t from){};     
 private:
 
 	/**
      * \brief Flag indicating whether startup checks are enabled.
      */
 	bool startup_check_flag;
-	api_kinova_controller *api_controller;
-	RoboCompKinovaArm::TGripper gripper{};
-	RoboCompKinovaArm::TJoints joints{};
-
-	void gripper_test_loop();
-	void update_joints_info();
-
 
 signals:
 	//void customSignal();

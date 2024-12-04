@@ -12,6 +12,8 @@
 #include <RouterClient.h>
 #include <string>
 #include <TransportClientTcp.h>
+#include <KinovaArm.h>
+#include <chrono>
 
 // #include "utilities.h"
 
@@ -37,22 +39,6 @@ private:
     k_api::BaseCyclic::BaseCyclicClient *base_cyclic;
 
 public:
-    /**
-     * @struct Joint_info
-     * @brief Stores the position, speed and torque of each of an arm joint
-     */
-    struct Joint_info {
-        int id;
-        float position;
-        float velocity;
-        float torque;
-        float current;
-        float voltage;
-        float motor_temperature;
-        float core_temperature;
-    };
-
-    typedef vector<Joint_info> Joints_info;
 
     /**
      * @brief Default constructor that initializes the connection to the predefined ip
@@ -89,16 +75,57 @@ public:
     /**
      * @brief Return the state of the arm joints
      *
-     * @return Structure with three lists for storing the position, speed and torsion of each joint
+     * @return The Robocomp struct that represents the joints info
      */
-    Joints_info get_joints_info();
+    RoboCompKinovaArm::TJoints get_joints_info();
 
     /**
      * @brief Print the state of the arm joints
      */
     void print_joints_info();
 
+    /**
+    * @brief Return the state of the arm gripper
+    *
+    * @return The Robocomp struct that represents the gripper info
+    */
+    RoboCompKinovaArm::TGripper get_gripper_state();
 
+    /**
+    * @brief Move the gripper to a position
+    *
+    * @param pos Position to move the gripper (0.0 - totally open, 1.0 - totally closed)
+    *
+    * @return True if can move the gripper, False otherwise
+    */
+    bool move_gripper_with_pos(float pos);
+
+    /**
+    * @brief Move the gripper with a velocity
+    *
+    * @param vel velocity to move the gripper (vel > 0 - close the gripper, vel < 0 - open the gripper)
+    *
+    * @return True if can move the gripper, False otherwise
+    */
+    bool move_gripper_with_vel(float vel);
+
+    /**
+    * @brief Move the arm joints with velocities
+    *
+    * @param speeds vector with the velocity to each joint
+    *
+    * @return True if can move the joints, False otherwise
+    */
+    bool move_joints_with_speeds(std::vector<float> speeds);
+
+    /**
+    * @brief Move the arm joints with angles
+    *
+    * @param angles vector with the angle to each joint
+    *
+    * @return True if the joints can reach the angle, False otherwise
+    */
+    bool move_joints_with_angles(std::vector<float> angles);
 
 };
 

@@ -1,0 +1,34 @@
+[Proxies]
+# Proxies for required interfaces
+Contactile = "contactile:tcp -h localhost -p 0"
+
+
+
+
+[Endpoints]
+# Endpoints for implements interfaces
+KinovaArm = "tcp -p 0"
+
+
+
+
+[Agent]
+id = 0 # Change id
+name = "kinova_controller_cpp"
+configFile = ""
+
+[ViewAgent]
+tree = true
+graph = true
+2d = true
+3d = true
+
+[Period]
+Compute = 100
+Emergency = 500
+
+[Ice]
+Warn.Connections = "0"
+Trace.Network = "0"
+Trace.Protocol = "0"
+MessageSizeMax = "20004800"

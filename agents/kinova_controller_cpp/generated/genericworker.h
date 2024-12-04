@@ -19,9 +19,7 @@
 #ifndef GENERICWORKER_H
 #define GENERICWORKER_H
 
-#include "config.h"
 #include <stdint.h>
-#include <qlog/qlog.h>
 
 #if Qt5_FOUND
 	#include <QtWidgets>
@@ -29,15 +27,25 @@
 	#include <QtGui>
 #endif
 #include <ui_mainUI.h>
-#include <CommonBehavior.h>
+#include <grafcetStep/GRAFCETStep.h>
+#include <ConfigLoader/ConfigLoader.h>
+#include <QStateMachine>
+#include <QEvent>
+#include <QString>
+#include <functional>
+#include <atomic>
+#include <QtCore>
+#include <variant>
+#include <unordered_map>
+
+#include "dsr/api/dsr_api.h"
+#include "dsr/gui/dsr_gui.h"
+#include <doublebuffer/DoubleBuffer.h>
 
 #include <Contactile.h>
 #include <KinovaArm.h>
 
-
-#define CHECK_PERIOD 5000
 #define BASIC_PERIOD 100
-
 
 using TuplePrx = std::tuple<RoboCompContactile::ContactilePrxPtr>;
 
@@ -46,13 +54,16 @@ class GenericWorker : public QMainWindow, public Ui_guiDlg
 {
 Q_OBJECT
 public:
-	GenericWorker(TuplePrx tprx);
+	GenericWorker(const ConfigLoader& configLoader, TuplePrx tprx);
 	virtual ~GenericWorker();
 	virtual void killYourSelf();
-	virtual void setPeriod(int p);
 
-	virtual bool setParams(RoboCompCommonBehavior::ParameterList params) = 0;
-	QMutex *mutex;
+	void setPeriod(const std::string& state, int period);
+	int getPeriod(const std::string& state);
+
+	QStateMachine statemachine;
+	QTimer hibernationChecker;
+	std::atomic_bool hibernation = false;
 
 
 	RoboCompContactile::ContactilePrxPtr contactile_proxy;
@@ -67,19 +78,34 @@ public:
 	virtual void KinovaArm_setCenterOfTool(RoboCompKinovaArm::TPose pose, RoboCompKinovaArm::ArmJoints referencedTo) = 0;
 
 protected:
+	std::unordered_map<std::string, std::unique_ptr<GRAFCETStep>> states;
+	ConfigLoader configLoader;
+	// DSR graph
+	std::shared_ptr<DSR::DSRGraph> G;
 
-	QTimer timer;
-	int Period;
+	//DSR params
+	std::string agent_name;
+	int agent_id;
+	// DSR graph viewer
+	std::unique_ptr<DSR::DSRViewer> graph_viewer;
+	QHBoxLayout mainLayout;
+
+
+
 
 private:
 
-
 public slots:
+	virtual void initialize() = 0;
 	virtual void compute() = 0;
-	virtual void initialize(int period) = 0;
+	virtual void emergency() = 0;
+	virtual void restore() = 0;
+	void hibernationCheck();
 	
 signals:
 	void kill();
+	void goToEmergency();
+	void goToRestore();
 };
 
 #endif

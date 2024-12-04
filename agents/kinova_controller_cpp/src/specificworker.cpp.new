@@ -18,10 +18,6 @@
  */
 #include "specificworker.h"
 
-#include <ranges>
-
-#include "api_kinova_controller.h"
-
 SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, bool startup_check) : GenericWorker(configLoader, tprx)
 {
 	this->startup_check_flag = startup_check;
@@ -80,48 +76,32 @@ SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, 
 	}
 }
 
-/**
-* \brief Default destructor
-*/
 SpecificWorker::~SpecificWorker()
 {
 	std::cout << "Destroying SpecificWorker" << std::endl;
 	//G->write_to_json_file("./"+agent_name+".json");
-
-	delete api_controller;
 }
 
 void SpecificWorker::initialize()
 {
-	std::cout << "Initialize worker" << std::endl;
+    std::cout << "initialize worker" << std::endl;
+    //initializeCODE
 
-	auto ip = configLoader.get<std::string>("ip");
-
-	std::cout << "Trying to create the api_controller" << std::endl;
-	api_controller = new api_kinova_controller();
-	std::cout << "api_controller created" << std::endl;
-
-	api_controller->move_to_selected_pose("Home");
-	api_controller->print_joints_info();
+    /////////GET PARAMS, OPEND DEVICES....////////
+    //int period = configLoader.get<int>("Period.Compute") //NOTE: If you want get period of compute use getPeriod("compute")
+    //std::string device = configLoader.get<std::string>("Device.name") 
 
 }
 
 void SpecificWorker::compute()
 {
-    // std::cout << "Compute worker" << std::endl;
-
-	// TEST TO THE GRIPPER SPEED MOVEMENT DISCOMMENT ONLY IN CASE YOU WANT TO TEST IT
-	// gripper_test_loop();
-
-	joints = api_controller->get_joints_info();
-	gripper = api_controller->get_gripper_state();
-
+    std::cout << "Compute worker" << std::endl;
 	//computeCODE
 	//try
 	//{
 	//  camera_proxy->getYImage(0,img, cState, bState);
-    	//    if (img.empty())
-    	//        emit goToEmergency()
+    //    if (img.empty())
+    //        emit goToEmergency()
 	//  memcpy(image_gray.data, &img[0], m_width*m_height*sizeof(uchar));
 	//  searchTags(image_gray);
 	//}
@@ -129,8 +109,6 @@ void SpecificWorker::compute()
 	//{
 	//  std::cout << "Error reading from Camera" << e << std::endl;
 	//}
-	
-	
 }
 
 void SpecificWorker::emergency()
@@ -148,6 +126,7 @@ void SpecificWorker::restore()
     std::cout << "Restore worker" << std::endl;
     //restoreCODE
     //Restore emergency component
+
 }
 
 int SpecificWorker::startup_check()
@@ -155,21 +134,6 @@ int SpecificWorker::startup_check()
 	std::cout << "Startup check" << std::endl;
 	QTimer::singleShot(200, QCoreApplication::instance(), SLOT(quit()));
 	return 0;
-}
-
-void SpecificWorker::gripper_test_loop() {
-	static bool close = true;
-	RoboCompKinovaArm::TGripper gripper_state = api_controller->get_gripper_state();
-	std::cout << "Gripper state: " << gripper_state.distance << std::endl;
-	if (close) {
-		api_controller->move_gripper_with_vel(0.005);
-		if (gripper_state.distance <= 0.05)
-			close = false;
-	}
-	else {
-		api_controller->move_gripper_with_vel(-0.005);
-		if (gripper_state.distance >= 0.95)close = true;
-	}
 }
 
 bool SpecificWorker::KinovaArm_closeGripper()
@@ -199,7 +163,10 @@ RoboCompKinovaArm::TGripper SpecificWorker::KinovaArm_getGripperState()
 	#ifdef HIBERNATION_ENABLED
 		hibernation = true;
 	#endif
-	return gripper;
+	RoboCompKinovaArm::TGripper ret{};
+	//implementCODE
+
+	return ret;
 }
 
 RoboCompKinovaArm::TJoints SpecificWorker::KinovaArm_getJointsState()
@@ -207,7 +174,10 @@ RoboCompKinovaArm::TJoints SpecificWorker::KinovaArm_getJointsState()
 	#ifdef HIBERNATION_ENABLED
 		hibernation = true;
 	#endif
-	return joints;
+	RoboCompKinovaArm::TJoints ret{};
+	//implementCODE
+
+	return ret;
 }
 
 void SpecificWorker::KinovaArm_moveJointsWithAngle(RoboCompKinovaArm::TJointAngles angles)
@@ -216,6 +186,7 @@ void SpecificWorker::KinovaArm_moveJointsWithAngle(RoboCompKinovaArm::TJointAngl
 		hibernation = true;
 	#endif
 	//implementCODE
+
 }
 
 void SpecificWorker::KinovaArm_moveJointsWithSpeed(RoboCompKinovaArm::TJointSpeeds speeds)
@@ -224,6 +195,7 @@ void SpecificWorker::KinovaArm_moveJointsWithSpeed(RoboCompKinovaArm::TJointSpee
 		hibernation = true;
 	#endif
 	//implementCODE
+
 }
 
 void SpecificWorker::KinovaArm_openGripper()
@@ -231,8 +203,8 @@ void SpecificWorker::KinovaArm_openGripper()
 	#ifdef HIBERNATION_ENABLED
 		hibernation = true;
 	#endif
-	std::cout << "Opening the gripper" << std::endl;
-	api_controller->move_gripper_with_pos(0.0);
+	//implementCODE
+
 }
 
 void SpecificWorker::KinovaArm_setCenterOfTool(RoboCompKinovaArm::TPose pose, RoboCompKinovaArm::ArmJoints referencedTo)
@@ -241,6 +213,7 @@ void SpecificWorker::KinovaArm_setCenterOfTool(RoboCompKinovaArm::TPose pose, Ro
 		hibernation = true;
 	#endif
 	//implementCODE
+
 }
 
 
@@ -262,5 +235,4 @@ void SpecificWorker::KinovaArm_setCenterOfTool(RoboCompKinovaArm::TPose pose, Ro
 // RoboCompKinovaArm::TJoints
 // RoboCompKinovaArm::TJointSpeeds
 // RoboCompKinovaArm::TJointAngles
-
 

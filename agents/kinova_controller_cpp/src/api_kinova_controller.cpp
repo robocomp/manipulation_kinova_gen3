@@ -4,6 +4,8 @@
 
 #include "api_kinova_controller.h"
 
+#include <ranges>
+
 api_kinova_controller::api_kinova_controller() {
     error_callback = [](k_api::KError err){ std::cout << "_________ callback error _________" << err.toString(); };
     transport = new k_api::TransportClientTcp();
@@ -174,24 +176,26 @@ bool api_kinova_controller::move_to_selected_pose(std::string pos) {
     }
 }
 
-api_kinova_controller::Joints_info api_kinova_controller::get_joints_info() {
-    Joints_info joints_info;
+RoboCompKinovaArm::TJoints api_kinova_controller::get_joints_info() {
+    RoboCompKinovaArm::TJoints joints_info;
     auto feedback = base_cyclic->RefreshFeedback();
     int actuator_id = 0;
     for (auto actuator : feedback.actuators()) {
-        joints_info.push_back(Joint_info({actuator_id ,actuator.position(), actuator.velocity(), actuator.torque(),
+        joints_info.joints.push_back(RoboCompKinovaArm::TJoint({actuator_id ,actuator.position(), actuator.velocity(), actuator.torque(),
             actuator.current_motor(), actuator.voltage(), actuator.temperature_motor(), actuator.temperature_core()}));
         actuator_id++;
     }
+    const auto now = std::chrono::system_clock::now();
+    joints_info.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
     return joints_info;
 }
 
 void api_kinova_controller::print_joints_info() {
     std::cout << std::endl << "Printing Joints info" << std::endl << std::endl;
     auto joints_info = get_joints_info();
-    for (auto joint: joints_info) {
+    for (auto joint: joints_info.joints) {
         std::cout << "----Joint " << joint.id << "----" << std::endl;
-        std::cout << "Position: " << joint.position << std::endl;
+        std::cout << "Angle: " << joint.angle << std::endl;
         std::cout << "Velocity: " << joint.velocity << std::endl;
         std::cout << "Torque: " << joint.torque << std::endl;
         std::cout << "Current: " << joint.current << std::endl;
@@ -199,7 +203,68 @@ void api_kinova_controller::print_joints_info() {
         std::cout << "Motor temperature: " << joint.motor_temperature << std::endl;
         std::cout << "Motor core: " << joint.core_temperature << std::endl << std::endl;
     }
+    std::cout << "----Timestamp: " << joints_info.timestamp << "----" << std::endl << std::endl;
 }
+
+RoboCompKinovaArm::TGripper api_kinova_controller::get_gripper_state() {
+    RoboCompKinovaArm::TGripper gripper_info;
+    k_api::Base::GripperRequest gripper_request;
+    gripper_request.set_mode(k_api::Base::GRIPPER_POSITION);
+    gripper_info.distance = base->GetMeasuredGripperMovement(gripper_request).finger(0).value();
+    return gripper_info;
+}
+
+bool api_kinova_controller::move_gripper_with_pos(const float pos) {
+    k_api::Base::GripperCommand gripper_command;
+    gripper_command.set_mode(k_api::Base::GRIPPER_POSITION);
+    const auto finger = gripper_command.mutable_gripper()->add_finger();
+    finger->set_finger_identifier(1);
+    finger->set_value(pos);
+    base->SendGripperCommand(gripper_command);
+    return true;
+}
+
+bool api_kinova_controller::move_gripper_with_vel(const float vel) {
+    k_api::Base::GripperCommand gripper_command;
+    gripper_command.set_mode(k_api::Base::GRIPPER_SPEED);
+    const auto finger = gripper_command.mutable_gripper()->add_finger();
+    finger->set_finger_identifier(1);
+    finger->set_value(vel);
+    base->SendGripperCommand(gripper_command);
+    return true;
+}
+
+bool api_kinova_controller::move_joints_with_speeds(std::vector<float> speeds) {
+    k_api::Base::JointSpeeds joint_speeds;
+    int joint_id = 0;
+    for (const auto speed: speeds) {
+        const auto joint_speed = joint_speeds.add_joint_speeds();
+        joint_speed->set_joint_identifier(joint_id);
+        joint_speed->set_value(speed);
+        joint_speed->set_duration(1);
+        joint_id++;
+    }
+    base->SendJointSpeedsCommand(joint_speeds);
+
+    return true;
+}
+
+bool api_kinova_controller::move_joints_with_angles(std::vector<float> angles) {
+    auto action = k_api::Base::Action();
+    const auto reach_joint_angles = action.mutable_reach_joint_angles();
+    const auto joint_angles = reach_joint_angles->mutable_joint_angles();
+    int joint_id = 0;
+    for (const auto angle: angles) {
+        const auto joint_angle = joint_angles->add_joint_angles();
+        joint_angle->set_joint_identifier(joint_id);
+        joint_angle->set_value(angle);
+        joint_id++;
+    }
+    base->ExecuteAction(action);
+    return true;
+}
+
+
 
 
 
