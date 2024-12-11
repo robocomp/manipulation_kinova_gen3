@@ -260,7 +260,31 @@ bool api_kinova_controller::move_joints_with_angles(std::vector<float> angles) {
         joint_angle->set_value(angle);
         joint_id++;
     }
+
+    std::promise<k_api::Base::ActionEvent> finish_promise;
+    auto finish_future = finish_promise.get_future();
+    auto promise_notification_handle = base->OnNotificationActionTopic(
+        create_event_listener_by_promise(finish_promise),
+        k_api::Common::NotificationOptions()
+    );
+
     base->ExecuteAction(action);
+
+    std::cout << "Waiting for movement to finish ..." << std::endl;
+
+    const auto status = finish_future.wait_for(TIMEOUT_DURATION);
+    base->Unsubscribe(promise_notification_handle);
+
+    if(status != std::future_status::ready)
+    {
+        std::cout << "Timeout on action notification wait" << std::endl;
+        return false;
+    }
+    const auto promise_event = finish_future.get();
+
+    std::cout << "Angular movement completed" << std::endl;
+    std::cout << "Promise value : " << k_api::Base::ActionEvent_Name(promise_event) << std::endl;
+
     return true;
 }
 

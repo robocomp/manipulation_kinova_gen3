@@ -1,5 +1,5 @@
 # Proxies for required interfaces
-Proxies.Contactile = "contactile:tcp -h localhost -p 18760"
+Proxies.Contactile = "contactile:tcp -h localhost -p 18761"
 
 # Endpoints for implements interfaces
 Endpoints.KinovaArm = "tcp -p 17955"
@@ -16,7 +16,7 @@ ViewAgent.3d = false
 Period.Compute = 50
 Period.Emergency = 500
 
-ip = "192.168.1.10"
+ip = "192.168.1.11"
 
 Ice.Warn.Connections = "0"
 Ice.Trace.Network = "0"

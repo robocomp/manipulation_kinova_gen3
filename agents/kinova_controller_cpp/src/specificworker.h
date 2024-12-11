@@ -104,12 +104,59 @@ private:
      * \brief Flag indicating whether startup checks are enabled.
      */
 	bool startup_check_flag;
+
+	/**
+	*  @brief Object to control the kinova api
+	*/
 	api_kinova_controller *api_controller;
+
+	/**
+	* @brief Object storing the state of the gripper
+	*/
 	RoboCompKinovaArm::TGripper gripper{};
+
+	/**
+	* @brief Object storing the state of the arm joints
+	*/
 	RoboCompKinovaArm::TJoints joints{};
 
+	/**
+	* @brief Vector that contains the new speed to move the arm
+	*/
+	std::vector<float> new_speeds;
+
+	/**
+	* @brief Flag indicating when to move the arm with speeds
+	*/
+	bool speed_check_flag = false;
+
+	/**
+	* @brief Timestamp to know when to stop move the arm with speed
+	*/
+	long long last_time_speed_check;
+
+	//----------------------------METHODS----------------------------//
+
+	/**
+	* @brief Test method for the gripper, closing and opening it constantly
+	*/
 	void gripper_test_loop();
-	void update_joints_info();
+
+	/**
+	* @brief Test method for the contactile sensors
+	*/
+	void test_contactile();
+
+	/**
+	* @brief Test method for the movement with joints speeds
+	*/
+	void test_speed_move();
+
+	/** @brief Get the joints angles in a vector
+	*
+	* @return The vector with the joints angles
+	*/
+	std::vector<float> get_joints_angles();
 
 
 signals:

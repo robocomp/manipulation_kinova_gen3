@@ -19,6 +19,7 @@
 #include "specificworker.h"
 
 #include <ranges>
+#include <rapplication/rapplication.h>
 
 #include "api_kinova_controller.h"
 
@@ -95,42 +96,43 @@ void SpecificWorker::initialize()
 {
 	std::cout << "Initialize worker" << std::endl;
 
+	new_speeds = std::vector<float>(7, 0.0);
+
 	auto ip = configLoader.get<std::string>("ip");
 
 	std::cout << "Trying to create the api_controller" << std::endl;
-	api_controller = new api_kinova_controller();
+	api_controller = new api_kinova_controller(ip);
 	std::cout << "api_controller created" << std::endl;
 
-	api_controller->move_to_selected_pose("Home");
+	// api_controller->move_to_selected_pose("Home");
+	joints = api_controller->get_joints_info();
+	gripper = api_controller->get_gripper_state();
 	api_controller->print_joints_info();
 
+	// TEST TO THE CONTACTILE SENSOR DISCOMMENT ONLY IN CASE YOU WANT TO TEST IT
+	// test_contactile();
 }
 
 void SpecificWorker::compute()
 {
-    // std::cout << "Compute worker" << std::endl;
-
 	// TEST TO THE GRIPPER SPEED MOVEMENT DISCOMMENT ONLY IN CASE YOU WANT TO TEST IT
 	// gripper_test_loop();
+
+	// THE SPEED MOVE TEST DISCOMMENT ONLY IN CASE YOU WANT TO TEST IT
+	// test_speed_move();
 
 	joints = api_controller->get_joints_info();
 	gripper = api_controller->get_gripper_state();
 
-	//computeCODE
-	//try
-	//{
-	//  camera_proxy->getYImage(0,img, cState, bState);
-    	//    if (img.empty())
-    	//        emit goToEmergency()
-	//  memcpy(image_gray.data, &img[0], m_width*m_height*sizeof(uchar));
-	//  searchTags(image_gray);
-	//}
-	//catch(const Ice::Exception &e)
-	//{
-	//  std::cout << "Error reading from Camera" << e << std::endl;
-	//}
-	
-	
+	if (speed_check_flag) {
+		const auto now = std::chrono::system_clock::now();
+		const auto ms_now = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+		if (abs(ms_now - last_time_speed_check) > 1000) {
+			new_speeds = std::vector<float>(7, 0.0);
+			speed_check_flag = false;
+		}
+		api_controller->move_joints_with_speeds(new_speeds);
+	}
 }
 
 void SpecificWorker::emergency()
@@ -172,15 +174,54 @@ void SpecificWorker::gripper_test_loop() {
 	}
 }
 
+void SpecificWorker::test_contactile() {
+	std::cout << "Test contactile" << std::endl;
+	const bool close = KinovaArm_closeGripper();
+	cout << "Gripper close: " << close << endl;
+}
+
+void SpecificWorker::test_speed_move() {
+	std::cout << "Test speed_move" << std::endl;
+	RoboCompKinovaArm::TJointSpeeds kinova_speeds;
+	kinova_speeds.jointSpeeds = std::vector<float> (7, 0.0);
+	kinova_speeds.jointSpeeds[6] = 5.0;
+	for (auto speed : kinova_speeds.jointSpeeds) {
+		cout << "Speed: " << speed << endl;
+	}
+	KinovaArm_moveJointsWithSpeed(kinova_speeds);
+}
+
+
+std::vector<float> SpecificWorker::get_joints_angles() {
+	std::vector<float> angles(joints.joints.size());
+	for (auto joint:joints.joints)
+		angles.push_back(joint.angle);
+
+	return angles;
+}
+
 bool SpecificWorker::KinovaArm_closeGripper()
 {
 	#ifdef HIBERNATION_ENABLED
 		hibernation = true;
 	#endif
-	bool ret{};
-	//implementCODE
+	float force = 0;
+	float gripper_dist = gripper.distance;
+	while (force < 10.0 && gripper_dist < 0.9) {
+		api_controller->move_gripper_with_vel(-0.005);
+		auto tactileValues = contactile_proxy->getValues();
+		force = fabs(tactileValues.left.x) + fabs(tactileValues.left.y) + fabs(tactileValues.left.z)
+		+ fabs(tactileValues.right.x) + fabs(tactileValues.right.y) + fabs(tactileValues.right.z);
+		gripper = api_controller->get_gripper_state();
+		gripper_dist = gripper.distance;
+	}
 
-	return ret;
+	api_controller->move_gripper_with_vel(0.0);
+
+	if (force > 2.0)
+		return true;
+
+	return false;
 }
 
 RoboCompKinovaArm::TPose SpecificWorker::KinovaArm_getCenterOfTool(RoboCompKinovaArm::ArmJoints referencedTo)
@@ -215,7 +256,7 @@ void SpecificWorker::KinovaArm_moveJointsWithAngle(RoboCompKinovaArm::TJointAngl
 	#ifdef HIBERNATION_ENABLED
 		hibernation = true;
 	#endif
-	//implementCODE
+	api_controller->move_joints_with_angles(angles.jointAngles);
 }
 
 void SpecificWorker::KinovaArm_moveJointsWithSpeed(RoboCompKinovaArm::TJointSpeeds speeds)
@@ -223,7 +264,10 @@ void SpecificWorker::KinovaArm_moveJointsWithSpeed(RoboCompKinovaArm::TJointSpee
 	#ifdef HIBERNATION_ENABLED
 		hibernation = true;
 	#endif
-	//implementCODE
+	new_speeds = speeds.jointSpeeds;
+	speed_check_flag = true;
+	const auto now = std::chrono::system_clock::now();
+	last_time_speed_check = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
 }
 
 void SpecificWorker::KinovaArm_openGripper()
