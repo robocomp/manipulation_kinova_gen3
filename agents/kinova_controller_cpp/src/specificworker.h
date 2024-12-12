@@ -98,7 +98,12 @@ public slots:
 	void modify_edge_attrs_slot(std::uint64_t from, std::uint64_t to, const std::string &type, const std::vector<std::string>& att_names){};
 	void del_edge_slot(std::uint64_t from, std::uint64_t to, const std::string &edge_tag){};
 	void del_node_slot(std::uint64_t from){};
+	void new_target_from_mouse(QPointF);
+
 private:
+
+	std::unique_ptr<DSR::RT_API> rt;
+	std::shared_ptr<DSR::InnerEigenAPI> inner_eigen;
 
 	/**
      * \brief Flag indicating whether startup checks are enabled.
@@ -134,6 +139,7 @@ private:
 	* @brief Timestamp to know when to stop move the arm with speed
 	*/
 	long long last_time_speed_check;
+
 
 	//----------------------------METHODS----------------------------//
 

@@ -10,7 +10,7 @@ Agent.configFile = "kinova2.json"
 
 ViewAgent.tree = false
 ViewAgent.graph = true
-ViewAgent.2d = false
+ViewAgent.2d = true
 ViewAgent.3d = false
 
 Period.Compute = 50

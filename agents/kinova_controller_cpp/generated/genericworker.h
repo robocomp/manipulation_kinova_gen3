@@ -90,7 +90,7 @@ protected:
 	std::unique_ptr<DSR::DSRViewer> graph_viewer;
 	QHBoxLayout mainLayout;
 
-
+	DSR::QScene2dViewer* widget_2d;
 
 
 private:

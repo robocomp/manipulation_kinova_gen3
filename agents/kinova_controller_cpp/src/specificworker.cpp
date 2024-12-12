@@ -20,11 +20,13 @@
 
 #include <ranges>
 #include <rapplication/rapplication.h>
-
+#include <cppitertools/sliding_window.hpp>
 #include "api_kinova_controller.h"
 
 SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, bool startup_check) : GenericWorker(configLoader, tprx)
 {
+
+
 	this->startup_check_flag = startup_check;
 	if(this->startup_check_flag)
 	{
@@ -35,7 +37,10 @@ SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, 
 		#ifdef HIBERNATION_ENABLED
 			hibernationChecker.start(500);
 		#endif
-		
+
+		rt = G->get_rt_api();
+		inner_eigen = G->get_inner_eigen_api();
+
 		//dsr update signals
 		//connect(G.get(), &DSR::DSRGraph::update_node_signal, this, &SpecificWorker::modify_node_slot);
 		//connect(G.get(), &DSR::DSRGraph::update_edge_signal, this, &SpecificWorker::modify_edge_slot);
@@ -96,6 +101,13 @@ void SpecificWorker::initialize()
 {
 	std::cout << "Initialize worker" << std::endl;
 
+	// 2D widget
+
+	if (widget_2d != nullptr)
+	{
+		connect(widget_2d, SIGNAL(mouse_left_click(QPointF)), this, SLOT(new_target_from_mouse(QPointF)));
+	}
+
 	new_speeds = std::vector<float>(7, 0.0);
 
 	auto ip = configLoader.get<std::string>("ip");
@@ -133,30 +145,35 @@ void SpecificWorker::compute()
 		}
 		api_controller->move_joints_with_speeds(new_speeds);
 	}
+
+	// write joint values to G
+	//for (const auto &names: joint_list_names | iter::sliding_window(2))
+	//{
+	//	names[0], names[1]
+
+	if (auto parent = G->get_node("joint_0"); parent.has_value())
+		if (auto child = G ->get_node("joint_1"); child.has_value())
+		{
+			if (auto edge = rt->get_edge_RT(parent.value(), child.value().id()); edge.has_value())
+			{
+				if (auto rot = G->get_attrib_by_name<rt_rotation_euler_xyz_att>(edge.value()); rot.has_value())
+				{
+					auto rot_val = rot.value().get();
+					// cambiar valor
+					rt->insert_or_assign_edge_RT(parent.value(), child.value().id(), {}, rot_val);
+				}
+			}
+
+
+
 }
 
-void SpecificWorker::emergency()
-{
-    std::cout << "Emergency worker" << std::endl;
-    //emergencyCODE
-    //
-    //if (SUCCESSFUL) //The componet is safe for continue
-    //  emmit goToRestore()
-}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//Execute one when exiting to emergencyState
-void SpecificWorker::restore()
-{
-    std::cout << "Restore worker" << std::endl;
-    //restoreCODE
-    //Restore emergency component
-}
 
-int SpecificWorker::startup_check()
+void SpecificWorker::new_target_from_mouse(QPointF p)
 {
-	std::cout << "Startup check" << std::endl;
-	QTimer::singleShot(200, QCoreApplication::instance(), SLOT(quit()));
-	return 0;
+	qInfo() << "KinovaArm new_target_from_mouse" << p;
 }
 
 void SpecificWorker::gripper_test_loop() {
@@ -287,6 +304,30 @@ void SpecificWorker::KinovaArm_setCenterOfTool(RoboCompKinovaArm::TPose pose, Ro
 	//implementCODE
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void SpecificWorker::emergency()
+{
+	std::cout << "Emergency worker" << std::endl;
+	//emergencyCODE
+	//
+	//if (SUCCESSFUL) //The componet is safe for continue
+	//  emmit goToRestore()
+}
+
+//Execute one when exiting to emergencyState
+void SpecificWorker::restore()
+{
+	std::cout << "Restore worker" << std::endl;
+	//restoreCODE
+	//Restore emergency component
+}
+
+int SpecificWorker::startup_check()
+{
+	std::cout << "Startup check" << std::endl;
+	QTimer::singleShot(200, QCoreApplication::instance(), SLOT(quit()));
+	return 0;
+}
 
 
 /**************************************/

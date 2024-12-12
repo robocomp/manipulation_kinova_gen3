@@ -22,6 +22,7 @@
 */
 GenericWorker::GenericWorker(const ConfigLoader& configLoader, TuplePrx tprx) : Ui_guiDlg()
 {
+	QLoggingCategory::setFilterRules("*.debug=false\n");
 
 	this->configLoader = configLoader;
 	
@@ -82,6 +83,8 @@ GenericWorker::GenericWorker(const ConfigLoader& configLoader, TuplePrx tprx) : 
     }
     graph_viewer = std::make_unique<DSR::DSRViewer>(this, G, current_opts, main);
     setWindowTitle(QString::fromStdString(agent_name + "-") + QString::number(agent_id));
+
+	widget_2d = qobject_cast<DSR::QScene2dViewer *>(graph_viewer->get_widget(opts::scene));
 }
 
 /**
