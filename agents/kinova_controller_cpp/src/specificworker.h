@@ -19,7 +19,7 @@
 
 /**
 	\brief
-	@author authorname
+	@author Jorge Calderon Gonzalez
 */
 
 
@@ -140,6 +140,20 @@ private:
 	*/
 	long long last_time_speed_check;
 
+	/**
+	* @brief List with the links names on the json
+	*/
+	const std::vector<string> json_links_names{
+		"base_link",
+		"shoulder_link",
+		"half_arm_1_link",
+		"half_arm_2_link",
+		"forearm_link",
+		"spherical_wrist_1_link",
+		"spherical_wrist_2_link",
+		"bracelet_link"
+	};
+
 
 	//----------------------------METHODS----------------------------//
 
@@ -163,6 +177,11 @@ private:
 	* @return The vector with the joints angles
 	*/
 	std::vector<float> get_joints_angles();
+
+	/**
+	* @brief Update the DSR with the joints info
+	*/
+	void update_dsr_joints();
 
 
 signals:

@@ -116,7 +116,9 @@ void SpecificWorker::initialize()
 	api_controller = new api_kinova_controller(ip);
 	std::cout << "api_controller created" << std::endl;
 
+	// DISCOMMENT IF YOU WANT TO SET THE ARM IN THE HOME POSITION AT THE START OF THE CONTROLLER
 	// api_controller->move_to_selected_pose("Home");
+
 	joints = api_controller->get_joints_info();
 	gripper = api_controller->get_gripper_state();
 	api_controller->print_joints_info();
@@ -136,35 +138,19 @@ void SpecificWorker::compute()
 	joints = api_controller->get_joints_info();
 	gripper = api_controller->get_gripper_state();
 
-	if (speed_check_flag) {
+	if (speed_check_flag)
+	{
 		const auto now = std::chrono::system_clock::now();
 		const auto ms_now = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-		if (abs(ms_now - last_time_speed_check) > 1000) {
+		if (abs(ms_now - last_time_speed_check) > 1000)
+		{
 			new_speeds = std::vector<float>(7, 0.0);
 			speed_check_flag = false;
 		}
 		api_controller->move_joints_with_speeds(new_speeds);
 	}
 
-	// write joint values to G
-	//for (const auto &names: joint_list_names | iter::sliding_window(2))
-	//{
-	//	names[0], names[1]
-
-	if (auto parent = G->get_node("joint_0"); parent.has_value())
-		if (auto child = G ->get_node("joint_1"); child.has_value())
-		{
-			if (auto edge = rt->get_edge_RT(parent.value(), child.value().id()); edge.has_value())
-			{
-				if (auto rot = G->get_attrib_by_name<rt_rotation_euler_xyz_att>(edge.value()); rot.has_value())
-				{
-					auto rot_val = rot.value().get();
-					// cambiar valor
-					rt->insert_or_assign_edge_RT(parent.value(), child.value().id(), {}, rot_val);
-				}
-			}
-
-
+	update_dsr_joints();
 
 }
 
@@ -176,46 +162,79 @@ void SpecificWorker::new_target_from_mouse(QPointF p)
 	qInfo() << "KinovaArm new_target_from_mouse" << p;
 }
 
-void SpecificWorker::gripper_test_loop() {
+void SpecificWorker::gripper_test_loop()
+{
 	static bool close = true;
 	RoboCompKinovaArm::TGripper gripper_state = api_controller->get_gripper_state();
 	std::cout << "Gripper state: " << gripper_state.distance << std::endl;
-	if (close) {
+	if (close)
+	{
 		api_controller->move_gripper_with_vel(0.005);
 		if (gripper_state.distance <= 0.05)
 			close = false;
 	}
-	else {
+	else
+	{
 		api_controller->move_gripper_with_vel(-0.005);
 		if (gripper_state.distance >= 0.95)close = true;
 	}
 }
 
-void SpecificWorker::test_contactile() {
+void SpecificWorker::test_contactile()
+{
 	std::cout << "Test contactile" << std::endl;
 	const bool close = KinovaArm_closeGripper();
 	cout << "Gripper close: " << close << endl;
 }
 
-void SpecificWorker::test_speed_move() {
+void SpecificWorker::test_speed_move()
+{
 	std::cout << "Test speed_move" << std::endl;
 	RoboCompKinovaArm::TJointSpeeds kinova_speeds;
 	kinova_speeds.jointSpeeds = std::vector<float> (7, 0.0);
 	kinova_speeds.jointSpeeds[6] = 5.0;
-	for (auto speed : kinova_speeds.jointSpeeds) {
+	for (auto speed : kinova_speeds.jointSpeeds)
+	{
 		cout << "Speed: " << speed << endl;
 	}
 	KinovaArm_moveJointsWithSpeed(kinova_speeds);
 }
 
-
-std::vector<float> SpecificWorker::get_joints_angles() {
+std::vector<float> SpecificWorker::get_joints_angles()
+{
 	std::vector<float> angles(joints.joints.size());
 	for (auto joint:joints.joints)
 		angles.push_back(joint.angle);
 
 	return angles;
 }
+
+void SpecificWorker::update_dsr_joints() {
+	int joint_id = 0;
+	for (const auto &names: json_links_names | iter::sliding_window(2))
+	{
+		if (auto parent = G->get_node(names[0]); parent.has_value())
+		{
+			if (auto child = G ->get_node(names[1]); child.has_value())
+			{
+				if (auto edge = rt->get_edge_RT(parent.value(), child.value().id()); edge.has_value())
+				{
+					auto rot = G->get_attrib_by_name<rt_rotation_euler_xyz_att>(edge.value());
+					auto trans = G->get_attrib_by_name<rt_translation_att>(edge.value());
+					if (rot.has_value() && trans.has_value())
+					{
+						auto rot_val = rot.value().get();
+						auto trans_val = trans.value().get();
+						rot_val[2] = qDegreesToRadians(joints.joints[joint_id].angle);
+						rt->insert_or_assign_edge_RT(parent.value(), child.value().id(), trans_val, rot_val);
+						joint_id++;
+					}
+				}
+			}
+		}
+	}
+}
+
 
 bool SpecificWorker::KinovaArm_closeGripper()
 {
@@ -224,7 +243,8 @@ bool SpecificWorker::KinovaArm_closeGripper()
 	#endif
 	float force = 0;
 	float gripper_dist = gripper.distance;
-	while (force < 10.0 && gripper_dist < 0.9) {
+	while (force < 10.0 && gripper_dist < 0.9)
+	{
 		api_controller->move_gripper_with_vel(-0.005);
 		auto tactileValues = contactile_proxy->getValues();
 		force = fabs(tactileValues.left.x) + fabs(tactileValues.left.y) + fabs(tactileValues.left.z)
