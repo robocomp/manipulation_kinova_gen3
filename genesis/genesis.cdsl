@@ -1,0 +1,9 @@
+
+Component genesis
+{
+    Communications
+    {
+    };
+    language python;
+};
+
