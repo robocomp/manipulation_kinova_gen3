@@ -1,0 +1,9 @@
+
+Component genesis_sim
+{
+    Communications
+    {
+    };
+    language python;
+};
+

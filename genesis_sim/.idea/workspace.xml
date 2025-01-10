@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="a67e1de9-f484-453b-a443-1191e9a927b5" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/src/parser.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../genesis/CMakeLists.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../genesis/DoxyFile" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../genesis/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../genesis/etc/config" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../genesis/genesis.cdsl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../genesis/src/CMakeLists.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../genesis/src/genericworker.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../genesis/src/genesis.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../genesis/src/interfaces.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../genesis/src/specificworker.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../genesis/statemachine.smdsl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../pybullet_controller/URDFs/kinova_with_pybullet/gen3_robotiq_2f_85-mod.urdf" beforeDir="false" afterPath="$PROJECT_DIR$/../pybullet_controller/URDFs/kinova_with_pybullet/gen3_robotiq_2f_85-mod.urdf" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 6
+}</component>
+  <component name="ProjectId" id="2rM1GqPIyKJ7tzo7WYh46bC15TV" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.genericworker.executor&quot;: &quot;Run&quot;,
+    &quot;Python.specificworker.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/pbustos/robocomp/components/manipulation_kinova_gen3/genesis_sim&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-deb605915726-JavaScript-PY-243.22562.180" />
+        <option value="bundled-python-sdk-85c76a3b01b3-9a18a617cbe4-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.22562.180" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="a67e1de9-f484-453b-a443-1191e9a927b5" name="Changes" comment="" />
+      <created>1736354037012</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1736354037012</updated>
+      <workItem from="1736354038041" duration="493000" />
+      <workItem from="1736354645447" duration="8506000" />
+      <workItem from="1736414093829" duration="1816000" />
+      <workItem from="1736500580622" duration="12562000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/genesis_sim$genericworker.coverage" NAME="genericworker Coverage Results" MODIFIED="1736355417843" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+    <SUITE FILE_PATH="coverage/genesis_sim$specificworker.coverage" NAME="specificworker Coverage Results" MODIFIED="1736355431316" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src" />
+  </component>
+</project>
