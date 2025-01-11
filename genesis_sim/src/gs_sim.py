@@ -27,7 +27,7 @@ class GS_SIM:
             vis_options=gs.options.VisOptions(
                 segmentation_level="entity"
             ),
-            show_viewer=True,
+            show_viewer=False,
         )
 
         ########################## entities ##########################
@@ -163,6 +163,12 @@ class GS_SIM:
         bracelet_pose[:3, :3] = quat_to_R(robot.get_link("bracelet_link").get_quat().cpu().numpy()) @ rotation
         bracelet_pose[:3, 3] = robot.get_link("bracelet_link").get_pos().cpu().numpy() + [0.06, 0.0, -0.05]
         return bracelet_pose
+
+    def step(self):
+        # update camera in hand
+        self.camera.set_pose(transform=self.move_camera(self.gen3))
+        # update sim
+        self.scene.step()
 
     # # set cube1 random pose
     # new_pos = [np.random.rand() * 0.2 + 0.5, np.random.rand() * 0.6 - 0.3, 0.04]

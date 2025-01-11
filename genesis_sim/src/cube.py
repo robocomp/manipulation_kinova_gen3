@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import uuid
+import time
 
 class Cube:
     def __init__(self, pos, quat):
@@ -8,6 +9,7 @@ class Cube:
         self.quat = quat
         self.updated = False
         self.id = uuid.uuid4()
+        self.creation_time = time.time()
 
     def project(self):
         return [self.pos, self.quat]
@@ -21,3 +23,4 @@ class Cube:
 
     def aff_reach(self):
         pass
+

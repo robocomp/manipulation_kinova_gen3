@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.6)
-PROJECT(  genesis )
+PROJECT(  genesis_sim )
 
 INCLUDE( /home/robocomp/robocomp/cmake/robocomp.cmake )
 

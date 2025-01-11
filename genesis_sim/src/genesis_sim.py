@@ -20,7 +20,7 @@
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-# \mainpage RoboComp::genesis
+# \mainpage RoboComp::genesis_sim
 #
 # \section intro_sec Introduction
 #
@@ -48,7 +48,7 @@
 #
 # \subsection execution_ssec Execution
 #
-# Just: "${PATH_TO_BINARY}/genesis --Ice.Config=${PATH_TO_CONFIG_FILE}"
+# Just: "${PATH_TO_BINARY}/genesis_sim --Ice.Config=${PATH_TO_CONFIG_FILE}"
 #
 # \subsection running_ssec Once running
 #
@@ -62,6 +62,7 @@ import signal
 from rich.console import Console
 console = Console()
 
+from PySide6 import QtWidgets
 import interfaces
 from specificworker import *
 
@@ -69,9 +70,8 @@ from specificworker import *
 def sigint_handler(*args):
     QtCore.QCoreApplication.quit()
 
-
 if __name__ == '__main__':
-    app = QtCore.QCoreApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     parser = argparse.ArgumentParser()
     parser.add_argument('iceconfigfile', nargs='?', type=str, default='etc/config')
     parser.add_argument('--startup-check', action='store_true')
