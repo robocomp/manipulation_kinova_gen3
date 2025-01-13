@@ -22,7 +22,7 @@ import time
 from typing import Tuple
 import cv2
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QSplashScreen
 from rich.console import Console
 import torch
 import numpy as np
@@ -32,8 +32,7 @@ from genericworker import *
 import interfaces as ifaces
 
 from gs_sim import GS_SIM
-from cube import Cube
-from parser import ChatWindow
+from chat import ChatWindow
 from model import Model
 from gen3 import Gen3
 
@@ -46,11 +45,10 @@ class SpecificWorker(GenericWorker):
         if startup_check:
             self.startup_check()
         else:
-            print("Compiling scene...")
             self.sim = GS_SIM()
 
             # list of model cubes
-            self.gen3 = Gen3(self.sim.gen3)
+            self.gen3 = Gen3(self.sim.gen3, self.sim.dofs_idx)
             self.model = Model()
             self.model.add_robot(self.gen3)
 
@@ -59,15 +57,16 @@ class SpecificWorker(GenericWorker):
             self.traj = None
             self.current_affordance = self.gen3.aff_exploring_from_above
             self.current_params = None
+            self.aff_idle = False
 
-            self.target_cube = None
             self.default_tip_pose = self.sim.gen3.get_link(self.sim.tip_name).get_pos()
             self.number_of_real_cubes = 3
 
             # chat
             self.ui.frame_chat.resize(800, 400)
             self.chat = ChatWindow(self.ui.frame_chat, self.model)
-            self.chat.parser.cmd_select_signal.connect(self.select_affordance)
+            self.chat.parser.cmd_signal.connect(self.select_affordance)
+            self.chat.parser.exit_signal.connect(self.close_app)
 
             self.timer.timeout.connect(self.compute)
             self.timer.start(self.Period)
@@ -95,6 +94,10 @@ class SpecificWorker(GenericWorker):
     ###################################################################################################
     def get_image_from_camera(self):
         rgb, _, seg, _ = self.sim.camera.render(rgb=True, segmentation=True)
+
+        # print all different values in seg pixels
+        #print(np.unique(seg))
+
         rgb = np.ascontiguousarray(rgb)
         height, width, channel = rgb.shape
         bytes_per_line = 3 * width
@@ -109,23 +112,39 @@ class SpecificWorker(GenericWorker):
         self.current_params = params
         self.first_time = True
 
-    def execute_affordance(self, affordance, params):
+        # draw debug elements in the scene from params
+        if "cube" in params:
+            self.sim.draw_debug_frame(params["cube"].pos.cpu().numpy(), params["cube"].quat.cpu().numpy())
 
+        # update chat with selected element
+        if self.model.last_selected_element is not None:
+            self.chat.selected_element_label.setText("cube " + str(self.model.get_index_of_element(self.model.last_selected_element)))
+
+    def execute_affordance(self, affordance, params):
         if self.first_time:
            self.traj  = affordance(params)
            self.first_time = False
 
         # call the generator
         try:
-            x, y = next(self.traj)
-            tip_target = torch.tensor([x, y, self.default_tip_pose[2]])
-            qpos = self.sim.gen3.inverse_kinematics(link=self.sim.gen3.get_link(self.sim.tip_name),
-                                                    pos=tip_target,
-                                                    quat=self.sim.rotate_quaternion_wrt_z([1, 0, 0, 0], np.pi / 2))
-            self.sim.gen3.control_dofs_position(qpos)
+            x, y, z = next(self.traj)
+            if x is None or y is None or z is None:
+                return
+            # check if the tip is already in the target position
+            if not np.allclose(np.array([x, y, z]), self.model.gen3.get_current_tip_pose(), atol=1e-3):
+                tip_target = torch.tensor([x, y, z])
+                qpos = self.sim.gen3.inverse_kinematics(link=self.sim.gen3.get_link(self.sim.tip_name),
+                                                        pos=tip_target,
+                                                        quat=self.sim.rotate_quaternion_wrt_z([1, 0, 0, 0], np.pi / 2))
+                self.sim.gen3.control_dofs_position(qpos)
         except StopIteration:
-            time.sleep(0.5)
             self.first_time = True
+            self.current_affordance = self.gen3.aff_idle
+
+    def close_app(self):
+        print("Closing app")
+        self.chat.chat_thread.stop()
+        QApplication.quit()
 
     ####################################################333
     def startup_check(self):

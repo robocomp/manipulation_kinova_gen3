@@ -5,6 +5,7 @@
 import numpy as np
 from genesis import gs
 from genesis.utils.geom import quat_to_R
+from numpy import ndarray
 from scipy.spatial.transform import Rotation as R
 
 class GS_SIM:
@@ -55,16 +56,23 @@ class GS_SIM:
                 quat=self.rotate_quaternion_wrt_z([1, 0, 0, 0], np.pi / 2)
             ), surface=gs.surfaces.Plastic(diffuse_texture=gs.textures.ColorTexture(color=(0.5, 1.0, 1.0)))
         )
+        self.basket = self.scene.add_entity(
+            gs.morphs.Mesh(
+                file="basket.stl",
+                scale=(0.003, 0.003, 0.001),
+                pos=(0.25, 0.5, 0.0),
+                fixed=True,)
+        )
         self.gen3 = self.scene.add_entity(
             gs.morphs.URDF(
                 file="/home/pbustos/robocomp/components/manipulation_kinova_gen3/pybullet_controller/URDFs/kinova_with_pybullet/gen3_robotiq_2f_85-mod.urdf",
                 fixed=True, )
         )
         self.camera = self.scene.add_camera(
-            res    = (640, 480),
+            res    = (720, 480),
             pos    = (3, -1, 1),
             lookat = (0, 0, 0.5),
-            fov    = 80,
+            fov    = 100,
             GUI    = False
         )
 
@@ -163,6 +171,12 @@ class GS_SIM:
         bracelet_pose[:3, :3] = quat_to_R(robot.get_link("bracelet_link").get_quat().cpu().numpy()) @ rotation
         bracelet_pose[:3, 3] = robot.get_link("bracelet_link").get_pos().cpu().numpy() + [0.06, 0.0, -0.05]
         return bracelet_pose
+
+    def draw_debug_frame(self, pos: ndarray, quat: ndarray):
+        T = np.eye(4)
+        T[:3, :3] = quat_to_R(quat)
+        T[:3, 3] = pos
+        self.scene.draw_debug_frame(T, axis_length=0.1, axis_radius=0.002)
 
     def step(self):
         # update camera in hand
