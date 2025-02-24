@@ -104,7 +104,7 @@ class SpecificWorker(GenericWorker):
         ret.joints = joints
         ret.timestamp = int(time.time()*1000)
         self.joints = ret
-        print(self.kinova.get_state())
+        print(self.kinova.get_state()
         print("Joints: ", self.joints)
 
         ret = ifaces.RoboCompKinovaArm.TGripper()

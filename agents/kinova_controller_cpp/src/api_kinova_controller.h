@@ -15,7 +15,7 @@
 #include <KinovaArm.h>
 #include <chrono>
 
-// #include "utilities.h"
+#include <cmath>
 
 namespace k_api = Kinova::Api;
 
@@ -126,6 +126,13 @@ public:
     * @return True if the joints can reach the angle, False otherwise
     */
     bool move_joints_with_angles(std::vector<float> angles);
+
+    /**
+     * @brief Get the forward kinematics for the end-effector's arm
+     *
+     * @return Tuple with two vector, first represents the translations and second represent the rotations
+     */
+    std::tuple<std::vector<float>, std::vector<float>> get_forward_kinematics();
 
 };
 

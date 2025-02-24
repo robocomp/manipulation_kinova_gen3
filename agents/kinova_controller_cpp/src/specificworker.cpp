@@ -123,6 +123,9 @@ void SpecificWorker::initialize()
 	gripper = api_controller->get_gripper_state();
 	api_controller->print_joints_info();
 
+	update_dsr_joints();
+	show_forward_kinematics();
+
 	// TEST TO THE CONTACTILE SENSOR DISCOMMENT ONLY IN CASE YOU WANT TO TEST IT
 	// test_contactile();
 }
@@ -151,6 +154,7 @@ void SpecificWorker::compute()
 	}
 
 	update_dsr_joints();
+	// show_forward_kinematics();
 
 }
 
@@ -233,6 +237,46 @@ void SpecificWorker::update_dsr_joints() {
 			}
 		}
 	}
+}
+
+void SpecificWorker::show_forward_kinematics()
+{
+	std::cout << "Show forward kinematics" << std::endl;
+	const auto pose = api_controller->get_forward_kinematics();
+	const auto translation = std::get<0>(pose);
+	const auto rotation = std::get<1>(pose);
+	const auto quat_rot = euler_to_quaternion(rotation);
+	std::cout << "Translation: " << std::endl;
+	std::cout <<"x: " << translation[0] << "| y: " << translation[1] << "| z: " << translation[2] << std::endl;
+	std::cout << "Euler rotation: " << std::endl;
+	std::cout <<"theta_x: " << rotation[0] << "| theta_y: " << rotation[1] << "| theta_z: " << rotation[2] << std::endl;
+	std::cout <<"Rotation expresed as Quaternion: " << std::endl;
+	std::cout <<"w: " << quat_rot.w << "| x:" << quat_rot.x << "| y: " << quat_rot.y << "| z: " << quat_rot.z << std::endl;
+}
+
+SpecificWorker::Quaternion SpecificWorker::euler_to_quaternion(const std::vector<float> &euler_thetas)
+{
+	// Convertir ángulos de Euler de grados a radianes
+	auto theta_x = euler_thetas[0] * M_PI / 180.0;
+	auto theta_y = euler_thetas[1] * M_PI / 180.0;
+	auto theta_z = euler_thetas[2] * M_PI / 180.0;
+
+	// Calcular los senos y cosenos de la mitad de los ángulos
+	double cy = cos(theta_y * 0.5);
+	double sy = sin(theta_y * 0.5);
+	double cp = cos(theta_x * 0.5);
+	double sp = sin(theta_x * 0.5);
+	double cr = cos(theta_z * 0.5);
+	double sr = sin(theta_z * 0.5);
+
+	// Calcular el cuaternión
+	Quaternion q;
+	q.w = cr * cp * cy + sr * sp * sy;
+	q.x = sr * cp * cy - cr * sp * sy;
+	q.y = cr * sp * cy + sr * cp * sy;
+	q.z = cr * cp * sy - sr * sp * cy;
+
+	return q;
 }
 
 

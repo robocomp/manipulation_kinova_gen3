@@ -34,6 +34,7 @@
 #include <genericworker.h>
 
 #include "api_kinova_controller.h"
+#include <cmath>
 
 /**
  * \brief Class SpecificWorker implements the core functionality of the component.
@@ -101,6 +102,10 @@ public slots:
 	void new_target_from_mouse(QPointF);
 
 private:
+
+	struct Quaternion {
+		double w, x, y, z;
+	};
 
 	std::unique_ptr<DSR::RT_API> rt;
 	std::shared_ptr<DSR::InnerEigenAPI> inner_eigen;
@@ -183,6 +188,17 @@ private:
 	*/
 	void update_dsr_joints();
 
+	/**
+	 * @brief Show the forward kinematics of the end-effector
+	 */
+	void show_forward_kinematics();
+
+	/**
+	* @brief Transform euler rotation vector to quaternion
+	*
+	* @return Quaternion struct that represent the euler rotation
+	*/
+	Quaternion euler_to_quaternion(const std::vector<float> &euler_thetas);
 
 signals:
 	//void customSignal();

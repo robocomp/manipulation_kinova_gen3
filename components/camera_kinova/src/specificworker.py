@@ -72,9 +72,11 @@ class SpecificWorker(GenericWorker):
         # self.color_stream = cv2.VideoCapture(
         #     f"gst-launch-1.0 rtspsrc location=rtsp://{self.ip}/color latency=30 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert n-threads=2 ! video/x-raw,format=BGR ! queue ! appsink drop=true",
         #     cv2.CAP_GSTREAMER)
+        print("Antes de intentar abrir")
         self.color_stream = cv2.VideoCapture(
             f"gst-launch-1.0 rtspsrc location=rtsp://{self.ip}/color latency=30 ! rtph264depay ! h264parse ! nvh264dec ! videoconvert n-threads=2 ! video/x-raw,format=BGR ! queue ! appsink drop=true",
             cv2.CAP_GSTREAMER)
+        print("Despues de intentar abrir", self.color_stream.isOpened())
 
         # self.depth_stream = cv2.VideoCapture(
         #     f"gst-launch-1.0 rtspsrc location=rtsp://{self.ip}/depth latency=30 ! rtpgstdepay ! videoconvert n-threads=2 ! video/x-raw,format=GRAY16_LE ! queue ! appsink drop=true",

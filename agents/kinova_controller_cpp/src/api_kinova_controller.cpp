@@ -288,6 +288,13 @@ bool api_kinova_controller::move_joints_with_angles(std::vector<float> angles) {
     return true;
 }
 
+std::tuple<std::vector<float>, std::vector<float>>api_kinova_controller::get_forward_kinematics()
+{
+    auto joints_angles = base->GetMeasuredJointAngles();
+    const auto pose = base->ComputeForwardKinematics(joints_angles);
+    return std::make_tuple(std::vector<float>{pose.x(), pose.y(), pose.z()},
+                           std::vector<float>{pose.theta_x(),pose.theta_y(), pose.theta_z()});
+}
 
 
 
