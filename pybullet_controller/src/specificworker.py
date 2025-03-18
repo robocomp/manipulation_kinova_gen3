@@ -37,8 +37,8 @@ import YoloDetector
 from pyquaternion import Quaternion
 
 import numpy
-from PySide2.QtCore import QTimer
-from PySide2.QtWidgets import QApplication
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication
 from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
@@ -185,8 +185,6 @@ class SpecificWorker(GenericWorker):
                     nuevo_val = np.array(val) * 1000
                     p.changeDynamics(self.robot_Pedro, i, localInertiaDiagonal=nuevo_val)
 
-                print("Kinova", i, p.getDynamicsInfo(self.robot_Pedro, i))
-
 
             # This variables is to store the position of the end effector of the robot
             self.target_angles = self.home_angles
@@ -198,7 +196,7 @@ class SpecificWorker(GenericWorker):
             self.joy_selected_joint = 0
 
             # This variable is to store the mode of the robot
-            self.move_mode = 4
+            self.move_mode = -101#4
 
             # This variable is to store the state of the real arm
             # self.ext_joints = self.kinovaarm_proxy.getJointsState() ############################################################################# DESCOMENTAR
@@ -236,7 +234,7 @@ class SpecificWorker(GenericWorker):
             # Timer to read the camera of the real arm
             self.cameraKinovaTimer = QtCore.QTimer(self)
             self.cameraKinovaTimer.timeout.connect(self.readKinovaCamera)
-            self.cameraKinovaTimer.start(self.Period)
+            # self.cameraKinovaTimer.start(self.Period) ############################################################################################################### DESCOMENTAR
 
             # Timers to update the gains and show the real arm angles
             self.showKinovaStateTimer = QtCore.QTimer(self)
@@ -270,10 +268,10 @@ class SpecificWorker(GenericWorker):
                 parent_link_index = joint_info[16]  # Índice del enlace padre
                 link_state = p.getLinkState(self.robot_Pedro, joint_index)
 
-                print(f"Link {joint_index}:")
-                print(f"  Name: {link_name}")
-                print(f"  Parent Link Index: {parent_link_index}")
-                print(f"  Link State: {link_state}")
+                # print(f"Link {joint_index}:")
+                # print(f"  Name: {link_name}")
+                # print(f"  Parent Link Index: {parent_link_index}")
+                # print(f"  Link State: {link_state}")
 
             plt.ion()
             self.fig, self.ax = plt.subplots(1, 1)
@@ -322,14 +320,22 @@ class SpecificWorker(GenericWorker):
                     p.setJointMotorControl2(self.robot_Pablo, i + 1, p.POSITION_CONTROL,
                                             self.observation_angles_pablo[i], maxVelocity=np.deg2rad(25))
 
-                self.moveKinovaPedroWithAngles(self.observation_angles_pedro[:7])
-                self.moveKinovaPabloWithAngles(self.observation_angles_pablo[:7])
+                self.moveRealKinovaWithAngles(self.observation_angles_pedro[:7], self.robot_Pedro)
+                self.moveRealKinovaWithAngles(self.observation_angles_pablo[:7], self.robot_Pablo)
                 self.move_mode = -100
             case -100:
-                self.movePybulletPabloArmWithAngles(self.getPabloJointsAngle())
-                self.movePybulletPabloArmWithVelocities(0.0 * np.ones(7))
+                self.movePybulletArmWithAngles(self.getPabloJointsAngle(), self.robot_Pablo)
+                self.movePybulletArmWithVelocities(0.0 * np.ones(7), self.robot_Pablo)
                 self.read_camera_fixed(self.robot_Pablo)
                 self.read_camera_fixed(self.robot_Pedro)
+
+            case -101:
+                speed = np.zeros(7).tolist()
+                speed[6] = 0.1
+
+                self.movePybulletArmWithVelocities(speed, self.robot_Pedro)
+                self.moveRealKinovaWithSpeeds(self.robot_Pedro)
+                pass
 
             #Move joints
             case 0:
@@ -437,8 +443,8 @@ class SpecificWorker(GenericWorker):
                 self.kinovaarm_proxy.openGripper()  # Open the pablo gripper
                 self.kinovaarm1_proxy.openGripper() # Open the pedro gripper
 
-                self.moveKinovaPabloWithAngles(self.observation_angles_pablo[:7])
-                self.moveKinovaPedroWithAngles(self.observation_angles_pedro[:7])
+                self.moveRealKinovaWithAngles(self.observation_angles_pablo[:7], self.robot_Pablo)
+                self.moveRealKinovaWithAngles(self.observation_angles_pedro[:7], self.robot_Pedro)
 
                 for i in range(len(self.observation_angles_pedro)):
                     p.setJointMotorControl2(self.robot_Pedro, i + 1, p.POSITION_CONTROL,
@@ -511,10 +517,10 @@ class SpecificWorker(GenericWorker):
                     new_state_pablo = self.roboticstoolboxcontroller_proxy.calculateVelocitiesPablo(self.getPabloJointsAngle(), target_position)
                     # print("Toolbox response", time.time() * 1000 - self.timestamp)
 
-                    self.movePybulletPabloArmWithVelocities(new_state_pablo.jointVelocities)
+                    self.movePybulletArmWithVelocities(new_state_pablo.jointVelocities, self.robot_Pablo)
                     # print("Pybullet Pablo arm moved", time.time() * 1000 - self.timestamp)
 
-                    self.moveKinovaPabloWithSpeeds()
+                    self.moveRealKinovaWithSpeeds(self.robot_Pablo)
                     # print("Kinova Pablo arm moved", time.time() * 1000 - self.timestamp)
 
                     # self.posesTimes = np.append(self.posesTimes, int(time.time() * 1000))
@@ -558,6 +564,7 @@ class SpecificWorker(GenericWorker):
 
                     self.correctTargetPosition()
                     self.toolbox_compute(self.target_position)
+                    #TODO: Change the move method
                     self.movePybulletWithToolbox()
                     self.moveKinovaWithSpeeds()
 
@@ -579,6 +586,7 @@ class SpecificWorker(GenericWorker):
                     if self.arrived == True:
                         self.loopCounter = 0
                         self.target_velocities = [0.0] * 7
+                        #TODO: Change the move method
                         self.movePybulletWithToolbox()
                         self.moveKinovaWithSpeeds()
                         self.last_error = 0
@@ -605,8 +613,8 @@ class SpecificWorker(GenericWorker):
 
                     if not new_state_pablo.arrived:
 
-                        self.movePybulletPabloArmWithVelocities(new_state_pablo.jointVelocities)
-                        self.moveKinovaPabloWithSpeeds()
+                        self.movePybulletArmWithVelocities(new_state_pablo.jointVelocities, self.robot_Pablo)
+                        self.moveRealKinovaWithSpeeds(self.robot_Pablo)
 
                         imgPybullet, imageTime = self.read_camera_fixed(self.robot_Pablo)
 
@@ -633,9 +641,9 @@ class SpecificWorker(GenericWorker):
                         print("Arrived")
                         self.timer.stop()
                         self.target_velocities = [0.0] * 7
-                        self.movePybulletPabloArmWithVelocities(self.target_velocities)
-                        self.movePybulletPabloArmWithAngles(self.getPabloJointsAngle())
-                        self.moveKinovaPabloWithSpeeds()
+                        self.movePybulletArmWithVelocities(self.target_velocities, self.robot_Pablo)
+                        self.movePybulletArmWithAngles(self.getPabloJointsAngle(), self.robot_Pablo)
+                        self.moveRealKinovaWithSpeeds(self.robot_Pablo)
                         cup_grapped = self.kinovaarm_proxy.closeGripper()
                         time.sleep(0.5)
                         print("Cup grapped:", cup_grapped)
@@ -666,8 +674,8 @@ class SpecificWorker(GenericWorker):
                     new_state_pablo = self.roboticstoolboxcontroller_proxy.calculateVelocitiesPablo(
                         self.getPabloJointsAngle(), self.target_position)
 
-                    self.movePybulletPabloArmWithVelocities(new_state_pablo.jointVelocities)
-                    self.moveKinovaPabloWithSpeeds()
+                    self.movePybulletArmWithVelocities(new_state_pablo.jointVelocities, self.robot_Pablo)
+                    self.moveRealKinovaWithSpeeds(self.robot_Pablo)
 
                     imgPybullet, imageTime = self.read_camera_fixed(self.robot_Pablo)
 
@@ -689,9 +697,9 @@ class SpecificWorker(GenericWorker):
                     if new_state_pablo.arrived:
                         # print("Arrived")
                         self.target_velocities = [0.0] * 7
-                        self.movePybulletPabloArmWithVelocities(self.target_velocities)
-                        self.movePybulletPabloArmWithAngles(self.getPabloJointsAngle())
-                        self.moveKinovaPabloWithSpeeds()
+                        self.movePybulletArmWithVelocities(self.target_velocities, self.robot_Pablo)
+                        self.movePybulletArmWithAngles(self.getPabloJointsAngle(), self.robot_Pablo)
+                        self.moveRealKinovaWithSpeeds(self.robot_Pablo)
                         self.move_mode = 11
                         # self.move_mode = -100
                         print("Changing actual move mode to 11")
@@ -704,8 +712,8 @@ class SpecificWorker(GenericWorker):
                     new_state_pablo = self.roboticstoolboxcontroller_proxy.calculateVelocitiesPablo(
                         self.getPabloJointsAngle(), self.cube_center)
 
-                    self.movePybulletPabloArmWithVelocities(new_state_pablo.jointVelocities)
-                    self.moveKinovaPabloWithSpeeds()
+                    self.movePybulletArmWithVelocities(new_state_pablo.jointVelocities, self.robot_Pablo)
+                    self.moveRealKinovaWithSpeeds(self.robot_Pablo)
 
                     imgPybullet, imageTime = self.read_camera_fixed(self.robot_Pablo)
 
@@ -725,9 +733,9 @@ class SpecificWorker(GenericWorker):
                     if new_state_pablo.arrived:
                         self.timer.stop()
                         self.target_velocities = [0.0] * 7
-                        self.movePybulletPabloArmWithVelocities(self.target_velocities)
-                        self.movePybulletPabloArmWithAngles(self.getPabloJointsAngle())
-                        self.moveKinovaPabloWithSpeeds()
+                        self.movePybulletArmWithVelocities(self.target_velocities, self.robot_Pablo)
+                        self.movePybulletArmWithAngles(self.getPabloJointsAngle(), self.robot_Pablo)
+                        self.moveRealKinovaWithSpeeds(self.robot_Pablo)
                         self.kinovaarm_proxy.openGripper()
                         time.sleep(0.5)
                         self.changePybulletGripper(self.ext_gripper.distance, self.robot_Pablo)
@@ -742,7 +750,7 @@ class SpecificWorker(GenericWorker):
             case 12:    #Move to the observation angles and repeat the process(modes 7-12)
                 print("Reseting pose")
                 self.timer.stop()
-                self.moveKinovaPabloWithAngles(self.observation_angles_pablo[:7])
+                self.moveRealKinovaWithAngles(self.observation_angles_pablo[:7], self.robot_Pablo)
                 for i in range(7):
                     p.setJointMotorControl2(self.robot_Pablo, i + 1, p.POSITION_CONTROL,
                                             targetPosition=self.observation_angles_pablo[i],
@@ -830,6 +838,12 @@ class SpecificWorker(GenericWorker):
         QTimer.singleShot(200, QApplication.instance().quit)
 
     def changePybulletGripper(self, distance, robot_id=None):
+        """
+        changePybulletGripper changes the distance of the gripper in pybullet simulation
+
+        :param distance: distance to change the gripper
+        :param robot_id: robot id to change the gripper
+        """
         self.target_angles[13] = distance
         self.target_angles[15] = - distance
         self.target_angles[17] = distance - 0.1
@@ -911,6 +925,12 @@ class SpecificWorker(GenericWorker):
         # plt.pause(0.001)
 
     def correctTargetPosition(self):
+        """
+        correctTargetPosition corrects the position of the target in pybullet simulation using the keypoints detected
+
+        :return: error between the keypoints detected in pybullet and kinova camera,
+        and a boolean indicating if the target was detected in kinova camera
+        """
         # print("################## Correcting target position ##################", int(time.time()*1000) - self.timestamp)
         pybulletImage, imageTime = self.read_camera_fixed(self.robot_Pablo)
         # print("Pybullet image generated", int(time.time()*1000) - self.timestamp)
@@ -959,13 +979,24 @@ class SpecificWorker(GenericWorker):
 
         return error, kinovaTargetDetected
 
+
     def getPabloJointsAngle(self):
+        """
+        getPabloJointsAngle gets the angles of the joints of the Pablo robot in pybullet simulation
+
+        :return: angles of the joints of the Pablo robot in pybullet simulation
+        """
         joints = []
         for i in range(7):
             joints.append(p.getJointState(self.robot_Pablo, i + 1)[0])
         return joints
 
     def getPedroJointsAngle(self):
+        """
+        getPedroJointsAngle gets the angles of the joints of the Pedro robot in pybullet simulation
+
+        :return: angles of the joints of the Pedro robot in pybullet simulation
+        """
         joints = []
         for i in range(7):
             joints.append(p.getJointState(self.robot_Pedro, i + 1)[0])
@@ -1027,6 +1058,12 @@ class SpecificWorker(GenericWorker):
         viewMatrix = T.T.reshape(16)
         return viewMatrix
     def read_camera_fixed(self, robot):
+        """
+        read_camera_fixed gets the image from the camera of the robot in the simulation
+
+        :param robot: robot id in the simulation
+        :return: image from the camera of the robot in the simulation and the time when the image was taken
+        """
         while True:
             # print("Getting the pose", time.time()*1000-self.timestamp)
             com_p, com_o, _, _, _, _ = p.getLinkState(robot, 9)
@@ -1088,11 +1125,13 @@ class SpecificWorker(GenericWorker):
                 cv2.imshow("Pybullet Pablo", sum)
                 # print("Showing Pybullet Pablo image", time.time() * 1000 - self.timestamp)
                 cv2.waitKey(1)
-            if robot == self.robot_Pedro:
+            elif robot == self.robot_Pedro:
                 sum = cv2.addWeighted(rgb, 0.5, self.colorKinova2[0][0], 0.5, 0)
                 cv2.imshow("Pybullet Pedro", sum)
                 # print("Showing Pybullet Pedro image", time.time() * 1000 - self.timestamp)
                 cv2.waitKey(1)
+            else:
+                assert "Robot not found"
 
             # print("Returning the image", time.time() * 1000 - self.timestamp)
 
@@ -1106,6 +1145,12 @@ class SpecificWorker(GenericWorker):
             return rgb, time.time()*1000
 
     def readKinovaCamera(self):
+        """
+        readKinovaCamera gets the images from the camera of the Kinovas robots from CameraKinova.
+        You can access the image from the camera using self.colorKinova and self.colorKinova2 queues
+
+        :return: True if the images was obtained successfully, False otherwise
+        """
         try:
             # both = self.camerargbdsimple_proxy.getImage("CameraRGBDViewer")                      # The depth flow slow down the queue then at the moment we are only using color flow
             # depthImage = (np.frombuffer(both.depth.depth, dtype=np.int16)
@@ -1143,60 +1188,116 @@ class SpecificWorker(GenericWorker):
             print(e)
         return True
 
-    def showKinovaAngles(self):
+    def showKinovaAngles(self, robot):
+        """
+        showKinovaAngles prints the angles of the joints of the Kinova robot
+
+        :param robot: robot id in the simulation
+        """
         print("//--------------------------------------------------------------------------------------------------//")
         ext_angles = []
         ext_torques = []
         diff_from_pybullet = []
-        for i in range(7):
-            ext_angles.append(self.ext_joints.joints[i].angle)
-            ext_torques.append(self.ext_joints.joints[i].force)
-            diff_from_pybullet.append((math.degrees(p.getJointState(self.robot_Pedro, i + 1)[0]) % 360) - self.ext_joints.joints[i].angle)
+        if robot == self.robot_Pablo:
+            for i in range(7):
+                ext_angles.append(self.ext_joints.joints[i].angle)
+                ext_torques.append(self.ext_joints.joints[i].force)
+                diff_from_pybullet.append((math.degrees(p.getJointState(self.robot_Pablo, i + 1)[0]) % 360) - self.ext_joints.joints[i].angle)
+
+        elif robot == self.robot_Pedro:
+            for i in range(7):
+                ext_angles.append(self.ext_joints_2.joints[i].angle)
+                ext_torques.append(self.ext_joints_2.joints[i].force)
+                diff_from_pybullet.append((math.degrees(p.getJointState(self.robot_Pedro, i + 1)[0]) % 360) - self.ext_joints_2.joints[i].angle)
+
+        else :
+            assert "Robot not found"
+
         print("Kinova angles", ext_angles)
         print("Kinova torqe", ext_torques)
         print("Diff from pybullet", diff_from_pybullet)
         print("Gripper distance", self.ext_gripper.distance)
 
-    def movePybulletWithExternalVel(self):
-        for i in range(len(self.ext_joints.joints)):
-            self.target_velocities[i] = self.ext_joints.joints[i].velocity
+    def movePybulletWithExternalVel(self, robot):
+        """
+        movePybulletWithExternalVel moves the robot in pybullet simulation using the velocities of the joints from the real robot
+        """
+        if robot == self.robot_Pablo:
+            for i in range(len(self.ext_joints.joints)):
+                self.target_velocities[i] = self.ext_joints.joints[i].velocity
 
-        self.target_velocities = numpy.deg2rad(self.target_velocities) * 1.2
+            self.target_velocities = numpy.deg2rad(self.target_velocities) * 1.2
 
-        for i in range(len(self.target_velocities)):
-            p.setJointMotorControl2(self.robot_Pedro, i + 1, p.VELOCITY_CONTROL,
-                                    targetVelocity=self.target_velocities[i])
+            for i in range(len(self.target_velocities)):
+                p.setJointMotorControl2(self.robot_Pedro, i + 1, p.VELOCITY_CONTROL,
+                                        targetVelocity=self.target_velocities[i])
+
+        elif robot == self.robot_Pedro:
+            for i in range(len(self.ext_joints_2.joints)):
+                self.target_velocities[i] = self.ext_joints_2.joints[i].velocity
+
+            self.target_velocities = numpy.deg2rad(self.target_velocities) * 1.2
+
+            for i in range(len(self.target_velocities)):
+                p.setJointMotorControl2(self.robot_Pedro, i + 1, p.VELOCITY_CONTROL,
+                                        targetVelocity=self.target_velocities[i])
+
+        else:
+            assert "Robot not found"
 
     def movePybulletWithToolbox(self):
+        """
+        movePybulletWithToolbox moves the robot in pybullet simulation using the velocities calculated with the toolbox
+        """
         # print("Pybullet move with toolbox init", time.time()*1000 - self.timestamp)
         for i in range(len(self.target_velocities)):
             p.setJointMotorControl2(self.robot_Pedro, i + 1, p.VELOCITY_CONTROL,
                                     targetVelocity=self.target_velocities[i])
         # print("Pybullet move with toolbox end", time.time()*1000 - self.timestamp)
 
-    def movePybulletPabloArmWithAngles(self, angles):
-        for i in range(7):
-            p.setJointMotorControl2(self.robot_Pablo, i + 1, p.POSITION_CONTROL,
-                                    targetPosition=angles[i],
-                                    maxVelocity=np.deg2rad(25))
+    def movePybulletArmWithAngles(self, angles, robot):
+        """
+        movePybulletArmWithAngles moves the Pablo robot in pybullet simulation using the angles of the joints
 
-    def movePybulletPedroArmWithAngles(self, angles):
-        for i in range(7):
-            p.setJointMotorControl2(self.robot_Pedro, i + 1, p.POSITION_CONTROL,
-                                    targetPosition=angles[i],
-                                    maxVelocity=np.deg2rad(25))
+        :param angles: angles of the joints of the robot
+        :param robot: robot in the simulation that will be moved
+        """
+        if robot == self.robot_Pedro:
+            for i in range(7):
+                p.setJointMotorControl2(self.robot_Pedro, i + 1, p.POSITION_CONTROL,
+                                        targetPosition=angles[i],
+                                        maxVelocity=np.deg2rad(25))
 
-    def movePybulletPabloArmWithVelocities(self, velocities):
-        for i in range(7):
-            p.setJointMotorControl2(self.robot_Pablo, i + 1, p.VELOCITY_CONTROL,
-                                    targetVelocity=velocities[i])
+        if robot == self.robot_Pablo:
+            for i in range(7):
+                p.setJointMotorControl2(self.robot_Pablo, i + 1, p.POSITION_CONTROL,
+                                        targetPosition=angles[i],
+                                        maxVelocity=np.deg2rad(25))
 
-    def movePybulletPedroArmWithVelocities(self, velocities):
-        for i in range(7):
-            p.setJointMotorControl2(self.robot_Pedro, i + 1, p.VELOCITY_CONTROL,
-                                    targetVelocity=velocities[i])
+        assert "Robot not found"
+
+    def movePybulletArmWithVelocities(self, velocities, robot):
+        """
+        movePybulletArmWithVelocities moves the robot in pybullet simulation using the velocities of the joints
+
+        :param velocities: velocities of the joints of the robot
+        :param robot: robot in the simulation that will be moved
+        """
+        if robot == self.robot_Pablo:
+            for i in range(7):
+                p.setJointMotorControl2(self.robot_Pablo, i + 1, p.VELOCITY_CONTROL,
+                                        targetVelocity=velocities[i])
+        if robot == self.robot_Pedro:
+            for i in range(7):
+                p.setJointMotorControl2(self.robot_Pedro, i + 1, p.VELOCITY_CONTROL,
+                                        targetVelocity=velocities[i])
+
+        assert "Robot not found"
 
     def readDataFromProxy(self):
+        """
+        readDataFromProxy reads the data from the proxies of the kinova robots from the RoboCompKinovaArm interface
+        """
         while True:
             self.ext_joints = self.kinovaarm_proxy.getJointsState()
             self.ext_gripper = self.kinovaarm_proxy.getGripperState()
@@ -1207,49 +1308,57 @@ class SpecificWorker(GenericWorker):
 
             time.sleep(0.05)
 
-    def moveKinovaPabloWithAngles(self, angles):
-        array = np.round(np.rad2deg(angles) % 360)
-        self.angles.jointAngles = array.tolist()
-        self.kinovaarm_proxy.moveJointsWithAngle(self.angles)
+    def moveRealKinovaWithAngles(self, angles, robot):
+        """
+        moveRealKinovaWithAngles moves the Pablo robot in the simulation using the angles of the joints
 
-    def moveKinovaPedroWithAngles(self, angles):
-        array = np.round(np.rad2deg(angles) % 360)
-        self.angles.jointAngles = array.tolist()
-        self.kinovaarm1_proxy.moveJointsWithAngle(self.angles)
-        print("Kinova Pedro angles", array)
+        :param angles: angles of the joints of the robot
+        :param robot: real robot that will be moved
+        """
+        if robot == self.robot_Pablo:
+            array = np.round(np.rad2deg(angles) % 360)
+            self.angles.jointAngles = array.tolist()
+            self.kinovaarm_proxy.moveJointsWithAngle(self.angles)
 
+        elif robot == self.robot_Pedro:
+            array = np.round(np.rad2deg(angles) % 360)
+            self.angles.jointAngles = array.tolist()
+            self.kinovaarm1_proxy.moveJointsWithAngle(self.angles)
 
-    def moveKinovaPabloWithSpeeds(self):
+        else:
+            assert "Robot not found"
+
+    def moveRealKinovaWithSpeeds(self, robot):
+        """
+        moveRealKinovaWithSpeeds moves the Pablo robot in the simulation using the speeds of the joints
+
+        :param robot: real robot that will be moved
+        """
         self.joint_speeds = []
 
         for i in range(7):
-            angle = p.getJointState(self.robot_Pablo, i + 1)[0]
-            error = (np.deg2rad(self.ext_joints.joints[i].angle)
-                     - angle + math.pi) % (2 * math.pi) - math.pi
+            angle = p.getJointState(robot, i + 1)[0]
+            if robot == self.robot_Pablo:
+                error = (np.deg2rad(self.ext_joints.joints[i].angle)
+                         - angle + math.pi) % (2 * math.pi) - math.pi
+            elif robot == self.robot_Pedro:
+                error = (np.deg2rad(self.ext_joints_2.joints[i].angle)
+                         - angle + math.pi) % (2 * math.pi) - math.pi
+            else:
+                assert "Robot not found"
 
-            speed = np.rad2deg(p.getJointState(self.robot_Pablo, i + 1)[1]) * self.gains[i] - np.rad2deg(error) * 0.3
+            speed = np.rad2deg(p.getJointState(robot, i + 1)[1]) * self.gains[i] - np.rad2deg(error) * 0.3
 
             self.joint_speeds.append(speed)
 
         self.speeds.jointSpeeds = self.joint_speeds
 
-        self.kinovaarm_proxy.moveJointsWithSpeed(self.speeds)
-
-    def moveKinovaPedroWithSpeeds(self):
-        self.joint_speeds = []
-
-        for i in range(7):
-            angle = p.getJointState(self.robot_Pedro, i + 1)[0]
-            error = (np.deg2rad(self.ext_joints_2.joints[i].angle)
-                     - angle + math.pi) % (2 * math.pi) - math.pi
-
-            speed = np.rad2deg(p.getJointState(self.robot_Pedro, i + 1)[1]) * self.gains[i] - np.rad2deg(error) * 0.3
-
-            self.joint_speeds.append(speed)
-
-        self.speeds.jointSpeeds = self.joint_speeds
-
-        self.kinovaarm1_proxy.moveJointsWithSpeed(self.speeds)
+        if robot == self.robot_Pablo:
+            self.kinovaarm_proxy.moveJointsWithSpeed(self.speeds)
+        elif robot == self.robot_Pedro:
+            self.kinovaarm1_proxy.moveJointsWithSpeed(self.speeds)
+        else:
+            assert "Robot not found"
 
     def updateGains(self):
         self.posesTimes = self.posesTimes - self.ext_joints.timestamp
