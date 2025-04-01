@@ -92,7 +92,6 @@ protected:
 
 	DSR::QScene2dViewer* widget_2d;
 
-
 private:
 
 public slots:
