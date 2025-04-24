@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 #
-#    Copyright (C) 2024 by YOUR NAME HERE
+#    Copyright (C) 2025 by YOUR NAME HERE
 #
 #    This file is part of RoboComp
 #
@@ -62,7 +62,7 @@ import signal
 from rich.console import Console
 console = Console()
 
-from PySide2 import QtWidgets
+from PySide6 import QtWidgets
 import interfaces
 from specificworker import *
 

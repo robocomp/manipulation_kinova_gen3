@@ -91,7 +91,7 @@ class SpecificWorker(GenericWorker):
         ret.timestamp = int(time.time()*1000)
         self.joints = ret
         #print(self.kinova.get_state())
-        #print("Joints: ", self.joints)
+        # print("Joints: ", self.joints)
 
         ret = ifaces.RoboCompKinovaArm.TGripper()
         ret.distance = self.kinova.get_gripper_state()
@@ -107,7 +107,7 @@ class SpecificWorker(GenericWorker):
 
         # tactile_values = self.contactile_proxy.getValues()
         # print(tactile_values)
-
+                        
         # print("timer end", time.time()*1000)
         # print(time.time()*1000 - self.timestamp)
         # print("Contactile data:", self.contactile_proxy.getValues())
