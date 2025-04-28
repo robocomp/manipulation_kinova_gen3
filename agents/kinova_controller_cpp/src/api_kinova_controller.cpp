@@ -200,8 +200,8 @@ void api_kinova_controller::print_joints_info() {
         std::cout << "Torque: " << joint.torque << std::endl;
         std::cout << "Current: " << joint.current << std::endl;
         std::cout << "Voltage: " << joint.voltage << std::endl;
-        std::cout << "Motor temperature: " << joint.motor_temperature << std::endl;
-        std::cout << "Motor core: " << joint.core_temperature << std::endl << std::endl;
+        std::cout << "Motor temperature: " << joint.motorTemperature << std::endl;
+        std::cout << "Motor core: " << joint.coreTemperature << std::endl << std::endl;
     }
     std::cout << "----Timestamp: " << joints_info.timestamp << "----" << std::endl << std::endl;
 }
