@@ -53,3 +53,11 @@ cd components/pybullet_controller
 src/pybullet_controller.py etc/config
 ```
 
+## Install Robotics Toolbox for Python
+To install the Robotics Toolbox for Python fork that include the P3Bot model, you can use the following command:
+```
+git clone https://github.com/jcalderon12/robotics-toolbox-python.git
+cd robotics-toolbox-python
+pip install -e .
+```
+

@@ -18,10 +18,13 @@
 #    You should have received a copy of the GNU General Public License
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
+import math
 
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
 from rich.console import Console
+from tensorflow.python.ops.gen_linalg_ops import self_adjoint_eig_v2_eager_fallback
+
 from genericworker import *
 import interfaces as ifaces
 
@@ -52,46 +55,72 @@ class SpecificWorker(GenericWorker):
             # Environment setup
             self.env = swift.Swift()
             self.env.launch(realtime=True)
-            self.n = 7
-            self.cup1 = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.455, -0.1, 0.50), color=(0, 0, 1))
-            self.cup2 = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.455, 0.1, 0.50), color=(0, 0, 1))
-            self.cube = sg.Cuboid((0.334, 0.468, 0.48), pose=sm.SE3.Trans(0.455, 0.0, 0.24), color=(1, 0, 0))
-            # self.env.add(self.cup1)
-            # self.env.add(self.cup2)
-            self.env.add(self.cube)
-            self.collisions = []
+            self.env.set_camera_pose([-2, 3, 0.7], [-2, 0.0, 0.5])
 
-            # Initialice the Pedro robot arm and the variables for his control
-            self.kinova_pedro = rtb.models.KinovaGen3()
-            self.kinova_pedro.q = [1.13, 4.71 - 2*np.pi, np.pi/2, 3.7 - 2*np.pi, 0, 5.41 - 2*np.pi, np.pi/2]
-            T = sm.SE3.Rx(90, 'deg') * sm.SE3(0, 1.05, 0.03)
-            self.kinova_pedro.base = T
-            self.env.add(self.kinova_pedro)
+            self.p3bot = rtb.models.P3Bot()
 
-            self.goal_axes_pedro = sg.Axes(0.1)
-            self.ee_axes_pedro = sg.Axes(0.1)
-            self.ee_axes_pedro.T = self.kinova_pedro.fkine(self.kinova_pedro.q)
-            self.rot_pedro = self.kinova_pedro.fkine(self.kinova_pedro.q).R  # Rotation matrix of the end-effector of pedro
-            self.Tep_pedro = sm.SE3.Rt(self.rot_pedro, [0.455, -0.1, 0.60])
-            self.goal_axes_pedro.T = self.Tep_pedro
-            self.env.add(self.ee_axes_pedro)
-            self.env.add(self.goal_axes_pedro)
+            T = sm.SE3(0, 0, 0.04)
+            self.p3bot.base = T
+            #
+            # # qd = self.p3bot.qd
+            # # qd[44] = 0.5
+            # # self.p3bot.qd = qd
+            self.env.add(self.p3bot)
 
-            # Initialice the Pablo robot arm and the variables for his control
-            self.kinova_pablo = rtb.models.KinovaGen3()
-            self.kinova_pablo.q = [2.00, np.pi/2, np.pi/2, 3.7 - 2*np.pi, 0, 5.41 - 2*np.pi, np.pi/2]
-            T = sm.SE3.Rx(270, 'deg') * sm.SE3(0, -1.05, 0.03)
-            self.kinova_pablo.base = T
-            self.env.add(self.kinova_pablo)
+            #
+            # # for link in self.p3bot.ee_links:
+            # #     print(f"Link {link.name} has mass {link.m} and inertia {link.I}")
 
-            self.goal_axes_pablo = sg.Axes(0.1)
-            self.ee_axes_pablo = sg.Axes(0.1)
-            self.ee_axes_pablo.T = self.kinova_pablo.fkine(self.kinova_pablo.q)
-            self.rot_pablo = self.kinova_pablo.fkine(self.kinova_pablo.q).R  # Rotation matrix of the end-effector of pedro
-            self.Tep_pablo = sm.SE3.Rt(self.rot_pablo, [0.455, 0.1, 0.60])
-            self.goal_axes_pablo.T = self.Tep_pablo
-            self.env.add(self.ee_axes_pablo)
-            self.env.add(self.goal_axes_pablo)
+            self.goal_axes = sg.Axes(0.1)
+            self.ee_axes = sg.Axes(0.1)
+            self.ee_axes.T = self.p3bot.fkine(self.p3bot.q)
+            self.rot = self.p3bot.fkine(self.p3bot.q).R  # Rotation matrix of the end-effector of pedro
+            self.rot = sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(180, 'deg') * sm.SO3.Rz(90, 'deg')
+            self.Tep = sm.SE3.Rt(self.rot, [0.455, 2.0, 0.60])
+            self.goal_axes.T = self.Tep
+            self.env.add(self.ee_axes)
+            self.env.add(self.goal_axes)
+
+            # self.n = 7
+            # self.cup1 = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.455, -0.1, 0.50), color=(0, 0, 1))
+            # self.cup2 = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.455, 0.1, 0.50), color=(0, 0, 1))
+            # self.cube = sg.Cuboid((0.334, 0.468, 0.48), pose=sm.SE3.Trans(0.455, 0.0, 0.24), color=(1, 0, 0))
+            # # self.env.add(self.cup1)
+            # # self.env.add(self.cup2)
+            # self.env.add(self.cube)
+            # self.collisions = []
+            #
+            # # Initialice the Pedro robot arm and the variables for his control
+            # self.kinova_pedro = rtb.models.KinovaGen3()
+            # self.kinova_pedro.q = [1.13, 4.71 - 2*np.pi, np.pi/2, 3.7 - 2*np.pi, 0, 5.41 - 2*np.pi, np.pi/2]
+            # T = sm.SE3.Rx(90, 'deg') * sm.SE3(0, 1.05, 0.03)
+            # self.kinova_pedro.base = T
+            # self.env.add(self.kinova_pedro)
+            #
+            # self.goal_axes_pedro = sg.Axes(0.1)
+            # self.ee_axes_pedro = sg.Axes(0.1)
+            # self.ee_axes_pedro.T = self.kinova_pedro.fkine(self.kinova_pedro.q)
+            # self.rot_pedro = self.kinova_pedro.fkine(self.kinova_pedro.q).R  # Rotation matrix of the end-effector of pedro
+            # self.Tep_pedro = sm.SE3.Rt(self.rot_pedro, [0.455, -0.1, 0.60])
+            # self.goal_axes_pedro.T = self.Tep_pedro
+            # self.env.add(self.ee_axes_pedro)
+            # self.env.add(self.goal_axes_pedro)
+            #
+            # # Initialice the Pablo robot arm and the variables for his control
+            # self.kinova_pablo = rtb.models.KinovaGen3()
+            # self.kinova_pablo.q = [2.00, np.pi/2, np.pi/2, 3.7 - 2*np.pi, 0, 5.41 - 2*np.pi, np.pi/2]
+            # T = sm.SE3.Rx(270, 'deg') * sm.SE3(0, -1.05, 0.03)
+            # self.kinova_pablo.base = T
+            # self.env.add(self.kinova_pablo)
+            #
+            # self.goal_axes_pablo = sg.Axes(0.1)
+            # self.ee_axes_pablo = sg.Axes(0.1)
+            # self.ee_axes_pablo.T = self.kinova_pablo.fkine(self.kinova_pablo.q)
+            # self.rot_pablo = self.kinova_pablo.fkine(self.kinova_pablo.q).R  # Rotation matrix of the end-effector of pedro
+            # self.Tep_pablo = sm.SE3.Rt(self.rot_pablo, [0.455, 0.1, 0.60])
+            # self.goal_axes_pablo.T = self.Tep_pablo
+            # self.env.add(self.ee_axes_pablo)
+            # self.env.add(self.goal_axes_pablo)
 
             self.timer.timeout.connect(self.compute)
             self.timer.start(self.Period)
@@ -110,7 +139,21 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
+        arrived, qd = self.step_robot(self.p3bot, self.Tep.A)
+        self.p3bot.qd = qd
+        # print(
+        #     "P3Bot base qd: ",
+        #     self.p3bot.qd[:2]
+        # )
+        # print(
+        #     "P3Bot ee qd: ",
+        #     self.p3bot.qd[2:]
+        # )
         self.env.step(0.05)
+
+        base_new = self.p3bot.fkine(self.p3bot._q, end=self.p3bot.links[2])
+        self.p3bot._T = base_new.A
+        self.p3bot.q[:2] = 0
         return True
 
     def startup_check(self):
@@ -118,7 +161,83 @@ class SpecificWorker(GenericWorker):
         test = ifaces.RoboCompRoboticsToolboxController.JointStates()
         QTimer.singleShot(200, QApplication.instance().quit)
 
+    def step_robot(self, r: rtb.ERobot, Tep):
 
+        wTe = r.fkine(r.q)
+
+        eTep = np.linalg.inv(wTe) @ Tep
+
+        # Spatial error
+        et = np.sum(np.abs(eTep[:3, -1]))
+
+        print("Spatial error: ", et)
+
+        # Gain term (lambda) for control minimisation
+        Y = 0.01
+
+        # Quadratic component of objective function
+        Q = np.eye(r.n + 6)
+
+        # Joint velocity component of Q
+        Q[: r.n, : r.n] *= Y
+        Q[:3, :3] *= 1.0 / et
+
+        # Slack component of Q
+        Q[r.n:, r.n:] = (1.0 / et) * np.eye(6)
+
+        v, _ = rtb.p_servo(wTe, Tep, 1.5)
+
+        v[3:] *= 1.3
+
+        # The equality contraints
+        Aeq = np.c_[r.jacobe(r.q), np.eye(6)]
+        beq = v.reshape((6,))
+
+        # The inequality constraints for joint limit avoidance
+        Ain = np.zeros((r.n + 6, r.n + 6))
+        bin = np.zeros(r.n + 6)
+
+        # The minimum angle (in radians) in which the joint is allowed to approach
+        # to its limit
+        ps = 0.1
+
+        # The influence angle (in radians) in which the velocity damper
+        # becomes active
+        pi = 0.9
+
+        # Form the joint limit velocity damper
+        Ain[: r.n, : r.n], bin[: r.n] = r.joint_velocity_damper(ps, pi, r.n)
+
+        # Linear component of objective function: the manipulability Jacobian
+        c = np.concatenate(
+            (np.zeros(2), -r.jacobm(start=r.links[3]).reshape((r.n - 2,)), np.zeros(6))
+        )
+
+        # Get base to face end-effector
+        kε = 0.5
+        bTe = r.fkine(r.q, include_base=False).A
+        θε = math.atan2(bTe[1, -1], bTe[0, -1])
+        ε = kε * θε
+        c[0] = -ε
+
+        # The lower and upper bounds on the joint velocity and slack variable
+        lb = -np.r_[r.qdlim[: r.n], 10 * np.ones(6)]
+        ub = np.r_[r.qdlim[: r.n], 10 * np.ones(6)]
+
+        # Solve for the joint velocities dq
+        qd = qp.solve_qp(Q, c, Ain, bin, Aeq, beq, lb=lb, ub=ub, solver="piqp").copy()
+        qd = qd[: r.n]
+        # print(qd)
+
+        if et > 0.5:
+            qd *= 0.7 / et
+        else:
+            qd *= 1.4
+
+        if et < 0.02:
+            return True, qd
+        else:
+            return False, qd
 
     # =============== Methods for Component Implements ==================
     # ===================================================================

@@ -1,0 +1,4 @@
+matplotlib==3.5.1
+
+# Paquete desde GitHub
+git+https://github.com/jcalderon12/robotics-toolbox-python.git@master#egg=roboticstoolbox-python
