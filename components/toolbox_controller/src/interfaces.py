@@ -5,6 +5,10 @@ from rich.console import Console, Text
 console = Console()
 
 
+Ice.loadSlice("-I ./src/ --all ./src/GenericBase.ice")
+import RoboCompGenericBase
+Ice.loadSlice("-I ./src/ --all ./src/OmniRobot.ice")
+import RoboCompOmniRobot
 Ice.loadSlice("-I ./src/ --all ./src/RoboticsToolboxController.ice")
 import RoboCompRoboticsToolboxController
 
@@ -102,6 +106,8 @@ class Requires:
     def __init__(self, ice_connector):
         self.ice_connector = ice_connector
         self.mprx={}
+
+        self.OmniRobot = self.create_proxy("OmniRobotProxy", RoboCompOmniRobot.OmniRobotPrx)
 
     def get_proxies_map(self):
         return self.mprx

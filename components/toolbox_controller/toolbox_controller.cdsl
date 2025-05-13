@@ -1,10 +1,12 @@
 import "RoboticsToolboxController.idsl";
+import "OmniRobot.idsl";
 
 Component toolbox_controller
 {
     Communications
     {
         implements RoboticsToolboxController;
+        requires OmniRobot;
     };
     language python;
 };

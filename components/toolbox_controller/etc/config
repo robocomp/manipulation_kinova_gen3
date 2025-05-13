@@ -1,9 +1,8 @@
 # Endpoints for implements interfaces
 RoboticsToolboxController.Endpoints=tcp -p 15668
 
-
-
-
+# Proxies for required interfaces
+OmniRobotProxy = omnirobot:tcp -h localhost -p 10004
 
 Ice.Warn.Connections=0
 Ice.Trace.Network=0

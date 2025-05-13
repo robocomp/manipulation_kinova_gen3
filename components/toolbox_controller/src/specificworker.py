@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
-#    Copyright (C) 2024 by YOUR NAME HERE
+#    Copyright (C) 2025 by Jorge Calderon Gonzalez
 #
 #    This file is part of RoboComp
 #
@@ -20,8 +20,8 @@
 #
 import math
 
-from PySide2.QtCore import QTimer
-from PySide2.QtWidgets import QApplication
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication
 from rich.console import Console
 from tensorflow.python.ops.gen_linalg_ops import self_adjoint_eig_v2_eager_fallback
 
@@ -48,7 +48,7 @@ console = Console(highlight=False)
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 50
+        self.Period = 1
         if startup_check:
             self.startup_check()
         else:
@@ -60,7 +60,15 @@ class SpecificWorker(GenericWorker):
             self.p3bot = rtb.models.P3Bot()
 
             T = sm.SE3(0, 0, 0.04)
-            self.p3bot.base = T
+            Rz = sm.SE3.Rz(np.pi / 2)
+            self.p3bot.base = T * Rz
+
+            # # Guardamos la rotación inicial deseada (-90° en Z)
+            # rotacion_inicial = sm.SE3.Rz(-90, unit='deg')
+            #
+            # # Aplicamos esta rotación SOLO como offset visual/cinemático
+            # self.p3bot.base = rotacion_inicial  # Se aplica una única vez
+
             #
             # # qd = self.p3bot.qd
             # # qd[44] = 0.5
@@ -72,24 +80,22 @@ class SpecificWorker(GenericWorker):
             # #     print(f"Link {link.name} has mass {link.m} and inertia {link.I}")
 
             self.goal_axes = sg.Axes(0.1)
-            self.ee_axes = sg.Axes(0.1)
-            self.ee_axes.T = self.p3bot.fkine(self.p3bot.q)
-            self.rot = self.p3bot.fkine(self.p3bot.q).R  # Rotation matrix of the end-effector of pedro
-            self.rot = sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(180, 'deg') * sm.SO3.Rz(90, 'deg')
-            self.Tep = sm.SE3.Rt(self.rot, [0.455, 2.0, 0.60])
+            self.rot = sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(180, 'deg') * sm.SO3.Rz(0, 'deg')
+            self.Tep = sm.SE3.Rt(self.rot, [0.455, 2.0, 0.40])
             self.goal_axes.T = self.Tep
-            self.env.add(self.ee_axes)
             self.env.add(self.goal_axes)
+
+            self.loop_count = 0
 
             # self.n = 7
             # self.cup1 = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.455, -0.1, 0.50), color=(0, 0, 1))
             # self.cup2 = sg.Cylinder(0.05, 0.1, pose=sm.SE3.Trans(0.455, 0.1, 0.50), color=(0, 0, 1))
-            # self.cube = sg.Cuboid((0.334, 0.468, 0.48), pose=sm.SE3.Trans(0.455, 0.0, 0.24), color=(1, 0, 0))
-            # # self.env.add(self.cup1)
-            # # self.env.add(self.cup2)
+            # self.cube = sg.Cuboid((0.334, 0.468, 0.48), pose=sm.SE3.Trans(0.5, 1, 0.24), color=(1, 0, 0))
+            # self.env.add(self.cup1)
+            # self.env.add(self.cup2)
             # self.env.add(self.cube)
-            # self.collisions = []
-            #
+            # self.collisions = [self.cube]
+
             # # Initialice the Pedro robot arm and the variables for his control
             # self.kinova_pedro = rtb.models.KinovaGen3()
             # self.kinova_pedro.q = [1.13, 4.71 - 2*np.pi, np.pi/2, 3.7 - 2*np.pi, 0, 5.41 - 2*np.pi, np.pi/2]
@@ -141,25 +147,40 @@ class SpecificWorker(GenericWorker):
     def compute(self):
         arrived, qd = self.step_robot(self.p3bot, self.Tep.A)
         self.p3bot.qd = qd
-        # print(
-        #     "P3Bot base qd: ",
-        #     self.p3bot.qd[:2]
-        # )
-        # print(
-        #     "P3Bot ee qd: ",
-        #     self.p3bot.qd[2:]
-        # )
         self.env.step(0.05)
+        # print(qd[0], qd[1])
+
+        self.omnirobot_proxy.setSpeedBase(0, qd[1]*1000, -qd[0])
 
         base_new = self.p3bot.fkine(self.p3bot._q, end=self.p3bot.links[2])
         self.p3bot._T = base_new.A
         self.p3bot.q[:2] = 0
+
+        if arrived:
+            self.loop_count += 1
+            if self.loop_count % 4 == 0:
+                self.change_target([0.455, 2.0, 0.40], sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(180, 'deg') * sm.SO3.Rz(0, 'deg'))
+            if self.loop_count % 4 == 1:
+                self.change_target([2.0, 0.455, 1.0], sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(90, 'deg') * sm.SO3.Rz(0, 'deg'))
+            if self.loop_count % 4 == 2:
+                self.change_target([0.455, -2.0, 0.70], sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(0, 'deg') * sm.SO3.Rz(0, 'deg'))
+            if self.loop_count % 4 == 3:
+                self.change_target([-2.0, 0.455, 1.30], sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(-90, 'deg') * sm.SO3.Rz(0, 'deg'))
+
         return True
 
     def startup_check(self):
+        print(f"Testing RoboCompOmniRobot.TMechParams from ifaces.RoboCompOmniRobot")
+        test = ifaces.RoboCompOmniRobot.TMechParams()
         print(f"Testing RoboCompRoboticsToolboxController.JointStates from ifaces.RoboCompRoboticsToolboxController")
         test = ifaces.RoboCompRoboticsToolboxController.JointStates()
         QTimer.singleShot(200, QApplication.instance().quit)
+
+    def change_target(self, translate, rot):
+        # Change the target position of the end-effector
+        self.Tep = sm.SE3.Rt(rot, [translate[0], translate[1], translate[2]])
+        self.goal_axes.T = self.Tep
+        self.env.add(self.goal_axes)
 
     def step_robot(self, r: rtb.ERobot, Tep):
 
@@ -170,7 +191,7 @@ class SpecificWorker(GenericWorker):
         # Spatial error
         et = np.sum(np.abs(eTep[:3, -1]))
 
-        print("Spatial error: ", et)
+        # print("Spatial error: ", et)
 
         # Gain term (lambda) for control minimisation
         Y = 0.01
@@ -473,6 +494,21 @@ class SpecificWorker(GenericWorker):
     # ===================================================================
     # ===================================================================
 
+
+    ######################
+    # From the RoboCompOmniRobot you can call this methods:
+    # self.omnirobot_proxy.correctOdometer(...)
+    # self.omnirobot_proxy.getBasePose(...)
+    # self.omnirobot_proxy.getBaseState(...)
+    # self.omnirobot_proxy.resetOdometer(...)
+    # self.omnirobot_proxy.setOdometer(...)
+    # self.omnirobot_proxy.setOdometerPose(...)
+    # self.omnirobot_proxy.setSpeedBase(...)
+    # self.omnirobot_proxy.stopBase(...)
+
+    ######################
+    # From the RoboCompOmniRobot you can use this types:
+    # RoboCompOmniRobot.TMechParams
 
     ######################
     # From the RoboCompRoboticsToolboxController you can use this types:

@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 PROJECT(  toolbox_controller )
 
+IF ( "$ENV{ROBOCOMP}" STREQUAL "")
+  MESSAGE(WARNING "ROBOCOMP variable not set. Using the default value: /home/robocomp/robocomp")
+  SET (ENV{ROBOCOMP} "/home/robocomp/robocomp/")
+ENDIF ( "$ENV{ROBOCOMP}" STREQUAL "")
+
 SET(RC_COMPONENT_PATH ${CMAKE_CURRENT_SOURCE_DIR} CACHE STRING "component base path")
 SET(RC_COMPONENT_DEVEL_PATH ${CMAKE_CURRENT_SOURCE_DIR} CACHE STRING "component binary path")
 ADD_SUBDIRECTORY( src )
