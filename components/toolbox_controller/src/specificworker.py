@@ -19,6 +19,7 @@
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
 import math
+import time
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
@@ -48,7 +49,8 @@ console = Console(highlight=False)
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 1
+        self.Period = 0
+        self.last_time = time.time() * 1000
         if startup_check:
             self.startup_check()
         else:
@@ -145,12 +147,19 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
+        print("///////////////////////////////////////////////////////////////////////////////////////////")
+        self.last_time = time.time() * 1000
         arrived, qd = self.step_robot(self.p3bot, self.Tep.A)
         self.p3bot.qd = qd
-        self.env.step(0.05)
-        # print(qd[0], qd[1])
+        self.env.step(0.005)
 
         self.omnirobot_proxy.setSpeedBase(0, qd[1]*1000, -qd[0])
+
+        state = self.omnirobot_proxy.getBaseState()
+        angular_vel = self.imu_proxy.getAngularVel()
+
+        print(f"State: {state}")
+        print(f"Angular velocity: {angular_vel}")
 
         base_new = self.p3bot.fkine(self.p3bot._q, end=self.p3bot.links[2])
         self.p3bot._T = base_new.A
@@ -167,9 +176,21 @@ class SpecificWorker(GenericWorker):
             if self.loop_count % 4 == 3:
                 self.change_target([-2.0, 0.455, 1.30], sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(-90, 'deg') * sm.SO3.Rz(0, 'deg'))
 
+        print(f"Compute time required:{(time.time() * 1000) - self.last_time}")
+
         return True
 
     def startup_check(self):
+        print(f"Testing RoboCompIMU.Acceleration from ifaces.RoboCompIMU")
+        test = ifaces.RoboCompIMU.Acceleration()
+        print(f"Testing RoboCompIMU.Gyroscope from ifaces.RoboCompIMU")
+        test = ifaces.RoboCompIMU.Gyroscope()
+        print(f"Testing RoboCompIMU.Magnetic from ifaces.RoboCompIMU")
+        test = ifaces.RoboCompIMU.Magnetic()
+        print(f"Testing RoboCompIMU.Orientation from ifaces.RoboCompIMU")
+        test = ifaces.RoboCompIMU.Orientation()
+        print(f"Testing RoboCompIMU.DataImu from ifaces.RoboCompIMU")
+        test = ifaces.RoboCompIMU.DataImu()
         print(f"Testing RoboCompOmniRobot.TMechParams from ifaces.RoboCompOmniRobot")
         test = ifaces.RoboCompOmniRobot.TMechParams()
         print(f"Testing RoboCompRoboticsToolboxController.JointStates from ifaces.RoboCompRoboticsToolboxController")
@@ -494,6 +515,23 @@ class SpecificWorker(GenericWorker):
     # ===================================================================
     # ===================================================================
 
+
+    ######################
+    # From the RoboCompIMU you can call this methods:
+    # self.imu_proxy.getAcceleration(...)
+    # self.imu_proxy.getAngularVel(...)
+    # self.imu_proxy.getDataImu(...)
+    # self.imu_proxy.getMagneticFields(...)
+    # self.imu_proxy.getOrientation(...)
+    # self.imu_proxy.resetImu(...)
+
+    ######################
+    # From the RoboCompIMU you can use this types:
+    # RoboCompIMU.Acceleration
+    # RoboCompIMU.Gyroscope
+    # RoboCompIMU.Magnetic
+    # RoboCompIMU.Orientation
+    # RoboCompIMU.DataImu
 
     ######################
     # From the RoboCompOmniRobot you can call this methods:

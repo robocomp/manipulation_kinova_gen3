@@ -3,4 +3,4 @@ PROJECT(  toolbox_controller )
 
 INCLUDE( $ENV{ROBOCOMP}/cmake/robocomp.cmake )
 
-ROBOCOMP_IDSL_TO_ICE( CommonBehavior GenericBase OmniRobot RoboticsToolboxController )
+ROBOCOMP_IDSL_TO_ICE( CommonBehavior GenericBase IMU OmniRobot RoboticsToolboxController )
