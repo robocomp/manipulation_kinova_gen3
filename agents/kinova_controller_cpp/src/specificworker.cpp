@@ -25,9 +25,7 @@
 
 SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, bool startup_check) : GenericWorker(configLoader, tprx)
 {
-
-
-	this->startup_check_flag = startup_check;
+this->startup_check_flag = startup_check;
 	if(this->startup_check_flag)
 	{
 		this->startup_check();
@@ -37,26 +35,6 @@ SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, 
 		#ifdef HIBERNATION_ENABLED
 			hibernationChecker.start(500);
 		#endif
-
-		rt = G->get_rt_api();
-		inner_eigen = G->get_inner_eigen_api();
-
-		//dsr update signals
-		//connect(G.get(), &DSR::DSRGraph::update_node_signal, this, &SpecificWorker::modify_node_slot);
-		//connect(G.get(), &DSR::DSRGraph::update_edge_signal, this, &SpecificWorker::modify_edge_slot);
-		//connect(G.get(), &DSR::DSRGraph::update_node_attr_signal, this, &SpecificWorker::modify_node_attrs_slot);
-		//connect(G.get(), &DSR::DSRGraph::update_edge_attr_signal, this, &SpecificWorker::modify_edge_attrs_slot);
-		//connect(G.get(), &DSR::DSRGraph::del_edge_signal, this, &SpecificWorker::del_edge_slot);
-		//connect(G.get(), &DSR::DSRGraph::del_node_signal, this, &SpecificWorker::del_node_slot);
-		
-		/***
-		Custom Widget
-		In addition to the predefined viewers, Graph Viewer allows you to add various widgets designed by the developer.
-		The add_custom_widget_to_dock method is used. This widget can be defined like any other Qt widget,
-		either with a QtDesigner or directly from scratch in a class of its own.
-		The add_custom_widget_to_dock method receives a name for the widget and a reference to the class instance.
-		***/
-		//graph_viewer->add_custom_widget_to_dock("CustomWidget", &custom_widget);
 
 		
 		// Example statemachine:
@@ -83,6 +61,7 @@ SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, 
 			qWarning() << error;
 			throw error;
 		}
+		
 	}
 }
 
@@ -102,11 +81,14 @@ void SpecificWorker::initialize()
 	std::cout << "Initialize worker" << std::endl;
 
 	// 2D widget
-
-	if (widget_2d != nullptr)
-	{
-		connect(widget_2d, SIGNAL(mouse_left_click(QPointF)), this, SLOT(new_target_from_mouse(QPointF)));
-	}
+//dsr update signals
+	//connect(G.get(), &DSR::DSRGraph::update_node_signal, this, &SpecificWorker::modify_node_slot);
+	//connect(G.get(), &DSR::DSRGraph::update_edge_signal, this, &SpecificWorker::modify_edge_slot);
+	//connect(G.get(), &DSR::DSRGraph::update_node_attr_signal, this, &SpecificWorker::modify_node_attrs_slot);
+	//connect(G.get(), &DSR::DSRGraph::update_edge_attr_signal, this, &SpecificWorker::modify_edge_attrs_slot);
+	//connect(G.get(), &DSR::DSRGraph::del_edge_signal, this, &SpecificWorker::del_edge_slot);
+	//connect(G.get(), &DSR::DSRGraph::del_node_signal, this, &SpecificWorker::del_node_slot);
+	graph_viewer = std::make_unique<DSR::DSRViewer>(this, G, current_opts, main);
 
 	new_speeds = std::vector<float>(7, 0.0);
 
@@ -140,6 +122,7 @@ void SpecificWorker::compute()
 
 	joints = api_controller->get_joints_info();
 	gripper = api_controller->get_gripper_state();
+	tool_state = api_controller->get_tool_state();
 
 	if (speed_check_flag)
 	{
@@ -158,13 +141,6 @@ void SpecificWorker::compute()
 
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-void SpecificWorker::new_target_from_mouse(QPointF p)
-{
-	qInfo() << "KinovaArm new_target_from_mouse" << p;
-}
 
 void SpecificWorker::gripper_test_loop()
 {
@@ -188,7 +164,7 @@ void SpecificWorker::test_contactile()
 {
 	std::cout << "Test contactile" << std::endl;
 	const bool close = KinovaArm_closeGripper();
-	cout << "Gripper close: " << close << endl;
+	std::cout << "Gripper close: " << close << std::endl;
 }
 
 void SpecificWorker::test_speed_move()
@@ -199,7 +175,7 @@ void SpecificWorker::test_speed_move()
 	kinova_speeds.jointSpeeds[6] = 5.0;
 	for (auto speed : kinova_speeds.jointSpeeds)
 	{
-		cout << "Speed: " << speed << endl;
+		std::cout << "Speed: " << speed << std::endl;
 	}
 	KinovaArm_moveJointsWithSpeed(kinova_speeds);
 }
@@ -332,6 +308,12 @@ RoboCompKinovaArm::TJoints SpecificWorker::KinovaArm_getJointsState()
 	return joints;
 }
 
+RoboCompKinovaArm::TToolInfo SpecificWorker::KinovaArm_getToolInfo()
+{
+
+	return tool_state;
+}
+
 void SpecificWorker::KinovaArm_moveJointsWithAngle(RoboCompKinovaArm::TJointAngles angles)
 {
 	#ifdef HIBERNATION_ENABLED
@@ -406,10 +388,11 @@ int SpecificWorker::startup_check()
 /**************************************/
 // From the RoboCompKinovaArm you can use this types:
 // RoboCompKinovaArm::TPose
+// RoboCompKinovaArm::TAxis
+// RoboCompKinovaArm::TToolInfo
 // RoboCompKinovaArm::TGripper
 // RoboCompKinovaArm::TJoint
 // RoboCompKinovaArm::TJoints
 // RoboCompKinovaArm::TJointSpeeds
 // RoboCompKinovaArm::TJointAngles
-
 

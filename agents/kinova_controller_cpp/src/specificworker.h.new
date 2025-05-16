@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2025 by Jorge Calderon Gonzalez
+ *    Copyright (C) 2025 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -19,7 +19,7 @@
 
 /**
 	\brief
-	@author Jorge Calderon Gonzalez
+	@author authorname
 */
 
 
@@ -33,8 +33,6 @@
 
 #include <genericworker.h>
 
-#include "api_kinova_controller.h"
-#include <cmath>
 
 /**
  * \brief Class SpecificWorker implements the core functionality of the component.
@@ -43,7 +41,7 @@ class SpecificWorker : public GenericWorker
 {
 Q_OBJECT
 public:
-	/**
+    /**
      * \brief Constructor for SpecificWorker.
      * \param configLoader Configuration loader for the component.
      * \param tprx Tuple of proxies required for the component.
@@ -94,116 +92,19 @@ public slots:
      * \return An integer representing the result of the checks.
      */
 	int startup_check();
+
 	void modify_node_slot(std::uint64_t, const std::string &type){};
 	void modify_node_attrs_slot(std::uint64_t id, const std::vector<std::string>& att_names){};
 	void modify_edge_slot(std::uint64_t from, std::uint64_t to,  const std::string &type){};
 	void modify_edge_attrs_slot(std::uint64_t from, std::uint64_t to, const std::string &type, const std::vector<std::string>& att_names){};
 	void del_edge_slot(std::uint64_t from, std::uint64_t to, const std::string &edge_tag){};
-	void del_node_slot(std::uint64_t from){};
+	void del_node_slot(std::uint64_t from){};     
 private:
-
-	struct Quaternion {
-		double w, x, y, z;
-	};
-
-	std::unique_ptr<DSR::RT_API> rt;
-	std::shared_ptr<DSR::InnerEigenAPI> inner_eigen;
 
 	/**
      * \brief Flag indicating whether startup checks are enabled.
      */
 	bool startup_check_flag;
-
-	/**
-	*  @brief Object to control the kinova api
-	*/
-	api_kinova_controller *api_controller;
-
-	/**
-	* @brief Object storing the state of the gripper
-	*/
-	RoboCompKinovaArm::TGripper gripper{};
-
-
-	/**
-	* @brief Object storing the state of the tool
-	*/
-	RoboCompKinovaArm::TToolInfo tool_state{};
-
-	/**
-	* @brief Object storing the state of the arm joints
-	*/
-	RoboCompKinovaArm::TJoints joints{};
-
-	/**
-	* @brief Vector that contains the new speed to move the arm
-	*/
-	std::vector<float> new_speeds;
-
-	/**
-	* @brief Flag indicating when to move the arm with speeds
-	*/
-	bool speed_check_flag = false;
-
-	/**
-	* @brief Timestamp to know when to stop move the arm with speed
-	*/
-	long long last_time_speed_check;
-
-	/**
-	* @brief List with the links names on the json
-	*/
-	const std::vector<std::string> json_links_names{
-		"base_link",
-		"shoulder_link",
-		"half_arm_1_link",
-		"half_arm_2_link",
-		"forearm_link",
-		"spherical_wrist_1_link",
-		"spherical_wrist_2_link",
-		"bracelet_link"
-	};
-
-
-	//----------------------------METHODS----------------------------//
-
-	/**
-	* @brief Test method for the gripper, closing and opening it constantly
-	*/
-	void gripper_test_loop();
-
-	/**
-	* @brief Test method for the contactile sensors
-	*/
-	void test_contactile();
-
-	/**
-	* @brief Test method for the movement with joints speeds
-	*/
-	void test_speed_move();
-
-	/** @brief Get the joints angles in a std::vector
-	*
-	* @return The std::vector with the joints angles
-	*/
-	std::vector<float> get_joints_angles();
-
-	/**
-	* @brief Update the DSR with the joints info
-	*/
-	void update_dsr_joints();
-
-	/**
-	 * @brief Show the forward kinematics of the end-effector
-	 */
-	void show_forward_kinematics();
-
-	/**
-	* @brief Transform euler rotation std::vector to quaternion
-	*
-	* @return Quaternion struct that represent the euler rotation
-	*/
-	Quaternion euler_to_quaternion(const std::vector<float> &euler_thetas);
 
 signals:
 	//void customSignal();

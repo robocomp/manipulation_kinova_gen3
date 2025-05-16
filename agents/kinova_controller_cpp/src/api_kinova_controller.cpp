@@ -214,6 +214,20 @@ RoboCompKinovaArm::TGripper api_kinova_controller::get_gripper_state() {
     return gripper_info;
 }
 
+RoboCompKinovaArm::TToolInfo api_kinova_controller::get_tool_state() {
+    RoboCompKinovaArm::TToolInfo tool_info;
+    auto feedback = base_cyclic->RefreshFeedback();
+    auto base = feedback.base();
+    tool_info.pose = RoboCompKinovaArm::TAxis({base.tool_pose_x(), base.tool_pose_y(), base.tool_pose_z()});
+    tool_info.pose_theta = RoboCompKinovaArm::TAxis({base.tool_pose_theta_x(), base.tool_pose_theta_y(), base.tool_pose_theta_z()});
+    tool_info.twist_linear = RoboCompKinovaArm::TAxis({base.tool_twist_linear_x(), base.tool_twist_linear_y(), base.tool_twist_linear_z()});
+    tool_info.twist_angular = RoboCompKinovaArm::TAxis({base.tool_twist_angular_x(), base.tool_twist_angular_y(), base.tool_twist_angular_z()});
+    tool_info.external_wrench_force = RoboCompKinovaArm::TAxis({base.tool_external_wrench_force_x(), base.tool_external_wrench_force_y(), base.tool_external_wrench_force_z()});
+    tool_info.external_wrench_torque = RoboCompKinovaArm::TAxis({base.tool_external_wrench_torque_x(), base.tool_external_wrench_torque_y(), base.tool_external_wrench_torque_z()});
+
+    return tool_info;
+}
+
 bool api_kinova_controller::move_gripper_with_pos(const float pos) {
     k_api::Base::GripperCommand gripper_command;
     gripper_command.set_mode(k_api::Base::GRIPPER_POSITION);

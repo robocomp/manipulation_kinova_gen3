@@ -49,7 +49,7 @@ console = Console(highlight=False)
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 0
+        self.Period = 50
         self.last_time = time.time() * 1000
         if startup_check:
             self.startup_check()
@@ -151,15 +151,13 @@ class SpecificWorker(GenericWorker):
         self.last_time = time.time() * 1000
         arrived, qd = self.step_robot(self.p3bot, self.Tep.A)
         self.p3bot.qd = qd
-        self.env.step(0.005)
+        self.env.step(0.05)
 
         self.omnirobot_proxy.setSpeedBase(0, qd[1]*1000, -qd[0])
 
-        state = self.omnirobot_proxy.getBaseState()
         angular_vel = self.imu_proxy.getAngularVel()
 
-        print(f"State: {state}")
-        print(f"Angular velocity: {angular_vel}")
+        print(f"Webots angular velocity: {angular_vel}/ Angular velocity sended to omnirobot: {qd[0]}")
 
         base_new = self.p3bot.fkine(self.p3bot._q, end=self.p3bot.links[2])
         self.p3bot._T = base_new.A

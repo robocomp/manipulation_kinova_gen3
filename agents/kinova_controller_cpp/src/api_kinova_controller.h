@@ -92,6 +92,13 @@ public:
     RoboCompKinovaArm::TGripper get_gripper_state();
 
     /**
+    * @brief Return the state of the tool measures by the base
+    *
+    * @return The Robocomp struct that represent the tool info
+    */
+    RoboCompKinovaArm::TToolInfo get_tool_state();
+
+    /**
     * @brief Move the gripper to a position
     *
     * @param pos Position to move the gripper (0.0 - totally open, 1.0 - totally closed)
