@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2024 by YOUR NAME HERE
+ *    Copyright (C) 2025 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -72,10 +72,12 @@ public:
 	virtual RoboCompKinovaArm::TPose KinovaArm_getCenterOfTool(RoboCompKinovaArm::ArmJoints referencedTo) = 0;
 	virtual RoboCompKinovaArm::TGripper KinovaArm_getGripperState() = 0;
 	virtual RoboCompKinovaArm::TJoints KinovaArm_getJointsState() = 0;
+	virtual RoboCompKinovaArm::TToolInfo KinovaArm_getToolInfo() = 0;
 	virtual void KinovaArm_moveJointsWithAngle(RoboCompKinovaArm::TJointAngles angles) = 0;
 	virtual void KinovaArm_moveJointsWithSpeed(RoboCompKinovaArm::TJointSpeeds speeds) = 0;
 	virtual void KinovaArm_openGripper() = 0;
 	virtual void KinovaArm_setCenterOfTool(RoboCompKinovaArm::TPose pose, RoboCompKinovaArm::ArmJoints referencedTo) = 0;
+
 
 protected:
 	std::unordered_map<std::string, std::unique_ptr<GRAFCETStep>> states;
@@ -86,11 +88,14 @@ protected:
 	//DSR params
 	std::string agent_name;
 	int agent_id;
+	int current_opts = 0;
+	DSR::DSRViewer::view main = DSR::DSRViewer::view::none;
 	// DSR graph viewer
 	std::unique_ptr<DSR::DSRViewer> graph_viewer;
 	QHBoxLayout mainLayout;
 
-	DSR::QScene2dViewer* widget_2d;
+
+
 
 private:
 
@@ -100,6 +105,7 @@ public slots:
 	virtual void emergency() = 0;
 	virtual void restore() = 0;
 	void hibernationCheck();
+	void hibernationTick();
 	
 signals:
 	void kill();

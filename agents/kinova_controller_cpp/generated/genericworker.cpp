@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2024 by YOUR NAME HERE
+ *    Copyright (C) 2025 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -22,7 +22,6 @@
 */
 GenericWorker::GenericWorker(const ConfigLoader& configLoader, TuplePrx tprx) : Ui_guiDlg()
 {
-	QLoggingCategory::setFilterRules("*.debug=false\n");
 
 	this->configLoader = configLoader;
 	
@@ -62,8 +61,6 @@ GenericWorker::GenericWorker(const ConfigLoader& configLoader, TuplePrx tprx) : 
     
     // Graph viewer
     using opts = DSR::DSRViewer::view;
-    int current_opts = 0;
-    opts main = opts::none;
     if(this->configLoader.get<bool>("ViewAgent.tree"))
     {
         current_opts = current_opts | opts::tree;
@@ -81,10 +78,7 @@ GenericWorker::GenericWorker(const ConfigLoader& configLoader, TuplePrx tprx) : 
     {
         current_opts = current_opts | opts::osg;
     }
-    graph_viewer = std::make_unique<DSR::DSRViewer>(this, G, current_opts, main);
     setWindowTitle(QString::fromStdString(agent_name + "-") + QString::number(agent_id));
-
-	widget_2d = qobject_cast<DSR::QScene2dViewer *>(graph_viewer->get_widget(opts::scene));
 }
 
 /**
@@ -167,5 +161,9 @@ void GenericWorker::hibernationCheck()
 		originalPeriod = this->getPeriod("Compute");
         this->setPeriod("Compute", 500);
     }
+}
+
+void GenericWorker::hibernationTick(){
+	hibernation = true;
 }
 

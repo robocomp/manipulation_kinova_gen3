@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2024 by YOUR NAME HERE
+ *    Copyright (C) 2025 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -79,11 +79,53 @@
 
 #include <kinovaarmI.h>
 
+#include <Contactile.h>
+#include <KinovaArm.h>
 
 #define USE_QTGUI
 
 #define PROGRAM_NAME    "kinova_controller_cpp"
 #define SERVER_FULL_NAME   "RoboComp kinova_controller_cpp::kinova_controller_cpp"
+
+
+template <typename InterfaceType>
+void implement( const Ice::CommunicatorPtr& communicator,
+                const std::string& endpointConfig,
+                const std::string& adapterName,
+                SpecificWorker* worker,
+                int index)
+{
+    try
+    {
+        Ice::ObjectAdapterPtr adapter = communicator->createObjectAdapterWithEndpoints(adapterName, endpointConfig);
+        auto servant = std::make_shared<InterfaceType>(worker, index);
+        adapter->add(servant, Ice::stringToIdentity(adapterName));
+        adapter->activate();
+        std::cout << "[" << PROGRAM_NAME << "]: " << adapterName << " adapter created in port " << endpointConfig << std::endl;
+    }
+    catch (const IceStorm::TopicExists&)
+    {
+        std::cout << "[" << PROGRAM_NAME << "]: ERROR creating or activating adapter for " << adapterName << std::endl;
+    }
+}
+
+template <typename ProxyType, typename ProxyPointer>
+void require(const Ice::CommunicatorPtr& communicator,
+             const std::string& proxyConfig, 
+             const std::string& proxyName,
+             ProxyPointer proxy)
+{
+    try
+    {
+        proxy = Ice::uncheckedCast<ProxyType>(communicator->stringToProxy(proxyConfig));
+        std::cout << proxyName << " initialized Ok!\n";
+    }
+    catch(const Ice::Exception& ex)
+    {
+        std::cout << "[" << PROGRAM_NAME << "]: Exception creating proxy " << proxyName << ": " << ex;
+        throw;
+    }
+}
 
 
 class kinova_controller_cpp : public Ice::Application
@@ -94,8 +136,7 @@ public:
 		this->prefix = prfx.toStdString();
 		this->startup_check_flag=startup_check; 
 
-		this->configLoader.load(this->configFile);
-		this->configLoader.printConfig();
+		initialize();
 		}
 
 	Ice::InitializationData getInitializationDataIce();
@@ -125,6 +166,7 @@ void kinova_controller_cpp::initialize()
 {
     this->configLoader.load(this->configFile);
 	this->configLoader.printConfig();
+	std::cout<<std::endl;
 }
 
 int kinova_controller_cpp::run(int argc, char* argv[])
@@ -152,21 +194,14 @@ int kinova_controller_cpp::run(int argc, char* argv[])
 
 	RoboCompContactile::ContactilePrxPtr contactile_proxy;
 
-	std::string proxy, tmp;
-	initialize();
 
-	try
-	{
-	    proxy = configLoader.get<std::string>("Proxies.Contactile");
-		contactile_proxy = Ice::uncheckedCast<RoboCompContactile::ContactilePrx>(communicator()->stringToProxy(proxy));
-	}
-	catch(const Ice::Exception& ex)
-	{
-		std::cout << "[" << PROGRAM_NAME << "]: Exception creating proxy Contactile: " << ex;
-		return EXIT_FAILURE;
-	}
-	qInfo("ContactileProxy initialized Ok!");
+	//Require code
+	require<RoboCompContactile::ContactilePrx, RoboCompContactile::ContactilePrxPtr>(communicator(),
+	                    configLoader.get<std::string>("Proxies.Contactile"), "ContactileProxy", contactile_proxy);
 
+	//Topic Manager code
+
+	//Publish code
 
 	tprx = std::make_tuple(contactile_proxy);
 	SpecificWorker *worker = new SpecificWorker(this->configLoader, tprx, startup_check_flag);
@@ -175,20 +210,12 @@ int kinova_controller_cpp::run(int argc, char* argv[])
 	try
 	{
 
-		try
-		{
-			// Server adapter creation and publication
-		    tmp = configLoader.get<std::string>("Endpoints.KinovaArm");
-		    Ice::ObjectAdapterPtr adapterKinovaArm = communicator()->createObjectAdapterWithEndpoints("KinovaArm", tmp);
-			auto kinovaarm = std::make_shared<KinovaArmI>(worker);
-			adapterKinovaArm->add(kinovaarm, Ice::stringToIdentity("kinovaarm"));
-			adapterKinovaArm->activate();
-			std::cout << "[" << PROGRAM_NAME << "]: KinovaArm adapter created in port " << tmp << std::endl;
-		}
-		catch (const IceStorm::TopicExists&){
-			std::cout << "[" << PROGRAM_NAME << "]: ERROR creating or activating adapter for KinovaArm\n";
-		}
+		//Implement code
+		implement<KinovaArmI>(communicator(),
+		                    configLoader.get<std::string>("Endpoints.KinovaArm"), 
+		                    "KinovaArm", worker,  0);
 
+		//Subscribe code
 
 		// Server adapter creation and publication
 		std::cout << SERVER_FULL_NAME " started" << std::endl;
