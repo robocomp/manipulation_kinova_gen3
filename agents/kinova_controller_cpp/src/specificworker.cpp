@@ -103,10 +103,13 @@ void SpecificWorker::initialize()
 
 	joints = api_controller->get_joints_info();
 	gripper = api_controller->get_gripper_state();
-	api_controller->print_joints_info();
+	tool_state = api_controller->get_tool_state();
+	// api_controller->print_joints_info();
 
-	update_dsr_joints();
+	// update_dsr_joints();
 	show_forward_kinematics();
+
+	std::cout << "\033[2J";
 
 	// TEST TO THE CONTACTILE SENSOR DISCOMMENT ONLY IN CASE YOU WANT TO TEST IT
 	// test_contactile();
@@ -136,7 +139,9 @@ void SpecificWorker::compute()
 		api_controller->move_joints_with_speeds(new_speeds);
 	}
 
-	update_dsr_joints();
+	show_tool_state();
+
+	// update_dsr_joints();
 	// show_forward_kinematics();
 
 }
@@ -255,6 +260,160 @@ SpecificWorker::Quaternion SpecificWorker::euler_to_quaternion(const std::vector
 	return q;
 }
 
+// void SpecificWorker::show_tool_state() {
+// 	    // Configuración de formato
+//     std::cout << fixed << std::setprecision(4);
+//
+//     // Línea separadora
+//     const string separator = "----------------------------------------------------";
+//
+//     // Encabezado
+//     std::cout << "\n" << separator << "\n";
+//     std::cout << "               ESTADO DEL BRAZO KINOVA\n";
+//     std::cout << separator << "\n";
+//
+//     // Sección 1: Pose (Posición y Orientación)
+//     std::cout << "POSE:\n";
+//     std::cout << "  Posición (m):   X = " << setw(8) << tool_state.pose.x
+//          << "   Y = " << setw(8) << tool_state.pose.y
+//          << "   Z = " << setw(8) << tool_state.pose.z << "\n";
+//     std::cout << "  Orientación (θ): X = " << setw(8) << tool_state.pose_theta.x
+//          << "   Y = " << setw(8) << tool_state.pose_theta.y
+//          << "   Z = " << setw(8) << tool_state.pose_theta.z << "\n";
+//
+//     // Sección 2: Twist (Velocidad Lineal y Angular)
+//     std::cout << separator << "\n";
+//     std::cout << "TWIST:\n";
+//     std::cout << "  Vel. Lineal (m/s):  X = " << setw(8) << tool_state.twist_linear.x
+//          << "   Y = " << setw(8) << tool_state.twist_linear.y
+//          << "   Z = " << setw(8) << tool_state.twist_linear.z << "\n";
+//     std::cout << "  Vel. Angular (rad/s): X = " << setw(8) << tool_state.twist_angular.x
+//          << "   Y = " << setw(8) << tool_state.twist_angular.y
+//          << "   Z = " << setw(8) << tool_state.twist_angular.z << "\n";
+//
+//     // Sección 3: Wrench (Fuerza y Torque Externo)
+//     std::cout << separator << "\n";
+//     std::cout << "WRENCH EXTERNO:\n";
+//
+//     // Fuerza - con color rojo si es significativa
+//     std::cout << "  Fuerza (N):     X = ";
+//     if(fabs(tool_state.external_wrench_force.x) > 1.0) std::cout << "\033[31m"; // Rojo para valores > 1N
+//     std::cout << setw(8) << tool_state.external_wrench_force.x << "\033[0m";
+//
+//     std::cout << "   Y = ";
+//     if(fabs(tool_state.external_wrench_force.y) > 1.0) std::cout << "\033[31m";
+//     std::cout << setw(8) << tool_state.external_wrench_force.y << "\033[0m";
+//
+//     std::cout << "   Z = ";
+//     if(fabs(tool_state.external_wrench_force.z) > 1.0) std::cout << "\033[31m";
+//     std::cout << setw(8) << tool_state.external_wrench_force.z << "\033[0m\n";
+//
+//     // Torque - con color amarillo si es significativo
+//     std::cout << "  Torque (Nm):    X = ";
+//     if(fabs(tool_state.external_wrench_torque.x) > 0.5) std::cout << "\033[33m"; // Amarillo para > 0.5Nm
+//     std::cout << setw(8) << tool_state.external_wrench_torque.x << "\033[0m";
+//
+//     std::cout << "   Y = ";
+//     if(fabs(tool_state.external_wrench_torque.y) > 0.5) std::cout << "\033[33m";
+//     std::cout << setw(8) << tool_state.external_wrench_torque.y << "\033[0m";
+//
+//     std::cout << "   Z = ";
+//     if(fabs(tool_state.external_wrench_torque.z) > 0.5) std::cout << "\033[33m";
+//     std::cout << setw(8) << tool_state.external_wrench_torque.z << "\033[0m\n";
+//
+//     std::cout << separator << "\n\n";
+// }
+
+void SpecificWorker::moveCursor(int row, int col) {
+	std::cout << "\033[" << row << ";" << col << "H";
+}
+
+void SpecificWorker::clearScreen() {
+	std::cout << "\033[J";
+}
+
+void SpecificWorker::show_tool_state() {
+    // Mover cursor a la posición inicial (1,1)
+    moveCursor(1, 1);
+
+    // Configuración de formato
+    std::cout << fixed << setprecision(3);
+
+    // Encabezado estático (solo se imprime una vez)
+    static bool first_call = true;
+    if(first_call) {
+        std::cout << "----------------------------------------------------\n";
+        std::cout << "               ESTADO DEL BRAZO KINOVA (TIEMPO REAL) \n";
+        std::cout << "----------------------------------------------------\n";
+        std::cout << "POSE:\n";
+        std::cout << "  Posición (m):   X =       Y =       Z =      \n";
+        std::cout << "  Orientación (θ): X =       Y =       Z =      \n";
+        std::cout << "----------------------------------------------------\n";
+        std::cout << "TWIST:\n";
+        std::cout << "  Vel. Lineal (m/s):  X =       Y =       Z =      \n";
+        std::cout << "  Vel. Angular (rad/s): X =       Y =       Z =      \n";
+        std::cout << "----------------------------------------------------\n";
+        std::cout << "WRENCH EXTERNO:\n";
+        std::cout << "  Fuerza (N):     X =       Y =       Z =      \n";
+        std::cout << "  Torque (Nm):    X =       Y =       Z =      \n";
+        std::cout << "----------------------------------------------------\n";
+        first_call = false;
+    }
+
+    // Actualizar solo los valores (sobreescribiendo)
+
+    // Posición
+    moveCursor(5, 22); std::cout << setw(8) << tool_state.pose.x;
+    moveCursor(5, 31); std::cout << setw(8) << tool_state.pose.y;
+    moveCursor(5, 40); std::cout << setw(8) << tool_state.pose.z;
+
+    // Orientación
+    moveCursor(6, 22); std::cout << setw(8) << tool_state.pose_theta.x;
+    moveCursor(6, 31); std::cout << setw(8) << tool_state.pose_theta.y;
+    moveCursor(6, 40); std::cout << setw(8) << tool_state.pose_theta.z;
+
+    // Velocidad lineal
+    moveCursor(9, 22); std::cout << setw(8) << tool_state.twist_linear.x;
+    moveCursor(9, 31); std::cout << setw(8) << tool_state.twist_linear.y;
+    moveCursor(9, 40); std::cout << setw(8) << tool_state.twist_linear.z;
+
+    // Velocidad angular
+    moveCursor(10, 22); std::cout << setw(8) << tool_state.twist_angular.x;
+    moveCursor(10, 31); std::cout << setw(8) << tool_state.twist_angular.y;
+    moveCursor(10, 40); std::cout << setw(8) << tool_state.twist_angular.z;
+
+    // Fuerza externa (con color)
+    moveCursor(13, 22);
+    if(fabs(tool_state.external_wrench_force.x) > 1.0) std::cout << "\033[31m";
+    std::cout << setw(8) << tool_state.external_wrench_force.x << "\033[0m";
+
+    moveCursor(13, 31);
+    if(fabs(tool_state.external_wrench_force.y) > 1.0) std::cout << "\033[31m";
+    std::cout << setw(8) << tool_state.external_wrench_force.y << "\033[0m";
+
+    moveCursor(13, 40);
+    if(fabs(tool_state.external_wrench_force.z) > 1.0) std::cout << "\033[31m";
+    std::cout << setw(8) << tool_state.external_wrench_force.z << "\033[0m";
+
+    // Torque externo (con color)
+    moveCursor(14, 22);
+    if(fabs(tool_state.external_wrench_torque.x) > 0.5) std::cout << "\033[33m";
+    std::cout << setw(8) << tool_state.external_wrench_torque.x << "\033[0m";
+
+    moveCursor(14, 31);
+    if(fabs(tool_state.external_wrench_torque.y) > 0.5) std::cout << "\033[33m";
+    std::cout << setw(8) << tool_state.external_wrench_torque.y << "\033[0m";
+
+    moveCursor(14, 40);
+    if(fabs(tool_state.external_wrench_torque.z) > 0.5) std::cout << "\033[33m";
+    std::cout << setw(8) << tool_state.external_wrench_torque.z << "\033[0m";
+
+    // Mover cursor al final para evitar interferencias
+    moveCursor(16, 1);
+    std::cout.flush();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
 
 bool SpecificWorker::KinovaArm_closeGripper()
 {

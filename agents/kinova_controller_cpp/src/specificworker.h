@@ -34,6 +34,7 @@
 #include <genericworker.h>
 
 #include "api_kinova_controller.h"
+#include <iomanip>
 #include <cmath>
 
 /**
@@ -204,6 +205,21 @@ private:
 	* @return Quaternion struct that represent the euler rotation
 	*/
 	Quaternion euler_to_quaternion(const std::vector<float> &euler_thetas);
+
+	/**
+	* @brief Función para mover el cursor a una posición específica
+	*/
+	void moveCursor(int row, int col);
+
+	/**
+	* @brief Función para limpiar desde la posición actual hasta el final de la pantalla
+	*/
+	void clearScreen();
+
+	/**
+	* @brief Print the tool_state in the console
+	*/
+	void show_tool_state();
 
 signals:
 	//void customSignal();
