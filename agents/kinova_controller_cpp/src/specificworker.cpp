@@ -90,6 +90,10 @@ void SpecificWorker::initialize()
 	//connect(G.get(), &DSR::DSRGraph::del_node_signal, this, &SpecificWorker::del_node_slot);
 	graph_viewer = std::make_unique<DSR::DSRViewer>(this, G, current_opts, main);
 
+	rt = G->get_rt_api();
+
+	this->resize(1200, 1200);
+
 	new_speeds = std::vector<float>(7, 0.0);
 
 	auto ip = configLoader.get<std::string>("ip");
@@ -141,7 +145,7 @@ void SpecificWorker::compute()
 
 	show_tool_state();
 
-	// update_dsr_joints();
+	update_dsr_joints();
 	// show_forward_kinematics();
 
 }
@@ -385,28 +389,28 @@ void SpecificWorker::show_tool_state() {
     // Fuerza externa (con color)
     moveCursor(13, 22);
     if(fabs(tool_state.external_wrench_force.x) > 1.0) std::cout << "\033[31m";
-    std::cout << setw(8) << tool_state.external_wrench_force.x << "\033[0m";
+    std::cout << setw(6) << tool_state.external_wrench_force.x << "\033[0m";
 
     moveCursor(13, 31);
     if(fabs(tool_state.external_wrench_force.y) > 1.0) std::cout << "\033[31m";
-    std::cout << setw(8) << tool_state.external_wrench_force.y << "\033[0m";
+    std::cout << setw(6) << tool_state.external_wrench_force.y << "\033[0m";
 
     moveCursor(13, 40);
     if(fabs(tool_state.external_wrench_force.z) > 1.0) std::cout << "\033[31m";
-    std::cout << setw(8) << tool_state.external_wrench_force.z << "\033[0m";
+    std::cout << setw(6) << tool_state.external_wrench_force.z << "\033[0m";
 
     // Torque externo (con color)
     moveCursor(14, 22);
     if(fabs(tool_state.external_wrench_torque.x) > 0.5) std::cout << "\033[33m";
-    std::cout << setw(8) << tool_state.external_wrench_torque.x << "\033[0m";
+    std::cout << setw(6) << tool_state.external_wrench_torque.x << "\033[0m";
 
     moveCursor(14, 31);
     if(fabs(tool_state.external_wrench_torque.y) > 0.5) std::cout << "\033[33m";
-    std::cout << setw(8) << tool_state.external_wrench_torque.y << "\033[0m";
+    std::cout << setw(6) << tool_state.external_wrench_torque.y << "\033[0m";
 
     moveCursor(14, 40);
     if(fabs(tool_state.external_wrench_torque.z) > 0.5) std::cout << "\033[33m";
-    std::cout << setw(8) << tool_state.external_wrench_torque.z << "\033[0m";
+    std::cout << setw(6) << tool_state.external_wrench_torque.z << "\033[0m";
 
     // Mover cursor al final para evitar interferencias
     moveCursor(16, 1);
