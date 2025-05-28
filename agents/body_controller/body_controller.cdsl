@@ -1,0 +1,16 @@
+import "OmniRobot.idsl";
+import "JoystickAdapter.idsl";
+
+Component body_controller
+{
+    Communications
+    {
+        implements OmniRobot;
+        subscribesTo JoystickAdapter;
+    };
+    language python;
+    gui Qt(QMainWindow);
+    options dsr;
+
+};
+
