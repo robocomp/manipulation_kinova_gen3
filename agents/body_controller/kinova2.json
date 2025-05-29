@@ -1,0 +1,1279 @@
+{
+    "DSRModel": {
+        "symbols": {
+            "101": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 0
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -495.029846
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -519.58551
+                    }
+                },
+                "id": "101",
+                "links": [
+                    {
+                        "dst": "102",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            }
+                        },
+                        "src": "101"
+                    }
+                ],
+                "name": "root",
+                "type": "root"
+            },
+            "102": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 1
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "101"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -497.170715
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -322.096405
+                    }
+                },
+                "id": "102",
+                "links": [
+                    {
+                        "dst": "103",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    3.1415998935699463,
+                                    2.7629000851886355e-18,
+                                    6.283161640167236
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0.15643000602722168
+                                ]
+                            }
+                        },
+                        "src": "102"
+                    }
+                ],
+                "name": "base_link",
+                "type": "link"
+            },
+            "103": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 2
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "102"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -497.014771
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -262.509399
+                    }
+                },
+                "id": "103",
+                "links": [
+                    {
+                        "dst": "104",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    1.5707999467849731,
+                                    2.1343000191876926e-17,
+                                    5.9341139793396
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0.005375000182539225,
+                                    -0.12838000059127808
+                                ]
+                            }
+                        },
+                        "src": "103"
+                    }
+                ],
+                "name": "shoulder_link",
+                "type": "link"
+            },
+            "104": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 3
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "103"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -496.674835
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -192.822296
+                    }
+                },
+                "id": "104",
+                "links": [
+                    {
+                        "dst": "105",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    -1.5707999467849731,
+                                    1.232600013322028e-32,
+                                    3.1416127681732178
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    -0.21038000285625458,
+                                    -0.0063749998807907104
+                                ]
+                            }
+                        },
+                        "src": "104"
+                    }
+                ],
+                "name": "half_arm_1_link",
+                "type": "link"
+            },
+            "105": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 4
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "104"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -495.743958
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -126.954521
+                    }
+                },
+                "id": "105",
+                "links": [
+                    {
+                        "dst": "106",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    1.5707999467849731,
+                                    -6.695399724840199e-17,
+                                    3.7349061965942383
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0.0063749998807907104,
+                                    -0.21038000285625458
+                                ]
+                            }
+                        },
+                        "src": "105"
+                    }
+                ],
+                "name": "half_arm_2_link",
+                "type": "link"
+            },
+            "106": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 5
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "105"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -494.929199
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -61.296692
+                    }
+                },
+                "id": "106",
+                "links": [
+                    {
+                        "dst": "107",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    -1.5707999467849731,
+                                    2.2203999918338061e-16,
+                                    9.513058785159956e-07
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    -0.20843000710010529,
+                                    -0.0063749998807907104
+                                ]
+                            }
+                        },
+                        "src": "106"
+                    }
+                ],
+                "name": "forearm_link",
+                "type": "link"
+            },
+            "107": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 6
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "106"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -495.327911
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 7.864141
+                    }
+                },
+                "id": "107",
+                "links": [
+                    {
+                        "dst": "108",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    1.5707999467849731,
+                                    9.207600470958188e-28,
+                                    5.4105024337768555
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0.00017504999414086342,
+                                    -0.10593000054359436
+                                ]
+                            }
+                        },
+                        "src": "107"
+                    }
+                ],
+                "name": "spherical_wrist_1_link",
+                "type": "link"
+            },
+            "108": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 7
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "107"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -495.579498
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 69.050667
+                    }
+                },
+                "id": "108",
+                "links": [
+                    {
+                        "dst": "109",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    -1.5707999467849731,
+                                    -5.551099903002512e-17,
+                                    1.57077157497406
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    -0.10593000054359436,
+                                    -0.00017504999414086342
+                                ]
+                            }
+                        },
+                        "src": "108"
+                    }
+                ],
+                "name": "spherical_wrist_2_link",
+                "type": "link"
+            },
+            "109": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 8
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "108"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -495.403015
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 146.377808
+                    }
+                },
+                "id": "109",
+                "links": [
+                    {
+                        "dst": "110",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    3.1415927410125732,
+                                    1.0993707325625778e-32,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    -0.061524998396635056
+                                ]
+                            }
+                        },
+                        "src": "109"
+                    }
+                ],
+                "name": "bracelet_link",
+                "type": "link"
+            },
+            "110": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 9
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "109"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -505.389954
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 356.765656
+                    }
+                },
+                "id": "110",
+                "links": [
+                    {
+                        "dst": "111",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    3.1415927410125732,
+                                    3.1415927410125732,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0.05638999864459038,
+                                    -0.0030499999411404133
+                                ]
+                            }
+                        },
+                        "src": "110"
+                    },
+                    {
+                        "dst": "112",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    3.1415927410125732,
+                                    3.1415927410125732,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0.027499999850988388,
+                                    0.06599999964237213,
+                                    -0.0030499999411404133
+                                ]
+                            }
+                        },
+                        "src": "110"
+                    },
+                    {
+                        "dst": "113",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    3.1415927410125732,
+                                    3.1415927410125732,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0.05638999864459038,
+                                    -0.0030499999411404133
+                                ]
+                            }
+                        },
+                        "src": "110"
+                    },
+                    {
+                        "dst": "114",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0.20000000298023224
+                                ]
+                            }
+                        },
+                        "src": "110"
+                    },
+                    {
+                        "dst": "115",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    1.5700000524520874
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            }
+                        },
+                        "src": "110"
+                    }
+                ],
+                "name": "end_effector_link",
+                "type": "link"
+            },
+            "111": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 10
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "110"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -650.653198
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 202.649338
+                    }
+                },
+                "id": "111",
+                "links": [
+                ],
+                "name": "camera_link",
+                "type": "link"
+            },
+            "112": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 10
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "110"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -337.542572
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 280.153168
+                    }
+                },
+                "id": "112",
+                "links": [
+                ],
+                "name": "camera_depth_frame",
+                "type": "link"
+            },
+            "113": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 10
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "110"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -399.500305
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 216.813766
+                    }
+                },
+                "id": "113",
+                "links": [
+                ],
+                "name": "camera_color_frame",
+                "type": "link"
+            },
+            "114": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 10
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "110"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -731.575623
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 271.694946
+                    }
+                },
+                "id": "114",
+                "links": [
+                ],
+                "name": "tool_frame",
+                "type": "link"
+            },
+            "115": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 10
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "110"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -502.237396
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 448.794495
+                    }
+                },
+                "id": "115",
+                "links": [
+                    {
+                        "dst": "116",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    2.2957963943481445,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    -0.030601000413298607,
+                                    0.0549050010740757
+                                ]
+                            }
+                        },
+                        "src": "115"
+                    },
+                    {
+                        "dst": "120",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    2.2957963943481445,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    -0.01269999984651804,
+                                    0.061420001089572906
+                                ]
+                            }
+                        },
+                        "src": "115"
+                    },
+                    {
+                        "dst": "121",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    2.2957963943481445,
+                                    0,
+                                    3.1415927410125732
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0.030601000413298607,
+                                    0.0549050010740757
+                                ]
+                            }
+                        },
+                        "src": "115"
+                    },
+                    {
+                        "dst": "125",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    2.2957963943481445,
+                                    0,
+                                    -3.1415927410125732
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0.01269999984651804,
+                                    0.061420001089572906
+                                ]
+                            }
+                        },
+                        "src": "115"
+                    }
+                ],
+                "name": "robotiq_arg2f_base_link",
+                "type": "link"
+            },
+            "116": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 11
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "115"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -810.993774
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 580.267395
+                    }
+                },
+                "id": "116",
+                "links": [
+                    {
+                        "dst": "117",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0.01821998693048954,
+                                    0.026001818478107452
+                                ]
+                            }
+                        },
+                        "src": "116"
+                    }
+                ],
+                "name": "left_outer_knuckle",
+                "type": "link"
+            },
+            "117": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 12
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "116"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -812.54895
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 639.676086
+                    }
+                },
+                "id": "117",
+                "links": [
+                    {
+                        "dst": "118",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    -0.7250000238418579,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0.08175539970397949,
+                                    -0.028220344334840775
+                                ]
+                            }
+                        },
+                        "src": "117"
+                    }
+                ],
+                "name": "left_outer_finger",
+                "type": "link"
+            },
+            "118": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 13
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "117"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -813.824341
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 704.518799
+                    }
+                },
+                "id": "118",
+                "links": [
+                    {
+                        "dst": "119",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0.045755401253700256,
+                                    -0.027220344170928
+                                ]
+                            }
+                        },
+                        "src": "118"
+                    }
+                ],
+                "name": "left_inner_finger",
+                "type": "link"
+            },
+            "119": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 14
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "118"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -817.638
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 770.23114
+                    }
+                },
+                "id": "119",
+                "links": [
+                ],
+                "name": "left_inner_finger_pad",
+                "type": "link"
+            },
+            "120": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 11
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "115"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -609.049866
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 575.49054
+                    }
+                },
+                "id": "120",
+                "links": [
+                ],
+                "name": "left_inner_knuckle",
+                "type": "link"
+            },
+            "121": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 11
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "115"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -216.17868
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 572.674866
+                    }
+                },
+                "id": "121",
+                "links": [
+                    {
+                        "dst": "122",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0.01821998693048954,
+                                    0.026001818478107452
+                                ]
+                            }
+                        },
+                        "src": "121"
+                    }
+                ],
+                "name": "right_outer_knuckle",
+                "type": "link"
+            },
+            "122": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 12
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "121"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -216.516037
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 623.912781
+                    }
+                },
+                "id": "122",
+                "links": [
+                    {
+                        "dst": "123",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    -0.7250000238418579,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0.08175539970397949,
+                                    -0.028220344334840775
+                                ]
+                            }
+                        },
+                        "src": "122"
+                    }
+                ],
+                "name": "right_outer_finger",
+                "type": "link"
+            },
+            "123": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 13
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "122"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -216.168594
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 696.156982
+                    }
+                },
+                "id": "123",
+                "links": [
+                    {
+                        "dst": "124",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0.045755401253700256,
+                                    -0.027220344170928
+                                ]
+                            }
+                        },
+                        "src": "123"
+                    }
+                ],
+                "name": "right_inner_finger",
+                "type": "link"
+            },
+            "124": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 14
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "123"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -217.955719
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 760.526184
+                    }
+                },
+                "id": "124",
+                "links": [
+                ],
+                "name": "right_inner_finger_pad",
+                "type": "link"
+            },
+            "125": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 11
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "115"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -403.605255
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": 572.451965
+                    }
+                },
+                "id": "125",
+                "links": [
+                ],
+                "name": "right_inner_knuckle",
+                "type": "link"
+            }
+        }
+    }
+}

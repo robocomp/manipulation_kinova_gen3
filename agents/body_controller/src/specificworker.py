@@ -21,12 +21,12 @@
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
-from litellm.proxy.openai_files_endpoints.files_endpoints import set_files_config
 from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
 
 sys.path.append('/opt/robocomp/lib')
+sys.path.append('src')
 console = Console(highlight=False)
 
 from pydsr import *
@@ -44,6 +44,8 @@ class SpecificWorker(GenericWorker):
         super(SpecificWorker, self).__init__(proxy_map, configData)
         self.Period = configData["Period"]["Compute"]
 
+        print("Initializing ")
+
         try:
             signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
             signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
@@ -56,7 +58,11 @@ class SpecificWorker(GenericWorker):
             print(e)
 
         # Kinova Gen 3 robot initialization
-        self.kinova_right_arm = KinovaGen3(params["kinova_right_arm_ip"])
+        self.kinova_right_arm = KinovaGen3(configData["kinova_right_arm_ip"])
+        # self.kinova_left_arm = KinovaGen3(configData["kinova_left_arm_ip"])
+
+        self.kinova_right_arm.list_posibles_actions()
+        self.kinova_right_arm.move_to_selected_pose("Home")
 
         if startup_check:
             self.startup_check()
@@ -70,7 +76,7 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
-        print('SpecificWorker.compute...')
+        # print('SpecificWorker.compute...')
         # computeCODE
         # try:
         #   self.differentialrobot_proxy.setSpeedBase(100, 0)
@@ -148,12 +154,11 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of getBaseState method from OmniRobot interface
     #
     def OmniRobot_getBaseState(self):
-        state = RoboCompOmniRobot.RoboCompGenericBase::TBaseState()
+        state = RoboCompOmniRobot.TBaseState()
 
         #
         # write your CODE here
         #
-        state = RoboCompGenericBase.TBaseState()
         return state
     #
     # IMPLEMENTATION of resetOdometer method from OmniRobot interface

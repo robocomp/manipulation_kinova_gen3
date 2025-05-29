@@ -4,6 +4,9 @@ from control import feedback
 # Created by Jorge Calderon Gonzalez in Robolab at 28/05/2025
 #
 
+import sys
+import threading
+
 from kortex_api.TCPTransport import TCPTransport
 from kortex_api.RouterClient import RouterClient
 from kortex_api.SessionManager import SessionManager
@@ -27,11 +30,6 @@ class KinovaGen3():
         self.router = RouterClient(self.transport, self.error_callback)
         self.transport.connect(ip, PORT)
 
-        self.ip = ip
-        self.base_client = BaseClient(ip)
-        self.device_manager_client = DeviceManagerClient(ip)
-        self.device_config_client = DeviceConfigClient(ip)
-
         # Create session
         self.session_info = Session_pb2.CreateSessionInfo()
         self.session_info.username = "admin"
@@ -42,6 +40,7 @@ class KinovaGen3():
         self.session_manager = SessionManager(self.router)
         self.session_manager.CreateSession(self.session_info)
 
+        self.device_manager = DeviceManagerClient(self.router)
         self.device_config = DeviceConfigClient(self.router)
         self.vision_config = VisionConfigClient(self.router)
         self.base = BaseClient(self.router)
@@ -49,15 +48,12 @@ class KinovaGen3():
 
         self.vision_device_id = self.get_vision_device_id()
 
-        print(self.device_config.GetDeviceType())
-        print(self.base.GetArmState())
-
     def __del__(self):
         """Destructor to close the session and disconnect the transport."""
-        self.session_manager.CloseSession()
-        self.transport.disconnect()
+        # self.session_manager.CloseSession()
+        # self.transport.disconnect()
 
-    def check_for_end_or_abort(e):
+    def check_for_end_or_abort(self, e):
         """Return a closure checking for END or ABORT notifications
 
         Arguments:
@@ -82,7 +78,7 @@ class KinovaGen3():
         vision_device_id = 0
 
         # Getting all device routing information (from DeviceManagerClient service)
-        all_devices_info = self.device_manager_client.ReadAllDevices()
+        all_devices_info = self.device_manager.ReadAllDevices()
 
         vision_handles = [hd for hd in all_devices_info.device_handle if hd.device_type == DeviceConfig_pb2.VISION]
         if len(vision_handles) == 0:
@@ -92,7 +88,7 @@ class KinovaGen3():
         else:
             handle = vision_handles[0]
             vision_device_id = handle.device_identifier
-            print("Vision module found, device Id: {0}".format(vision_device_id))
+            # print("Vision module found, device Id: {0}".format(vision_device_id))
 
         return vision_device_id
 
@@ -101,8 +97,11 @@ class KinovaGen3():
         action_type = Base_pb2.RequestedActionType()
         action_type.action_type = Base_pb2.REACH_JOINT_ANGLES
         action_list = self.base.ReadAllActions(action_type)
-        for action in action_list.action_list:
-            print(action.name)
+
+        print("\n=== Lista de Acciones (REACH_JOINT_ANGLES) ===")
+        for i, action in enumerate(action_list.action_list, 1):
+            print(f"{i}. {action.name}")
+        print("=" * 40)
 
     def move_to_selected_pose(self, action_name):
         """ Move the arm to a specified pose using a predefined action.
@@ -122,6 +121,8 @@ class KinovaGen3():
         for action in action_list.action_list:
             if action.name == action_name:
                 action_handle = action.handle
+
+        print(action_handle)
 
         if action_handle == None:
             print("Can't reach safe position. Exiting")
