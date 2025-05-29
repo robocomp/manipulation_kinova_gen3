@@ -3,7 +3,7 @@ KinovaArm.Endpoints=tcp -p 17955
 
 # Proxies for required interfaces
 ContactileProxy = contactile:tcp -h localhost -p 19999
-ip = 192.168.1.11
+ip = 192.168.50.11
 
 
 Ice.Warn.Connections=0

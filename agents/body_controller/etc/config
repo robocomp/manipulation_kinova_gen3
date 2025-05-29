@@ -10,11 +10,13 @@ Endpoints.JoystickAdapterPrefix = ""
 # Endpoints for implements interfaces
 Endpoints.OmniRobot = "tcp -p 0"
 
+kinova_right_arm_ip = "192.168.50.10"
+kinova_left_arm_ip = "192.168.50.11"
 
 # Change id
 Agent.id = 0
 Agent.name = "body_controller"
-Agent.configFile = ""
+Agent.configFile = "kinova2.json"
 
 ViewAgent.tree = true
 ViewAgent.graph = true
