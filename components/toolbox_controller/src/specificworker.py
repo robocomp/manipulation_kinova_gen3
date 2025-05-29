@@ -83,7 +83,7 @@ class SpecificWorker(GenericWorker):
 
             self.goal_axes = sg.Axes(0.1)
             self.rot = sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(180, 'deg') * sm.SO3.Rz(0, 'deg')
-            self.Tep = sm.SE3.Rt(self.rot, [0.455, 2.0, 0.40])
+            self.Tep = sm.SE3.Rt(self.rot, [0, 2.2, 0.70])
             self.goal_axes.T = self.Tep
             self.env.add(self.goal_axes)
 
@@ -165,14 +165,14 @@ class SpecificWorker(GenericWorker):
 
         if arrived:
             self.loop_count += 1
-            if self.loop_count % 4 == 0:
-                self.change_target([0.455, 2.0, 0.40], sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(180, 'deg') * sm.SO3.Rz(0, 'deg'))
-            if self.loop_count % 4 == 1:
-                self.change_target([2.0, 0.455, 1.0], sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(90, 'deg') * sm.SO3.Rz(0, 'deg'))
-            if self.loop_count % 4 == 2:
-                self.change_target([0.455, -2.0, 0.70], sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(0, 'deg') * sm.SO3.Rz(0, 'deg'))
-            if self.loop_count % 4 == 3:
-                self.change_target([-2.0, 0.455, 1.30], sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(-90, 'deg') * sm.SO3.Rz(0, 'deg'))
+            if self.loop_count % 2 == 0:
+                self.change_target([0, 2.2, 0.70], sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(180, 'deg') * sm.SO3.Rz(0, 'deg'))
+            # if self.loop_count % 4 == 1:
+            #     self.change_target([2.5, 0.455, 1.0], sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(90, 'deg') * sm.SO3.Rz(0, 'deg'))
+            if self.loop_count % 2 == 1:
+                self.change_target([0, -2.2, 0.70], sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(0, 'deg') * sm.SO3.Rz(0, 'deg'))
+            # if self.loop_count % 4 == 3:
+            #     self.change_target([-2.0, 0.455, 1.30], sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(-90, 'deg') * sm.SO3.Rz(0, 'deg'))
 
         print(f"Compute time required:{(time.time() * 1000) - self.last_time}")
 
