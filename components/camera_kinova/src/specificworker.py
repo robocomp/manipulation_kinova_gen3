@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
-#    Copyright (C) 2022 by YOUR NAME HERE
+#    Copyright (C) 2025 by Jorge Calderón
 #
 #    This file is part of RoboComp
 #
@@ -20,8 +20,8 @@
 #
 import sys
 
-from PySide2.QtCore import QTimer
-from PySide2.QtWidgets import QApplication
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication
 from orca.debug import pidOf
 from rich.console import Console
 from genericworker import *
@@ -38,9 +38,9 @@ import numpy as np
 console = Console(highlight=False)
 
 class SpecificWorker(GenericWorker):
-    def __init__(self, proxy_map, startup_check=False):
-        super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 1000
+    def __init__(self, proxy_map, configData, startup_check=False):
+        super(SpecificWorker, self).__init__(proxy_map, configData)
+        self.Period = configData["Period"]["Compute"]
         self.hide()
 
         #set  queue size
@@ -170,6 +170,10 @@ class SpecificWorker(GenericWorker):
 
 
     def startup_check(self):
+        print(f"Testing RoboCompCameraRGBDSimple.Point3D from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.Point3D()
+        print(f"Testing RoboCompCameraRGBDSimple.TPoints from ifaces.RoboCompCameraRGBDSimple")
+        test = ifaces.RoboCompCameraRGBDSimple.TPoints()
         print(f"Testing RoboCompCameraRGBDSimple.TImage from ifaces.RoboCompCameraRGBDSimple")
         test = ifaces.RoboCompCameraRGBDSimple.TImage()
         print(f"Testing RoboCompCameraRGBDSimple.TDepth from ifaces.RoboCompCameraRGBDSimple")
@@ -231,14 +235,26 @@ class SpecificWorker(GenericWorker):
             return ret
         except queue.Empty:
             return None
+
+    #
+    # IMPLEMENTATION of getPoints method from CameraRGBDSimple interface
+    #
+    def CameraRGBDSimple_getPoints(self, camera):
+
+        #
+        # write your CODE here
+        #
+        return ret
     # ===================================================================
     # ===================================================================
 
 
     ######################
     # From the RoboCompCameraRGBDSimple you can use this types:
-    # RoboCompCameraRGBDSimple.TImage
-    # RoboCompCameraRGBDSimple.TDepth
-    # RoboCompCameraRGBDSimple.TRGBD
+    # ifaces.RoboCompCameraRGBDSimple.Point3D
+    # ifaces.RoboCompCameraRGBDSimple.TPoints
+    # ifaces.RoboCompCameraRGBDSimple.TImage
+    # ifaces.RoboCompCameraRGBDSimple.TDepth
+    # ifaces.RoboCompCameraRGBDSimple.TRGBD
 
 

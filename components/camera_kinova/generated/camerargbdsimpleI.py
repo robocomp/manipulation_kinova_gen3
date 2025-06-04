@@ -1,5 +1,5 @@
 #
-#    Copyright (C) 2024 by YOUR NAME HERE
+#    Copyright (C) 2025 by YOUR NAME HERE
 #
 #    This file is part of RoboComp
 #
@@ -29,23 +29,24 @@ if len(ROBOCOMP)<1:
     raise RuntimeError('ROBOCOMP environment variable not set! Exiting.')
 
 
-Ice.loadSlice("-I ./src/ --all ./src/CameraRGBDSimple.ice")
+Ice.loadSlice("-I ./generated/ --all ./generated/CameraRGBDSimple.ice")
 
 from RoboCompCameraRGBDSimple import *
 
 class CameraRGBDSimpleI(CameraRGBDSimple):
-    def __init__(self, worker):
+    def __init__(self, worker, id:str):
         self.worker = worker
+        self.id = id
 
 
-    def getAll(self, camera, c):
-        return self.worker.CameraRGBDSimple_getAll(camera)
+    def getAll(self, camera, ice):
+        return getattr(self.worker, f"CameraRGBDSimple{self.id}_getAll")(camera)
 
-    def getDepth(self, camera, c):
-        return self.worker.CameraRGBDSimple_getDepth(camera)
+    def getDepth(self, camera, ice):
+        return getattr(self.worker, f"CameraRGBDSimple{self.id}_getDepth")(camera)
 
-    def getImage(self, camera, c):
-        return self.worker.CameraRGBDSimple_getImage(camera)
+    def getImage(self, camera, ice):
+        return getattr(self.worker, f"CameraRGBDSimple{self.id}_getImage")(camera)
 
-    def getPoints(self, camera, c):
-        return self.worker.CameraRGBDSimple_getPoints(camera)
+    def getPoints(self, camera, ice):
+        return getattr(self.worker, f"CameraRGBDSimple{self.id}_getPoints")(camera)

@@ -1,13 +1,14 @@
 # Endpoints for implements interfaces
-CameraRGBDSimple.Endpoints=tcp -p 16023
+Endpoints.CameraRGBDSimple = "tcp -p 16023"
 
 ip = 192.168.1.11
 
+Period.Compute = 1000
+Period.Emergency = 500
 
-Ice.Warn.Connections=0
-Ice.Trace.Network=0
-Ice.Trace.Protocol=0
-Ice.MessageSizeMax=20004800
-
+Ice.Warn.Connections = "0"
+Ice.Trace.Network = "0"
+Ice.Trace.Protocol = "0"
+Ice.MessageSizeMax = "20004800"
 
 

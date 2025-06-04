@@ -1,6 +1,7 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.10)
 PROJECT(  camera_kinova )
 
-INCLUDE( $ENV{ROBOCOMP}/cmake/robocomp.cmake )
+# find_package(pybind11 REQUIRED)
 
-ROBOCOMP_IDSL_TO_ICE( CommonBehavior CameraRGBDSimple )
+# pybind11_add_module(example_module src/example.cpp)
+
