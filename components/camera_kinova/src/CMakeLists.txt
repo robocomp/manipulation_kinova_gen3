@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.6)
 PROJECT(  camera_kinova )
 
-INCLUDE( /home/robocomp/robocomp/cmake/robocomp.cmake )
+INCLUDE( $ENV{ROBOCOMP}/cmake/robocomp.cmake )
 
 ROBOCOMP_IDSL_TO_ICE( CommonBehavior CameraRGBDSimple )

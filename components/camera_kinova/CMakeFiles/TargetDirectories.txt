@@ -1,6 +1,0 @@
-/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova/CMakeFiles/ui_mainUI.dir
-/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova/CMakeFiles/edit_cache.dir
-/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova/CMakeFiles/rebuild_cache.dir
-/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova/src/CMakeFiles/ICES__home_robolab_robocomp_components_manipulation_kinova_gen3_components_camera_kinova_src.dir
-/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova/src/CMakeFiles/edit_cache.dir
-/home/robolab/robocomp/components/manipulation_kinova_gen3/components/camera_kinova/src/CMakeFiles/rebuild_cache.dir
