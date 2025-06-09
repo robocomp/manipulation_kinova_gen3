@@ -39,6 +39,8 @@ class GenericWorker(QtWidgets.QMainWindow):
     def __init__(self, mprx, configData):
         super(GenericWorker, self).__init__()
 
+        self.omnirobot_proxy = mprx["OmniRobot"]
+        self.omnirobot_proxy = mprx["OmniRobot"]
 
         self.ui = Ui_guiDlg()
         self.ui.setupUi(self)

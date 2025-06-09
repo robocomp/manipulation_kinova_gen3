@@ -23,7 +23,7 @@
                 "id": "101",
                 "links": [
                     {
-                        "dst": "102",
+                        "dst": "200",
                         "label": "RT",
                         "linkAttribute": {
                             "rt_rotation_euler_xyz": {
@@ -49,7 +49,7 @@
                 "name": "root",
                 "type": "root"
             },
-            "102": {
+            "200": {
                 "attribute": {
                     "color": {
                         "type": 0,
@@ -62,6 +62,58 @@
                     "parent": {
                         "type": 7,
                         "value": "101"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -495.029846
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -450.0
+                    }
+                },
+                "id": "200",
+                "links": [
+                    {
+                        "dst": "102",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    3.1415998935699463,
+                                    2.7629000851886355e-18,
+                                    6.283161640167236
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    0,
+                                    0,
+                                    0.15643000602722168
+                                ]
+                            }
+                        },
+                        "src": "200"
+                    }
+                ],
+                "name": "robot",
+                "type": "omnirobot"
+            },
+            "102": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 1
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "200"
                     },
                     "pos_x": {
                         "type": 2,
@@ -1273,6 +1325,110 @@
                 ],
                 "name": "right_inner_knuckle",
                 "type": "link"
+            },
+            "126": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 1
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "200"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -593.165
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -352.488
+                    }
+                },
+                "id": "126",
+                "links": [
+                    {
+                        "dst": "126",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    1.57,
+                                    0,
+                                    1.57
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    2000,
+                                    0.0,
+                                    750
+                                ]
+                            }
+                        },
+                        "src": "200"
+                    }
+                ],
+                "name": "Table1",
+                "type": "table"
+            },
+            "127": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 1
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "200"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -426.669
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -349.545
+                    }
+                },
+                "id": "127",
+                "links": [
+                    {
+                        "dst": "127",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    1.57,
+                                    0,
+                                    4.7124
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    -2000,
+                                    0,
+                                    750
+                                ]
+                            }
+                        },
+                        "src": "200"
+                    }
+                ],
+                "name": "Table2",
+                "type": "table"
             }
         }
     }

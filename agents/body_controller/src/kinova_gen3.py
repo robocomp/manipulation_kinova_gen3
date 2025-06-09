@@ -1,5 +1,4 @@
 #! /usr/bin/env python3
-from control import feedback
 #
 # Created by Jorge Calderon Gonzalez in Robolab at 28/05/2025
 #

@@ -1,14 +1,14 @@
 # This property is used by the clients to connect to IceStorm.
 Proxies.TopicManager = "IceStorm/TopicManager:default -p 9999"
 
-
+# Proxies for required interfaces
+Proxies.OmniRobot = "omnirobot:tcp -h localhost -p 10004"
 
 # Endpoints for subscriptions interfaces
+Endpoints.FullPoseEstimationPubTopic = "tcp -p 0"
+Endpoints.FullPoseEstimationPubPrefix = ""
 Endpoints.JoystickAdapterTopic = "tcp -p 0"
 Endpoints.JoystickAdapterPrefix = ""
-
-# Endpoints for implements interfaces
-Endpoints.OmniRobot = "tcp -p 0"
 
 kinova_right_arm_ip = "192.168.50.10"
 kinova_left_arm_ip = "192.168.50.11"
@@ -23,10 +23,13 @@ ViewAgent.graph = true
 ViewAgent.2d = true
 ViewAgent.3d = true
 
-Period.Compute = 100
-Period.Emergency = 500
+Period.Compute = 50
 
 Ice.Warn.Connections = "0"
 Ice.Trace.Network = "0"
 Ice.Trace.Protocol = "0"
 Ice.MessageSizeMax = "20004800"
+
+
+useRTPose = False
+disparityUmbral = 0

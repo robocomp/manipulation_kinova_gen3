@@ -4,6 +4,10 @@ import IceStorm
 from rich.console import Console, Text
 console = Console()
 
+Ice.loadSlice("-I ./generated/ --all ./generated/FullPoseEstimation.ice")
+import RoboCompFullPoseEstimation
+Ice.loadSlice("-I ./generated/ --all ./generated/FullPoseEstimationPub.ice")
+import RoboCompFullPoseEstimationPub
 Ice.loadSlice("-I ./generated/ --all ./generated/GenericBase.ice")
 import RoboCompGenericBase
 Ice.loadSlice("-I ./generated/ --all ./generated/JoystickAdapter.ice")
@@ -48,7 +52,7 @@ class ButtonsList(list):
 setattr(RoboCompJoystickAdapter, "ButtonsList", ButtonsList)
 
 
-import omnirobotI
+import fullposeestimationpubI
 import joystickadapterI
 
 class Publishes:
@@ -86,6 +90,8 @@ class Requires:
         self.ice_connector = ice_connector
         self.mprx={}
 
+        self.OmniRobot = self.create_proxy("OmniRobot", RoboCompOmniRobot.OmniRobotPrx, parameters["Proxies"]["OmniRobot"])
+
     def get_proxies_map(self):
         return self.mprx
 
@@ -108,6 +114,8 @@ class Subscribes:
         self.ice_connector = ice_connector
         self.topic_manager = topic_manager
 
+        self.FullPoseEstimationPub = self.create_adapter("FullPoseEstimationPub", parameters["Endpoints"]["FullPoseEstimationPubPrefix"], 
+                                                fullposeestimationpubI.FullPoseEstimationPubI(default_handler, ""), parameters["Endpoints"]["FullPoseEstimationPubTopic"])
         self.JoystickAdapter = self.create_adapter("JoystickAdapter", parameters["Endpoints"]["JoystickAdapterPrefix"], 
                                                 joystickadapterI.JoystickAdapterI(default_handler, ""), parameters["Endpoints"]["JoystickAdapterTopic"])
 
@@ -138,8 +146,6 @@ class Subscribes:
 class Implements:
     def __init__(self, ice_connector:Ice.CommunicatorI, default_handler, parameters):
         self.ice_connector = ice_connector
-
-        self.omnirobot = self.create_adapter("OmniRobot", omnirobotI.OmniRobotI(default_handler, ""), parameters["Endpoints"]["OmniRobot"])
 
     def create_adapter(self, property_name, interface_handler, endpoint_string):
         try:

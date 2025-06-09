@@ -18,18 +18,29 @@
 #    You should have received a copy of the GNU General Public License
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
+from itertools import count
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 from rich.console import Console
+from rich.text import Text
 from genericworker import *
 import interfaces as ifaces
+from time import time, sleep
 
 sys.path.append('/opt/robocomp/lib')
 sys.path.append('src')
 console = Console(highlight=False)
 
 from pydsr import *
+import math
+
+import swift
+import roboticstoolbox as rtb
+import spatialmath as sm
+import numpy as np
+import qpsolvers as qp
+import spatialgeometry as sg
 
 from kinova_gen3 import KinovaGen3
 
@@ -37,61 +48,223 @@ from kinova_gen3 import KinovaGen3
 # import librobocomp_qmat
 # import librobocomp_osgviewer
 # import librobocomp_innermodel
+SCALE = 0.001
 
 
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, configData, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map, configData)
         self.Period = configData["Period"]["Compute"]
+        self.useRTPose = self.configData["useRTPose"]
+        self.pose = None
+        self.last_time = time() * 1000
 
         print("Initializing ")
+        self.a=0
 
         try:
-            signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
-            signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
-            signals.connect(self.g, signals.DELETE_NODE, self.delete_node)
+            # signals.connect(self.g, signals.UPDATE_NODE_ATTR, self.update_node_att)
+            # signals.connect(self.g, signals.UPDATE_NODE, self.update_node)
+            # signals.connect(self.g, signals.DELETE_NODE, self.delete_node)
             signals.connect(self.g, signals.UPDATE_EDGE, self.update_edge)
-            signals.connect(self.g, signals.UPDATE_EDGE_ATTR, self.update_edge_att)
-            signals.connect(self.g, signals.DELETE_EDGE, self.delete_edge)
+            # signals.connect(self.g, signals.UPDATE_EDGE_ATTR, self.update_edge_att)
+            # signals.connect(self.g, signals.DELETE_EDGE, self.delete_edge)
             console.print("signals connected")
         except RuntimeError as e:
             print(e)
 
         # Kinova Gen 3 robot initialization
-        self.kinova_right_arm = KinovaGen3(configData["kinova_right_arm_ip"])
+        # self.kinova_right_arm = KinovaGen3(configData["kinova_right_arm_ip"])
         # self.kinova_left_arm = KinovaGen3(configData["kinova_left_arm_ip"])
 
-        self.kinova_right_arm.list_posibles_actions()
-        self.kinova_right_arm.move_to_selected_pose("Home")
+        # self.kinova_right_arm.list_posibles_actions()
 
         if startup_check:
             self.startup_check()
         else:
+
+            self.env = swift.Swift()
+            self.env.launch(realtime=True)
+            self.env.set_camera_pose([-2, 3, 0.7], [-2, 0.0, 0.5])
+
+
+            self.p3bot = rtb.models.P3Bot()
+
+            T = sm.SE3(0, 0, 0.04)
+            Rz = sm.SE3.Rz(np.pi / 2)
+            self.p3bot.base = T * Rz
+
+            self.env.add(self.p3bot)
+
+            # # for link in self.p3bot.ee_links:
+            # #     print(f"Link {link.name} has mass {link.m} and inertia {link.I}")
+            self.goal_axes = sg.Axes(0.1)
+
+            edge = self.g.get_edge("robot", "Table1", "RT")
+            print(edge.attrs["rt_translation"])
+            print(edge.attrs["rt_translation"].value)
+            if edge is not None:
+                self.change_target( np.array(edge.attrs["rt_translation"].value), np.array(edge.attrs["rt_rotation_euler_xyz"].value))
+            else:
+                self.change_target(np.array([0, 2.2, 0.70]), np.array([1.57, 3.1416, 0]))
+
+            # self.rot = sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(180, 'deg') * sm.SO3.Rz(0, 'deg')
+            # self.Tep = sm.SE3.Rt(self.rot, )
+            # self.goal_axes.T = self.Tep
+            # self.env.add(self.goal_axes)
+
+            self.loop_count = 0
+
             self.timer.timeout.connect(self.compute)
             self.timer.start(self.Period)
+
 
     def __del__(self):
         """Destructor"""
 
+    def noisePose(self):
+        current_base = self.p3bot.base  # Transformación actual (sm.SE3)
+        # Ruido gaussiano en X, Y, Z (media=0, desviación estándar=0.01 metros)
+        translation_noise = np.random.normal(0, 0.001, size=3)  # [Δx, Δy, Δz]
+        # Crear una transformación de traslación con el ruido
+        T_noise = sm.SE3(translation_noise)
+        # Ruido en la rotación (pequeño ángulo en radianes, ej: σ=0.1 rad)
+        rotation_noise_z = np.random.normal(0, 0.01)  # Ruido en rotación Z
+        # Crear una transformación de rotación con el ruido
+        R_noise = sm.SE3.Rz(rotation_noise_z)
+        self.p3bot.base = current_base * R_noise * T_noise
 
     @QtCore.Slot()
     def compute(self):
-        # print('SpecificWorker.compute...')
-        # computeCODE
-        # try:
-        #   self.differentialrobot_proxy.setSpeedBase(100, 0)
-        # except Ice.Exception as e:
-        #   traceback.print_exc()
-        #   print(e)
+        self.last_time = time() * 1000
+        arrived, qd = self.step_robot(self.p3bot, self.Tep.A)
+        self.p3bot.qd = qd
+        self.env.step(0.05)
+        if self.pose is not None:
+            T = sm.SE3(self.pose[0:3])
+            RPY = sm.SE3.RPY(self.pose[3:6])
+            self.pose = None
+            self.p3bot.base = T * RPY
 
-        # The API of python-innermodel is not exactly the same as the C++ version
-        # self.innermodel.updateTransformValues('head_rot_tilt_pose', 0, 0, 0, 1.3, 0, 0)
-        # z = librobocomp_qmat.QVec(3,0)
-        # r = self.innermodel.transform('rgbd', z, 'laser')
-        # r.printvector('d')
-        # print(r[0], r[1], r[2])
+        try:
+            self.omnirobot_proxy.setSpeedBase(0, qd[1]*1000, -qd[0])
+            pass
+        except Ice.ConnectionRefusedException:
+            pass
+
+        base_new = self.p3bot.fkine(self.p3bot._q, end=self.p3bot.links[2])
+        self.p3bot._T = base_new.A
+        self.p3bot.q[:2] = 0
+
+        if arrived:
+            self.loop_count += 1
+
+            target =  "Table1"
+            if self.loop_count % 2 == 1:
+                target = "Table2"
+
+            edge = self.g.get_edge("robot", target, "RT")
+            if edge is not None:
+                self.change_target( np.array(edge.attrs["rt_translation"].value), np.array(edge.attrs["rt_rotation_euler_xyz"].value))
+            # self.change_target([0, -2.2, 0.70], sm.SO3.Rx(90, 'deg') * sm.SO3.Ry(0, 'deg') * sm.SO3.Rz(0, 'deg'))
+
+
+
+
+        # print(f"Compute time required:{(time() * 1000) - self.last_time}")
 
         return True
+
+    def change_target(self, translate:np.ndarray, rot:np.ndarray):
+        print(f"Changed goal {translate}, {rot}")
+        # Change the target position of the end-effector
+        T = sm.SE3(translate*SCALE)
+        RPY = sm.SE3.RPY(rot)
+
+        self.Tep = T * RPY
+        self.goal_axes.T = self.Tep
+
+        # self.Tep = sm.SE3.Rt(rot, translate)
+        # self.goal_axes.T =self.Tep
+        self.env.add(self.goal_axes)
+
+    def step_robot(self, r: rtb.ERobot, Tep):
+
+        wTe = r.fkine(r.q)
+
+        eTep = np.linalg.inv(wTe) @ Tep
+
+        # Spatial error
+        et = np.sum(np.abs(eTep[:3, -1]))
+
+        # print("Spatial error: ", et)
+
+        # Gain term (lambda) for control minimisation
+        Y = 0.01
+
+        # Quadratic component of objective function
+        Q = np.eye(r.n + 6)
+
+        # Joint velocity component of Q
+        Q[: r.n, : r.n] *= Y
+        Q[:3, :3] *= 1.0 / et
+
+        # Slack component of Q
+        Q[r.n:, r.n:] = (1.0 / et) * np.eye(6)
+
+        v, _ = rtb.p_servo(wTe, Tep, 1.5)
+
+        v[3:] *= 1.3
+
+        # The equality contraints
+        Aeq = np.c_[r.jacobe(r.q), np.eye(6)]
+        beq = v.reshape((6,))
+
+        # The inequality constraints for joint limit avoidance
+        Ain = np.zeros((r.n + 6, r.n + 6))
+        bin = np.zeros(r.n + 6)
+
+        # The minimum angle (in radians) in which the joint is allowed to approach
+        # to its limit
+        ps = 0.1
+
+        # The influence angle (in radians) in which the velocity damper
+        # becomes active
+        pi = 0.9
+
+        # Form the joint limit velocity damper
+        Ain[: r.n, : r.n], bin[: r.n] = r.joint_velocity_damper(ps, pi, r.n)
+
+        # Linear component of objective function: the manipulability Jacobian
+        c = np.concatenate(
+            (np.zeros(2), -r.jacobm(start=r.links[3]).reshape((r.n - 2,)), np.zeros(6))
+        )
+
+        # Get base to face end-effector
+        kε = 0.5
+        bTe = r.fkine(r.q, include_base=False).A
+        θε = math.atan2(bTe[1, -1], bTe[0, -1])
+        ε = kε * θε
+        c[0] = -ε
+
+        # The lower and upper bounds on the joint velocity and slack variable
+        lb = -np.r_[r.qdlim[: r.n], 10 * np.ones(6)]
+        ub = np.r_[r.qdlim[: r.n], 10 * np.ones(6)]
+
+        # Solve for the joint velocities dq
+        qd = qp.solve_qp(Q, c, Ain, bin, Aeq, beq, lb=lb, ub=ub, solver="piqp").copy()
+        qd = qd[: r.n]
+        # print(qd)
+
+        if et > 0.5:
+            qd *= 0.7 / et
+        else:
+            qd *= 1.4
+
+        if et < 0.02:
+            return True, qd
+        else:
+            return False, qd
 
     def startup_check(self):
         print(f"Testing RoboCompOmniRobot.TMechParams from ifaces.RoboCompOmniRobot")
@@ -110,6 +283,15 @@ class SpecificWorker(GenericWorker):
     # ===================================================================
 
     #
+    # SUBSCRIPTION to newFullPose method from FullPoseEstimationPub interface
+    #
+    def FullPoseEstimationPub_newFullPose(self, pose):
+        if not self.useRTPose:
+            self.pose = np.array([pose.x, pose.y, pose.z, pose.rx, pose.ry, pose.rz])
+            # print(f"\rNew pose X:{self.pose[0]:.2f} | Y:{self.pose[1]:.2f} | Z:{self.pose[2]:.2f} | Roll:{self.pose[3]:.2f} | Pitch:{self.pose[4]:.2f} | Yaw:{self.pose[5]:.2f}", end="")
+
+
+    #
     # SUBSCRIPTION to sendData method from JoystickAdapter interface
     #
     def JoystickAdapter_sendData(self, data):
@@ -124,110 +306,27 @@ class SpecificWorker(GenericWorker):
     # ===================================================================
 
 
-    # =============== Methods for Component Implements ==================
-    # ===================================================================
 
-    #
-    # IMPLEMENTATION of correctOdometer method from OmniRobot interface
-    #
-    def OmniRobot_correctOdometer(self, x, z, alpha):
-
-        #
-        # write your CODE here
-        #
-        pass
-
-
-    #
-    # IMPLEMENTATION of getBasePose method from OmniRobot interface
-    #
-    def OmniRobot_getBasePose(self):
-        x = int()
-        z = int()
-        alpha = float()
-
-        #
-        # write your CODE here
-        #
-        return [x, z, alpha]
-    #
-    # IMPLEMENTATION of getBaseState method from OmniRobot interface
-    #
-    def OmniRobot_getBaseState(self):
-        state = RoboCompOmniRobot.TBaseState()
-
-        #
-        # write your CODE here
-        #
-        return state
-    #
-    # IMPLEMENTATION of resetOdometer method from OmniRobot interface
-    #
-    def OmniRobot_resetOdometer(self):
-
-        #
-        # write your CODE here
-        #
-        pass
-
-
-    #
-    # IMPLEMENTATION of setOdometer method from OmniRobot interface
-    #
-    def OmniRobot_setOdometer(self, state):
-
-        #
-        # write your CODE here
-        #
-        pass
-
-
-    #
-    # IMPLEMENTATION of setOdometerPose method from OmniRobot interface
-    #
-    def OmniRobot_setOdometerPose(self, x, z, alpha):
-
-        #
-        # write your CODE here
-        #
-        pass
-
-
-    #
-    # IMPLEMENTATION of setSpeedBase method from OmniRobot interface
-    #
-    def OmniRobot_setSpeedBase(self, advx, advz, rot):
-
-        #
-        # write your CODE here
-        #
-        pass
-
-
-    #
-    # IMPLEMENTATION of stopBase method from OmniRobot interface
-    #
-    def OmniRobot_stopBase(self):
-
-        #
-        # write your CODE here
-        #
-        pass
-
-
-    # ===================================================================
-    # ===================================================================
-
+    ######################
+    # From the RoboCompOmniRobot you can call this methods:
+    # RoboCompOmniRobot.void self.omnirobot_proxy.correctOdometer(int x, int z, float alpha)
+    # RoboCompOmniRobot.void self.omnirobot_proxy.getBasePose(int x, int z, float alpha)
+    # RoboCompOmniRobot.void self.omnirobot_proxy.getBaseState(RoboCompGenericBase.TBaseState state)
+    # RoboCompOmniRobot.void self.omnirobot_proxy.resetOdometer()
+    # RoboCompOmniRobot.void self.omnirobot_proxy.setOdometer(RoboCompGenericBase.TBaseState state)
+    # RoboCompOmniRobot.void self.omnirobot_proxy.setOdometerPose(int x, int z, float alpha)
+    # RoboCompOmniRobot.void self.omnirobot_proxy.setSpeedBase(float advx, float advz, float rot)
+    # RoboCompOmniRobot.void self.omnirobot_proxy.stopBase()
 
     ######################
     # From the RoboCompOmniRobot you can use this types:
-    # RoboCompOmniRobot.TMechParams
+    # ifaces.RoboCompOmniRobot.TMechParams
 
     ######################
     # From the RoboCompJoystickAdapter you can use this types:
-    # RoboCompJoystickAdapter.AxisParams
-    # RoboCompJoystickAdapter.ButtonParams
-    # RoboCompJoystickAdapter.TData
+    # ifaces.RoboCompJoystickAdapter.AxisParams
+    # ifaces.RoboCompJoystickAdapter.ButtonParams
+    # ifaces.RoboCompJoystickAdapter.TData
 
 
 
@@ -244,8 +343,17 @@ class SpecificWorker(GenericWorker):
         console.print(f"DELETE NODE:: {id} ", style='green')
 
     def update_edge(self, fr: int, to: int, type: str):
-
         console.print(f"UPDATE EDGE: {fr} to {type}", type, style='green')
+        if fr == 100 and to == 200 and type == "RT":
+            try:
+                edge = self.g.get_edge(fr, to, type)
+                if edge is not None:
+                    pose = edge.attrs["rt_translation"].value
+                    rot = edge.attrs["rt_rotation_euler_xyz"].value
+                    self.pose = np.array([pose[0], pose[1], pose[2], rot[2]])
+                    print(f"\rNew pose X:{self.pose[0]:.2f} | Y:{self.pose[1]:.2f} | Z:{self.pose[2]:.2f} | Roll:{self.pose[3]:.2f} | Pitch:{self.pose[4]:.2f} | Yaw:{self.pose[5]:.2f}", end="")
+            except Exception as e:
+                print(f"Error procesando edge: {e}")
 
     def update_edge_att(self, fr: int, to: int, type: str, attribute_names: [str]):
         console.print(f"UPDATE EDGE ATT: {fr} to {type} {attribute_names}", style='green')
