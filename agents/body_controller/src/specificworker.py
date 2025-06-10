@@ -146,8 +146,10 @@ class SpecificWorker(GenericWorker):
             self.pose = None
             self.p3bot.base = T * RPY
 
+        print(f"\radv:{qd[1]*1000:.2f} | rot:{qd[0]:.2f}", end="")
+
         try:
-            self.omnirobot_proxy.setSpeedBase(0, qd[1]*1000, -qd[0])
+            self.omnirobot_proxy.setSpeedBase(0, qd[1]*1000, qd[0])
             pass
         except Ice.ConnectionRefusedException:
             pass
@@ -252,19 +254,22 @@ class SpecificWorker(GenericWorker):
         ub = np.r_[r.qdlim[: r.n], 10 * np.ones(6)]
 
         # Solve for the joint velocities dq
-        qd = qp.solve_qp(Q, c, Ain, bin, Aeq, beq, lb=lb, ub=ub, solver="piqp").copy()
-        qd = qd[: r.n]
-        # print(qd)
+        qd = qp.solve_qp(Q, c, Ain, bin, Aeq, beq, lb=lb, ub=ub, solver="piqp")
+        if qd is not None:
+            qd = qd.copy()
+            qd = qd[: r.n]
+            # print(qd)
 
-        if et > 0.5:
-            qd *= 0.7 / et
-        else:
-            qd *= 1.4
+            if et > 0.5:
+                qd *= 0.7 / et
+            else:
+                qd *= 1.4
 
-        if et < 0.02:
-            return True, qd
+            if et < 0.02:
+                return True, qd
         else:
-            return False, qd
+            console.print(Text("qd is None", "red"))
+        return False, qd
 
     def startup_check(self):
         print(f"Testing RoboCompOmniRobot.TMechParams from ifaces.RoboCompOmniRobot")
@@ -287,7 +292,8 @@ class SpecificWorker(GenericWorker):
     #
     def FullPoseEstimationPub_newFullPose(self, pose):
         if not self.useRTPose:
-            self.pose = np.array([pose.x, pose.y, pose.z, pose.rx, pose.ry, pose.rz])
+            #Change to  ros coordinates
+            self.pose = np.array([pose.x*SCALE, pose.y*SCALE, pose.z*SCALE, pose.rx, pose.ry, pose.rz+1.57])
             # print(f"\rNew pose X:{self.pose[0]:.2f} | Y:{self.pose[1]:.2f} | Z:{self.pose[2]:.2f} | Roll:{self.pose[3]:.2f} | Pitch:{self.pose[4]:.2f} | Yaw:{self.pose[5]:.2f}", end="")
 
 
