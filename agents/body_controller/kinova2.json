@@ -1326,7 +1326,7 @@
                 "name": "right_inner_knuckle",
                 "type": "link"
             },
-            "126": {
+            "300": {
                 "attribute": {
                     "color": {
                         "type": 0,
@@ -1342,17 +1342,17 @@
                     },
                     "pos_x": {
                         "type": 2,
-                        "value": -593.165
+                        "value": -618.288
                     },
                     "pos_y": {
                         "type": 2,
-                        "value": -352.488
+                        "value": -509.712
                     }
                 },
-                "id": "126",
+                "id": "300",
                 "links": [
                     {
-                        "dst": "126",
+                        "dst": "300",
                         "label": "RT",
                         "linkAttribute": {
                             "rt_rotation_euler_xyz": {
@@ -1378,7 +1378,7 @@
                 "name": "Table1",
                 "type": "table"
             },
-            "127": {
+            "301": {
                 "attribute": {
                     "color": {
                         "type": 0,
@@ -1394,17 +1394,69 @@
                     },
                     "pos_x": {
                         "type": 2,
-                        "value": -426.669
+                        "value": -628.383
                     },
                     "pos_y": {
                         "type": 2,
-                        "value": -349.545
+                        "value": -471.137
                     }
                 },
-                "id": "127",
+                "id": "301",
                 "links": [
                     {
-                        "dst": "127",
+                        "dst": "301",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    1.57,
+                                    0,
+                                    1.57
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    2000,
+                                    0,
+                                    750
+                                ]
+                            }
+                        },
+                        "src": "200"
+                    }
+                ],
+                "name": "Table2",
+                "type": "table"
+            },
+            "302": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 1
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "200"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -633.709
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -426.798
+                    }
+                },
+                "id": "302",
+                "links": [
+                    {
+                        "dst": "302",
                         "label": "RT",
                         "linkAttribute": {
                             "rt_rotation_euler_xyz": {
@@ -1427,7 +1479,59 @@
                         "src": "200"
                     }
                 ],
-                "name": "Table2",
+                "name": "Table3",
+                "type": "table"
+            },
+            "303": {
+                "attribute": {
+                    "color": {
+                        "type": 0,
+                        "value": "Khaki"
+                    },
+                    "level": {
+                        "type": 1,
+                        "value": 1
+                    },
+                    "parent": {
+                        "type": 7,
+                        "value": "200"
+                    },
+                    "pos_x": {
+                        "type": 2,
+                        "value": -619.014
+                    },
+                    "pos_y": {
+                        "type": 2,
+                        "value": -387.432
+                    }
+                },
+                "id": "303",
+                "links": [
+                    {
+                        "dst": "303",
+                        "label": "RT",
+                        "linkAttribute": {
+                            "rt_rotation_euler_xyz": {
+                                "type": 3,
+                                "value": [
+                                    1.57,
+                                    0,
+                                    -1.57
+                                ]
+                            },
+                            "rt_translation": {
+                                "type": 3,
+                                "value": [
+                                    -2000,
+                                    0,
+                                    750
+                                ]
+                            }
+                        },
+                        "src": "200"
+                    }
+                ],
+                "name": "Table4",
                 "type": "table"
             }
         }
