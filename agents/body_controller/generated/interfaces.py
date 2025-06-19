@@ -12,6 +12,8 @@ Ice.loadSlice("-I ./generated/ --all ./generated/GenericBase.ice")
 import RoboCompGenericBase
 Ice.loadSlice("-I ./generated/ --all ./generated/JoystickAdapter.ice")
 import RoboCompJoystickAdapter
+Ice.loadSlice("-I ./generated/ --all ./generated/KinovaArm.ice")
+import RoboCompKinovaArm
 Ice.loadSlice("-I ./generated/ --all ./generated/OmniRobot.ice")
 import RoboCompOmniRobot
 
@@ -50,6 +52,60 @@ class ButtonsList(list):
         assert isinstance(item, RoboCompJoystickAdapter.ButtonParams)
         super(ButtonsList, self).insert(index, item)
 setattr(RoboCompJoystickAdapter, "ButtonsList", ButtonsList)
+
+class TJointSeq(list):
+    def __init__(self, iterable=list()):
+        super(TJointSeq, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, RoboCompKinovaArm.TJoint)
+        super(TJointSeq, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, RoboCompKinovaArm.TJoint)
+        super(TJointSeq, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, RoboCompKinovaArm.TJoint)
+        super(TJointSeq, self).insert(index, item)
+setattr(RoboCompKinovaArm, "TJointSeq", TJointSeq)
+
+class Speeds(list):
+    def __init__(self, iterable=list()):
+        super(Speeds, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, float)
+        super(Speeds, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, float)
+        super(Speeds, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, float)
+        super(Speeds, self).insert(index, item)
+setattr(RoboCompKinovaArm, "Speeds", Speeds)
+
+class Angles(list):
+    def __init__(self, iterable=list()):
+        super(Angles, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, float)
+        super(Angles, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, float)
+        super(Angles, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, float)
+        super(Angles, self).insert(index, item)
+setattr(RoboCompKinovaArm, "Angles", Angles)
 
 
 import fullposeestimationpubI
@@ -90,6 +146,7 @@ class Requires:
         self.ice_connector = ice_connector
         self.mprx={}
 
+        self.KinovaArm = self.create_proxy("KinovaArm", RoboCompKinovaArm.KinovaArmPrx, parameters["Proxies"]["KinovaArm"])
         self.OmniRobot = self.create_proxy("OmniRobot", RoboCompOmniRobot.OmniRobotPrx, parameters["Proxies"]["OmniRobot"])
 
     def get_proxies_map(self):

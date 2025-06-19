@@ -1,12 +1,13 @@
 import "OmniRobot.idsl";
 import "JoystickAdapter.idsl";
 import "FullPoseEstimationPub.idsl";
+import "KinovaArm.idsl";
 
 Component body_controller
 {
     Communications
     {
-        requires OmniRobot;
+        requires OmniRobot, KinovaArm;
         subscribesTo JoystickAdapter, FullPoseEstimationPub;
     };
     language python;

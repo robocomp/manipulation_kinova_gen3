@@ -2,6 +2,7 @@
 Proxies.TopicManager = "IceStorm/TopicManager:default -p 9999"
 
 # Proxies for required interfaces
+Proxies.KinovaArm = "kinovaarm:tcp -h localhost -p 0"
 Proxies.OmniRobot = "omnirobot:tcp -h localhost -p 10004"
 
 # Endpoints for subscriptions interfaces
@@ -14,7 +15,7 @@ kinova_right_arm_ip = "192.168.50.10"
 kinova_left_arm_ip = "192.168.50.11"
 
 # Change id
-Agent.id = 0
+Agent.id = 999
 Agent.name = "body_controller"
 Agent.configFile = "kinova2.json"
 
@@ -32,4 +33,5 @@ Ice.MessageSizeMax = "20004800"
 
 
 useRTPose = False
-disparityUmbral = 0
+automatic = True
+simulated = 0 #0:swift, 1:webots, 2:real
