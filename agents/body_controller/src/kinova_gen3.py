@@ -19,6 +19,7 @@ from kortex_api.autogen.client_stubs.VisionConfigClientRpc import VisionConfigCl
 from kortex_api.autogen.messages import Session_pb2, Base_pb2, Common_pb2, VisionConfig_pb2, DeviceConfig_pb2
 
 PORT = 10000
+TIMEOUT_DURATION = 5000
 
 class KinovaGen3():
     """Kinova Gen3 robot client for controlling the arm, gripper, and vision system."""

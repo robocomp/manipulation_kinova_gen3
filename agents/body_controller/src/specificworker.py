@@ -45,12 +45,20 @@ from roboticstoolbox import Robot
 
 from kinova_gen3 import KinovaGen3
 
+try:
+    import setproctitle
+    setproctitle.setproctitle(os.path.basename(os.getcwd()))
+except:
+    pass
+
+
 # If RoboComp was compiled with Python bindings you can use InnerModel in Python
 # import librobocomp_qmat
 # import librobocomp_osgviewer
 # import librobocomp_innermodel
 SCALE = 0.001
 ROBOT_DSR = ("robot", 200)
+
 
 
 class SpecificWorker(GenericWorker):
@@ -81,11 +89,11 @@ class SpecificWorker(GenericWorker):
             print(e)
 
         # Kinova Gen 3 robot initialization
-        # self.kinova_right_arm = KinovaGen3(configData["kinova_right_arm_ip"])
+        
         if self.simulated==2:
-            self.kinova_left_arm = KinovaGen3(configData["kinova_left_arm_ip"])
-
-        # self.kinova_right_arm.list_posibles_actions()
+            self.kinova_right_arm = KinovaGen3(configData["kinova_right_arm_ip"])
+            #self.kinova_left_arm = KinovaGen3(configData["kinova_left_arm_ip"])
+            # self.kinova_right_arm.list_posibles_actions()
 
         if startup_check:
             self.startup_check()
@@ -154,8 +162,11 @@ class SpecificWorker(GenericWorker):
             case 2:
                 try:
                     self.kinova_right_arm.move_joints_with_angles(np.degrees(pose)) 
+                    pass
                 except:
                     pass
+        self.p3bot.q[2:] = self.get_joints()
+        
 
 
     def get_joints(self):
@@ -169,7 +180,11 @@ class SpecificWorker(GenericWorker):
                return self.kinovaarm_proxy.getJointsState()
             case 2:
                 try:
-                    return self.kinova_right_arm.get_joints_state()["angles"]
+                    angles = np.array(self.kinova_right_arm.get_joints_state()["angles"])
+                    mask = angles>180
+                    angles[mask] = angles[mask]-360
+                    return np.radians(angles).tolist()
+                    
                 except:
                     pass
 
@@ -200,7 +215,7 @@ class SpecificWorker(GenericWorker):
             RPY = sm.SE3.RPY(self.pose[3:6])
             self.pose = None
             self.p3bot.base = T * RPY
-        #self.p3bot.q[2:] = self.get_joints()
+        self.p3bot.q[2:] = self.get_joints()
         self.update_collisions(self.p3bot.base)
 
         #Go to target
@@ -223,11 +238,11 @@ class SpecificWorker(GenericWorker):
             #Move motors
             if qd is not None:
                 try:
-                    self.omnirobot_proxy.setSpeedBase(0, qd[1]*1000, qd[0])
+                    #self.omnirobot_proxy.setSpeedBase(0, qd[1]*1000, qd[0])
                     pass
                 except Ice.ConnectionRefusedException:
                     pass
-                if self.simulated >0: self.set_joints(qd[2:])
+                if self.simulated >0: self.kinova_right_arm.move_joints_with_speeds(np.degrees(self.p3bot.qd[2:])) 
 
             base_new = self.p3bot.fkine(self.p3bot._q, end=self.p3bot.links[2])
             self.p3bot._T = base_new.A
@@ -259,7 +274,7 @@ class SpecificWorker(GenericWorker):
         self.goal_axes.T = self.Tep
         self.env.add(self.goal_axes)
 
-    def step_robot(self, r: rtb.ERobot, Tep, collisions=True, solved_optimizer=True):
+    def step_robot(self, r: rtb.ERobot, Tep, collisions=True):
 
         wTe = r.fkine(r.q)
 

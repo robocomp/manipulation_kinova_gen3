@@ -7,12 +7,12 @@ Proxies.OmniRobot = "omnirobot:tcp -h localhost -p 10004"
 
 # Endpoints for subscriptions interfaces
 Endpoints.FullPoseEstimationPubTopic = "tcp -p 0"
-Endpoints.FullPoseEstimationPubPrefix = ""
+Endpoints.FullPoseEstimationPubPrefix = "zed"
 Endpoints.JoystickAdapterTopic = "tcp -p 0"
 Endpoints.JoystickAdapterPrefix = ""
 
-kinova_right_arm_ip = "192.168.50.10"
-kinova_left_arm_ip = "192.168.50.11"
+kinova_right_arm_ip = "192.168.50.11"
+kinova_left_arm_ip = "192.168.50.10"
 
 # Change id
 Agent.id = 999
@@ -34,4 +34,5 @@ Ice.MessageSizeMax = "20004800"
 
 useRTPose = False
 automatic = True
-simulated = 0 #0:swift, 1:webots, 2:real
+simulated = 2 #0:swift, 1:webots, 2:real
+
