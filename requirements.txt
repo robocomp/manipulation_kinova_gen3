@@ -1,5 +1,10 @@
 numpy==1.26.0
 matplotlib==3.5.1
+protobuf==3.20.3
+swift-sim
+statsmodels 
+qpsolvers[open_source_solvers]
+websockets==10.4
 
 # Paquete desde GitHub
 git+https://github.com/jcalderon12/robotics-toolbox-python.git@master#egg=roboticstoolbox-python
