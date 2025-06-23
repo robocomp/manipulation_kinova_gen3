@@ -72,6 +72,8 @@ class SpecificWorker(GenericWorker):
         print(self.simulated)
         self.pose = None
 
+        self.rt = rt_api(self.g)
+
         self.cubes_positions = [sm.SE3.Trans(0.0, 0.0, 0.20), sm.SE3.Trans(-0.10, 0, 0.7), sm.SE3.Trans(-0.125, -0., 1)]
 
         self.collisions = [sg.Cuboid((0.46, 0.46, 0.40), pose=self.cubes_positions[0], color=(1, 0, 0)),
@@ -122,12 +124,12 @@ class SpecificWorker(GenericWorker):
             self.goal_axes = sg.Axes(0.1)
             self.target = None
             if self.automatic:
-                edge = self.g.get_edge(ROBOT_DSR[0], "Table1", "RT")
-                self.target = "Table1"
-                if edge is not None:
-                    self.change_target( np.array(edge.attrs["rt_translation"].value), np.array(edge.attrs["rt_rotation_euler_xyz"].value))
-                else:
-                    self.change_target(np.array([0, 2.2, 0.70]), np.array([1.57, 3.1416, 0]))
+                table_node = self.g.get_node("Table1")
+                if table_node is None:
+                    print("Table node not found")
+                    return
+                target_edge = Edge(table_node.id, ROBOT_DSR[1], "TARGET", self.agent_id)
+                self.g.insert_or_assign_edge(target_edge)
             else:
                 targets = self.g.get_edges_by_type("TARGET")
                 print("Targets encontrados:", targets)
@@ -208,9 +210,9 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
-
         #Update pose in swift
         if self.pose is not None:
+            # print("update", self.pose)
             T = sm.SE3(self.pose[0:3])
             RPY = sm.SE3.RPY(self.pose[3:6])
             self.pose = None
@@ -221,7 +223,6 @@ class SpecificWorker(GenericWorker):
         #Go to target
         if self.target is not None:
             distance = np.linalg.norm(self.p3bot.base.t - self.Tep.t)
-            print(distance)
 
             #finish, velocity
             arrived, qd = self.step_robot(self.p3bot, self.Tep.A)
@@ -229,37 +230,45 @@ class SpecificWorker(GenericWorker):
             #Block arm to far targets
             if distance > 2.5:
                 qd[2:] = [0]*7
-            self.p3bot.qd = qd
+
+            # self.p3bot.qd = qd
+            if self.simulated == 0: self.p3bot.qd = qd
 
             self.env.step(0.05)
-            print(self.p3bot.qd)
+            print(distance, qd)
 
             # print(f"\radv:{qd[1]*1000:.2f} | rot:{qd[0]:.2f} ejes {qd[2:]}", end="")
             #Move motors
             if qd is not None:
                 try:
-                    #self.omnirobot_proxy.setSpeedBase(0, qd[1]*1000, qd[0])
+                    
+                    self.omnirobot_proxy.setSpeedBase(0, qd[1]*1000, qd[0])
                     pass
                 except Ice.ConnectionRefusedException:
                     pass
-                if self.simulated >0: self.kinova_right_arm.move_joints_with_speeds(np.degrees(self.p3bot.qd[2:])) 
+                if self.simulated > 0: self.kinova_right_arm.move_joints_with_speeds(np.degrees(qd[2:])) 
 
             base_new = self.p3bot.fkine(self.p3bot._q, end=self.p3bot.links[2])
             self.p3bot._T = base_new.A
             self.p3bot.q[:2] = 0
             
             if arrived:
+                self.g.delete_edge(ROBOT_DSR[1], self.target, "TARGET")
                 self.set_joints(self.home) 
                 if self.automatic:
                     self.loop_count += 2
+                    #link root-robot
+                        
+                    table_node = self.g.get_node(f"Table{(self.loop_count % 4) +1}")
+                    if table_node is None:
+                        print("Root node not found")
+                        return
+                    target_edge = Edge( table_node.id, ROBOT_DSR[1], "TARGET", self.agent_id)
+                    self.g.insert_or_assign_edge(target_edge)
 
-                    self.target =  f"Table{(self.loop_count % 4) +1}"
-
-                    edge = self.g.get_edge(ROBOT_DSR[0], self.target, "RT")
-                    if edge is not None:
-                        self.change_target( np.array(edge.attrs["rt_translation"].value), np.array(edge.attrs["rt_rotation_euler_xyz"].value))
-                else:
-                    self.g.delete_edge(ROBOT_DSR[1], self.target, "TARGET")
+                    # edge = self.g.get_edge(ROBOT_DSR[0], self.target, "RT")
+                    # if edge is not None:
+                    #     self.change_target( np.array(edge.attrs["rt_translation"].value), np.array(edge.attrs["rt_rotation_euler_xyz"].value))
         return True
 
     def change_target(self, translate:np.ndarray, rot:np.ndarray):
@@ -341,7 +350,7 @@ class SpecificWorker(GenericWorker):
                 # to the collision in the scene
                 if c_Ain is not None and c_bin is not None:
                     c_Ain = np.c_[c_Ain, np.zeros((c_Ain.shape[0], r.n + 6 - c_Ain.shape[1]))]
-                    print(f"{i}, colision {c_Ain.shape}, {c_bin.shape}")
+                    # print(f"{i}, colision {c_Ain.shape}, {c_bin.shape}")
                     # if len(c_Ain) > 1 : vel_decay +=len(c_bin)*2
 
                     # Stack the inequality constraints
@@ -498,18 +507,23 @@ class SpecificWorker(GenericWorker):
         console.print(f"DELETE NODE:: {id} ", style='green')
 
     def update_edge(self, fr: int, to: int, type: str):
-        console.print(f"UPDATE EDGE: {fr} to {to}", type, style='green')
-        if fr == 100 and to == ROBOT_DSR[1] and type == "RT":
-            try:
-                edge = self.g.get_edge(fr, to, type)
-                if edge is not None:
-                    pose = edge.attrs["rt_translation"].value
-                    rot = edge.attrs["rt_rotation_euler_xyz"].value
-                    self.pose = np.array([pose[0], pose[1], pose[2], rot[2]])
-                    print(f"\rNew pose X:{self.pose[0]:.2f} | Y:{self.pose[1]:.2f} | Z:{self.pose[2]:.2f} | Roll:{self.pose[3]:.2f} | Pitch:{self.pose[4]:.2f} | Yaw:{self.pose[5]:.2f}", end="")
-            except Exception as e:
-                print(f"Error procesando edge: {e}")
-        if fr == ROBOT_DSR[1] and type == "TARGET" and not self.automatic:
+        # console.print(f"UPDATE EDGE: {fr} to {to}", type, style='green')
+        if self.useRTPose:
+            room = self.g.get_node(fr)
+            if room is not None:
+                if room.name == "room_0" and to == ROBOT_DSR[1] and type == "RT":
+                    try:
+                        edge = self.rt.get_edge_RT(room, to)
+                        if edge is not None:
+                            index_new = np.argmax(edge.attrs["rt_timestamps"].value)*3
+                            rot = edge.attrs["rt_rotation_euler_xyz"].value[index_new:index_new+3]
+                            pose = edge.attrs["rt_translation"].value[index_new:index_new+3]
+                            self.pose = np.array([pose[0]*SCALE, pose[1]*SCALE, pose[2]*SCALE, rot[0], rot[1], rot[2]+1.57])
+
+                            # print(f"\rNew {index_new} pose X:{self.pose[0]:.2f} | Y:{self.pose[1]:.2f} | Z:{self.pose[2]:.2f} | Roll:{self.pose[3]:.2f} | Pitch:{self.pose[4]:.2f} | Yaw:{self.pose[5]:.2f}", end="")
+                    except Exception as e:
+                        print(f"Error procesando edge: {e}")
+        if fr == ROBOT_DSR[1] and type == "TARGET":
             edge = self.g.get_edge(fr, to, "RT")
             if edge is not None:
                 pose = edge.attrs["rt_translation"].value
@@ -522,7 +536,7 @@ class SpecificWorker(GenericWorker):
 
     def delete_edge(self, fr: int, to: int, type: str):
         console.print(f"DELETE EDGE: {fr} to {type} {type}", style='green')
-        if fr == ROBOT_DSR[1] and to == self.target and type == "TARGET" and not self.automatic:
+        if fr == ROBOT_DSR[1] and to == self.target and type == "TARGET":
             self.target = None
 
 

@@ -32,7 +32,7 @@ Ice.Trace.Protocol = "0"
 Ice.MessageSizeMax = "20004800"
 
 
-useRTPose = True
+useRTPose = False
 automatic = True
-simulated = 2 #0:swift, 1:webots, 2:real
+simulated = 0 #0:swift, 1:webots, 2:real
 
