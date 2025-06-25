@@ -2,7 +2,8 @@
 Proxies.TopicManager = "IceStorm/TopicManager:default -p 9999"
 
 # Proxies for required interfaces
-Proxies.KinovaArm = "kinovaarm:tcp -h localhost -p 0"
+Proxies.KinovaArm = "kinovaarm:tcp -h localhost -p 10005"
+Proxies.KinovaArm1 = "kinovaarm1:tcp -h localhost -p 10006"
 Proxies.OmniRobot = "omnirobot:tcp -h localhost -p 10004"
 
 # Endpoints for subscriptions interfaces
@@ -35,4 +36,6 @@ Ice.MessageSizeMax = "20004800"
 useRTPose = True
 automatic = True
 simulated = 2 #0:swift, 1:webots, 2:real
+directKinematic = True
+
 

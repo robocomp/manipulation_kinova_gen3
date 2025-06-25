@@ -7,7 +7,7 @@ Component body_controller
 {
     Communications
     {
-        requires OmniRobot, KinovaArm;
+        requires OmniRobot, KinovaArm, KinovaArm;
         subscribesTo JoystickAdapter, FullPoseEstimationPub;
     };
     language python;
@@ -15,4 +15,3 @@ Component body_controller
     options dsr;
 
 };
-

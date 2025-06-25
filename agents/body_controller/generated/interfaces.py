@@ -147,6 +147,7 @@ class Requires:
         self.mprx={}
 
         self.KinovaArm = self.create_proxy("KinovaArm", RoboCompKinovaArm.KinovaArmPrx, parameters["Proxies"]["KinovaArm"])
+        self.KinovaArm1 = self.create_proxy("KinovaArm1", RoboCompKinovaArm.KinovaArmPrx, parameters["Proxies"]["KinovaArm1"])
         self.OmniRobot = self.create_proxy("OmniRobot", RoboCompOmniRobot.OmniRobotPrx, parameters["Proxies"]["OmniRobot"])
 
     def get_proxies_map(self):
