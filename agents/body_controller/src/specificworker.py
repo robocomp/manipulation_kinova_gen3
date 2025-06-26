@@ -82,8 +82,7 @@ class SpecificWorker(GenericWorker):
 
         self.home =  np.radians(np.array([[50,-125,55,-130,-20,-65, 85], [-50,-125,-55,-130,20,-65, 85]], dtype=np.float32))
         self.pick =  np.radians(np.array([[90,-125,80,-130,-20, 45, 85], [-90,-125,-80,-130, 20, 45, 85]], dtype=np.float32))
-
-
+        self.gain = np.array([1, 1, 1, 1.6, 1.6, 1.6])
         #endregion
 
         #region DSR
@@ -96,12 +95,13 @@ class SpecificWorker(GenericWorker):
             print(e)
         #endregion
 
-        # Kinova Gen 3 robot initialization
+        # region Kinova Gen 3 robot initialization
         self.kinova_arms = [None, None]
         if self.simulated==2:
             self.kinova_arms = [KinovaGen3(configData["kinova_right_arm_ip"]), KinovaGen3(configData["kinova_left_arm_ip"])]
         elif self.simulated==1:
             self.kinova_arms = [self.kinovaarm_proxy, self.kinovaarm1_proxy]
+        #endregion
 
         if startup_check:
             self.startup_check()
@@ -126,17 +126,12 @@ class SpecificWorker(GenericWorker):
             #endregion
 
             #region Tool Points
-            self.toolPoints = []
             for i in range(2):
-                self.toolPoints.append(self.p3bot.ets(end=self.p3bot.grippers[i]))
                 frame = sg.Axes(0.1, pose=self.p3bot.grippers[i].tool)
                 frame.attach_to(self.p3bot.grippers[i].links[0])
                 self.env.add(frame)
             #endregion
 
-            for arm in range(len(self.kinova_arms)): self.set_joints(arm, self.home[arm])
-            
-            self.gain = np.array([1, 1, 1, 1.6, 1.6, 1.6])
 
             # # for link in self.p3bot.ee_links:
             # #     print(f"Link {link.name} has mass {link.m} and inertia {link.I}")
@@ -161,7 +156,7 @@ class SpecificWorker(GenericWorker):
                         self.change_target(rot=rot, translate=pose)
                         self.target = t.to
                         break
-            self.loop_count = 1
+            self.loop_count = 0
             #endregion
 
             self.timer.timeout.connect(self.compute)
@@ -184,23 +179,21 @@ class SpecificWorker(GenericWorker):
             Exception: If setting velocity fails (logged to console).
         """
         assert arm < len(self.kinova_arms), f"Robot has {len(self.kinova_arms)} arms, tried to access arm {arm + 1}"
-        print(velocity)
-        
+        assert 7 == len(velocity), f"Robot has {7} joins, tried use {len(velocity)}" 
         try:
             match self.simulated:
-                case 0:  # Simulation mode 0
-                    self.p3bot.qd[2 + arm * 7 : 9 + arm * 7] = velocity
                 case 1:  # Real robot via proxy
                     speed = ifaces.RoboCompKinovaArm.TJointSpeeds(jointSpeeds=ifaces.RoboCompKinovaArm.Speeds(velocity))
                     self.kinova_arms[arm].moveJointsWithSpeed(speed)
                 case 2:  # Real robot via API
                     self.kinova_arms[arm].move_joints_with_speeds(np.degrees(velocity))
+            self.p3bot.qd[2 + arm * 7 : 9 + arm * 7] = velocity
+        
         except Exception as e:
             console.print(Text(f"Failed to set joint velocities: {e}", "red"))
             console.print_exception()
         finally:
             self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = self.get_joints(arm)
-
 
     def set_joints(self, arm: int, pose: list[float]) -> None:
         """Move the robot arm to the specified joint angles.
@@ -214,14 +207,14 @@ class SpecificWorker(GenericWorker):
             Exception: If setting joint angles fails (logged to console).
         """
         assert arm < len(self.kinova_arms), f"Robot has {len(self.kinova_arms)} arms, tried to access arm {arm + 1}"
-        
+        assert 7 == len(pose), f"Robot has {7} joins, tried use {len(pose)}" 
         try:
             match self.simulated:
-                case 0:  # Simulation mode 0
-                    self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = pose
-                    self.env.step(0)
+                case 0:
+                     self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = pose
                 case 1:  # Real robot via proxy
-                    angles = ifaces.RoboCompKinovaArm.TJointAngles(jointAngles=ifaces.RoboCompKinovaArm.Angles(pose))
+                    self.set_velocity_joints(arm, [0]*7)
+                    angles = ifaces.RoboCompKinovaArm.TJointAngles(jointAngles=ifaces.RoboCompKinovaArm.Angles(np.array(pose)))
                     self.kinova_arms[arm].moveJointsWithAngle(angles)
                 case 2:  # Real robot via API
                     self.kinova_arms[arm].move_joints_with_angles(np.degrees(pose))
@@ -230,6 +223,8 @@ class SpecificWorker(GenericWorker):
             console.print_exception()
         finally:
             self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = self.get_joints(arm)
+            self.env.step(0)
+
 
 
 
@@ -247,16 +242,17 @@ class SpecificWorker(GenericWorker):
             Exception: If fetching joint angles fails (logged to console).
         """
         assert arm < len(self.kinova_arms), f"Robot has {len(self.kinova_arms)} arms, tried to access arm {arm + 1}"
-        
         try:
             match self.simulated:
                 case 0:  # Simulation mode 0
                     return self.p3bot.q[2 + arm * 7 : 9 + arm * 7].tolist()
                 case 1:  # Real robot via proxy
-                    data = self.kinovaarm_proxy.getJointsState()
-                    return [joint.angle for joint in data.joints]
+                    data = self.kinova_arms[arm].getJointsState()
+                    angles = np.array([joint.angle-np.pi for joint in data.joints])
+                    angles[angles > np.pi] -= 2*np.pi  # Normalize angles >180° to [-180°, 180°]
+                    return np.radians(angles).tolist()
                 case 2:  # Real robot via API
-                    angles = np.array(self.kinova_right_arm.get_joints_state()["angles"])
+                    angles = np.array(self.kinova_arms[arm].get_joints_state()["angles"])
                     angles[angles > 180] -= 360  # Normalize angles >180° to [-180°, 180°]
                     return np.radians(angles).tolist()
         except Exception as e:
@@ -297,24 +293,12 @@ class SpecificWorker(GenericWorker):
         #Go to target
         if self.target is not None:
             distance = np.linalg.norm(self.p3bot.base.t - self.Tep.t)
+            armSelect = (self.loop_count//2) % 2
 
-            if self.directKinematic:
-                # Tep_matrix = self.Tep.A.copy()
-
-                # # Intercambiar y negar x e y:
-                # # Nueva x = -y_original
-                # # Nueva y = -x_original
-                # Tep_matrix[0, 3] = self.Tep.A[1, 3]  # Nueva posición x
-                # Tep_matrix[1, 3] = self.Tep.A[0, 3]  # Nueva posición y
-
-                # # Opcional: Si también quieres intercambiar/negar la orientación
-                # Tep_matrix[:2, :2] = -self.Tep.A[[1,0], :2] 
-
-                
-                arrived, qd = self.direct_kinematic_robot(self.p3bot, self.toolPoints[(self.loop_count//2) %2], self.Tep.A)
+            if self.directKinematic:                
+                arrived, qd = self.direct_kinematic_robot(self.p3bot, armSelect, self.Tep.A)
             else:
-                #finish, velocity
-                arrived, qd = self.step_robot(self.p3bot, self.toolPoints[(self.loop_count//2) %2], self.Tep.A)
+                arrived, qd = self.step_robot(self.p3bot, armSelect, self.Tep.A)
 
             #Block arm to far targets
             if distance > 2.5:
@@ -331,12 +315,11 @@ class SpecificWorker(GenericWorker):
                     self.p3bot.qd[:2] = qd[:2]
                 else:
                     try:
-                        #self.omnirobot_proxy.setSpeedBase(0, qd[1]*1000, qd[0])
+                        self.omnirobot_proxy.setSpeedBase(0, qd[1]*1000, qd[0])
                         pass
                     except Ice.ConnectionRefusedException:
                         console.print_exception()
-                print(qd)
-                for arm in range(len(self.kinova_arms)): self.set_velocity_joints(arm, qd[2 + arm * 7 : 9 + arm * 7])
+                self.set_velocity_joints(armSelect, qd[2 : 9])
 
             self.env.step(0.05)
 
@@ -345,6 +328,7 @@ class SpecificWorker(GenericWorker):
             self.p3bot.q[:2] = 0
             
             if arrived:
+                self.set_velocity_joints(armSelect, [0]*7)
                 self.g.delete_edge(ROBOT_DSR[1], self.target, "TARGET")
                 for arm in range(len(self.kinova_arms)): self.set_joints(arm, self.home[arm])
 
@@ -377,23 +361,23 @@ class SpecificWorker(GenericWorker):
         self.goal_axes.T = self.Tep
         self.env.add(self.goal_axes)
 
-    def direct_kinematic_robot(self, r: rtb.ERobot, toolPoint, Tep):
+    def direct_kinematic_robot(self, r: rtb.ERobot, gripperSelect, Tep):
+        gripper = r.grippers[gripperSelect]
+        ets = r.ets(end=gripper)
+        indices = ets.jindices
 
-        v, arrived = rtb.p_servo(r.fkine(r.q, end=r.grippers[(self.loop_count//2) %2]), Tep, gain=self.gain, threshold=0.005)
-
-        qd = r.qd.copy()
-        qd[toolPoint.jindices] = np.clip(np.linalg.pinv(toolPoint.jacobe(r.q)) @ v, 
-                                         -r.qdlim[toolPoint.jindices], 
-                                         r.qdlim[toolPoint.jindices])
-        
+        v, arrived = rtb.p_servo(r.fkine(r.q, end=gripper), Tep, gain=self.gain, threshold=0.005)
+        qd = np.clip(np.linalg.pinv(ets.jacobe(r.q)) @ v, -r.qdlim[indices], r.qdlim[indices])
+                                        
         return arrived, qd
         
+    def step_robot(self, r: rtb.ERobot, gripperSelect, Tep, collisions=True):
+        n = 9
+        gripper = r.grippers[gripperSelect]
+        ets = r.ets(end=gripper)
 
 
-    def step_robot(self, r: rtb.ERobot, toolPoint, Tep, collisions=True):
-        print(toolPoint.n)
-
-        wTe = r.fkine(r.q, end=r.grippers[(self.loop_count//2) %2])
+        wTe = r.fkine(r.q, end=gripper)
 
         eTep = np.linalg.inv(wTe) @ Tep
 
@@ -406,26 +390,26 @@ class SpecificWorker(GenericWorker):
         Y = 0.01
 
         # Quadratic component of objective function
-        Q = np.eye(toolPoint.n + 6)
+        Q = np.eye(n + 6)
 
         # Joint velocity component of Q
-        Q[: toolPoint.n, : toolPoint.n] *= Y
+        Q[: n, : n] *= Y
         Q[:3, :3] *= 1.0 / et
 
         # Slack component of Q
-        Q[toolPoint.n:, toolPoint.n:] = (1.0 / et) * np.eye(6)
+        Q[n:, n:] = (1.0 / et) * np.eye(6)
 
         v, _ = rtb.p_servo(wTe, Tep, 1.5)
 
         v[3:] *= 1.3
 
         # The equality contraints
-        Aeq = np.c_[toolPoint.jacobe(r.q), np.eye(6)]
+        Aeq = np.c_[ets.jacobe(r.q), np.eye(6)]#TODO tool
         beq = v.reshape((6,))
 
         # The inequality constraints for joint limit avoidance
-        Ain = np.zeros((toolPoint.n + 6, toolPoint.n + 6))
-        bin = np.zeros(toolPoint.n + 6)
+        Ain = np.zeros((n + 6, n + 6))
+        bin = np.zeros(n + 6)
 
         # The minimum angle (in radians) in which the joint is allowed to approach
         # to its limit
@@ -436,7 +420,7 @@ class SpecificWorker(GenericWorker):
         pi = 0.9
 
         # Form the joint limit velocity damper
-        Ain[: toolPoint.n, : toolPoint.n], bin[: toolPoint.n] = r.joint_velocity_damper(ps, pi, toolPoint.n)
+        Ain[: n, : n], bin[: n] = r.joint_velocity_damper(ps, pi, n)
 
         rot_boost = 1
         vel_decay = 1
@@ -457,7 +441,7 @@ class SpecificWorker(GenericWorker):
                 # If there are any parts of the robot within the influence distance
                 # to the collision in the scene
                 if c_Ain is not None and c_bin is not None:
-                    c_Ain = np.c_[c_Ain, np.zeros((c_Ain.shape[0], toolPoint.n + 6 - c_Ain.shape[1]))]
+                    c_Ain = np.c_[c_Ain, np.zeros((c_Ain.shape[0], n + 6 - c_Ain.shape[1]))]
                     # print(f"{i}, colision {c_Ain.shape}, {c_bin.shape}")
                     # if len(c_Ain) > 1 : vel_decay +=len(c_bin)*2
 
@@ -469,25 +453,29 @@ class SpecificWorker(GenericWorker):
 
         # Linear component of objective function: the manipulability Jacobian
         c = np.concatenate(
-            (np.zeros(2), -r.jacobm(start=r.links[3]).reshape((toolPoint.n - 2,)), np.zeros(6))
+            (np.zeros(2), -r.jacobm(start=r.links[3], end=gripper).reshape((n - 2,)), np.zeros(6))
         )
 
         # Get base to face end-effector
         kε = 0.5
-        bTe = r.fkine(r.q, end=r.grippers[(self.loop_count//2) %2], include_base=False).A
+        bTe = r.fkine(r.q, end=gripper, include_base=False).A
         θε = math.atan2(bTe[1, -1], bTe[0, -1])
         ε = kε * θε
         c[0] = -ε
 
         # The lower and upper bounds on the joint velocity and slack variable
-        lb = -np.r_[r.qdlim[: toolPoint.n], 10 * np.ones(6)]
-        ub = np.r_[r.qdlim[: toolPoint.n], 10 * np.ones(6)]
+        lb = -np.r_[r.qdlim[: n], 10 * np.ones(6)]
+        ub = np.r_[r.qdlim[: n], 10 * np.ones(6)]
 
         # Solve for the joint velocities dq
         qd = qp.solve_qp(Q, c, Ain, bin, Aeq, beq, lb=lb, ub=ub, solver="piqp")
+        arrived = False
+
         if qd is not None:
-            ret_qd = r.qd.copy()
-            ret_qd[toolPoint.jindices] = qd[toolPoint.jindices].copy()
+            qd = qd.copy()
+
+            # ret_qd = r.qd.copy()
+            # ret_qd[toolPoint.jindices] = qd[toolPoint.jindices].copy()
             # print("antes", qd)
             # qd[0] = qd[0] * rot_boost
             # qd[2:] = qd[2:] / vel_decay
@@ -499,11 +487,11 @@ class SpecificWorker(GenericWorker):
             #     qd *= et if et > 0.25 else 1
 
             if et < 0.02:
-                return True, qd
+                arrived = True
         else:
             console.print(Text("Optimización fallida.", "yellow"))
-            return False, np.zeros(toolPoint.n)
-        return False, qd
+            qd = np.zeros(n)
+        return arrived, qd
 
     def startup_check(self):
         print(f"Testing RoboCompKinovaArm.TPose from ifaces.RoboCompKinovaArm")
