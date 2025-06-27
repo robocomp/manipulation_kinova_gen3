@@ -8,7 +8,7 @@ Proxies.OmniRobot = "omnirobot:tcp -h localhost -p 10004"
 
 # Endpoints for subscriptions interfaces
 Endpoints.FullPoseEstimationPubTopic = "tcp -p 0"
-Endpoints.FullPoseEstimationPubPrefix = "zed"
+Endpoints.FullPoseEstimationPubPrefix = ""
 Endpoints.JoystickAdapterTopic = "tcp -p 0"
 Endpoints.JoystickAdapterPrefix = ""
 
@@ -35,6 +35,6 @@ Ice.MessageSizeMax = "20004800"
 
 useRTPose = False
 automatic = True
-simulated = 0 #0:swift, 1:webots, 2:real
+simulated = 1 #0:swift, 1:webots, 2:real
 directKinematic = False
 

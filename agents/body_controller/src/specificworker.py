@@ -70,7 +70,6 @@ class SpecificWorker(GenericWorker):
         self.simulated = self.configData["simulated"]
         self.directKinematic = self.configData["directKinematic"]
         assert self.simulated in [0, 1, 2], f"Simulated must be #0:swift, 1:webots, 2:real, dont {self.simulated}"
-        print(self.simulated)
         self.pose = None
 
 
@@ -131,7 +130,6 @@ class SpecificWorker(GenericWorker):
                 frame.attach_to(self.p3bot.grippers[i].links[0])
                 self.env.add(frame)
             #endregion
-
 
             # # for link in self.p3bot.ee_links:
             # #     print(f"Link {link.name} has mass {link.m} and inertia {link.I}")
@@ -209,15 +207,24 @@ class SpecificWorker(GenericWorker):
         assert arm < len(self.kinova_arms), f"Robot has {len(self.kinova_arms)} arms, tried to access arm {arm + 1}"
         assert 7 == len(pose), f"Robot has {7} joins, tried use {len(pose)}" 
         try:
-            match self.simulated:
-                case 0:
-                     self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = pose
-                case 1:  # Real robot via proxy
-                    self.set_velocity_joints(arm, [0]*7)
-                    angles = ifaces.RoboCompKinovaArm.TJointAngles(jointAngles=ifaces.RoboCompKinovaArm.Angles(np.array(pose)))
-                    self.kinova_arms[arm].moveJointsWithAngle(angles)
-                case 2:  # Real robot via API
-                    self.kinova_arms[arm].move_joints_with_angles(np.degrees(pose))
+            counter = count()
+            while not np.allclose(self.p3bot.q[2 + arm * 7 : 9 + arm * 7], pose, rtol=0.0001):
+                if counter.__next__() % 100 == 0:
+                    match self.simulated:
+                        case 0:
+                            self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = pose
+                        case 1:  # Real robot via proxy
+                            self.set_velocity_joints(arm, [0]*7)
+                            angles = ifaces.RoboCompKinovaArm.TJointAngles(jointAngles=ifaces.RoboCompKinovaArm.Angles(np.array(pose)))
+                            self.kinova_arms[arm].moveJointsWithAngle(angles)
+                        case 2:  # Real robot via API
+                            self.kinova_arms[arm].move_joints_with_angles(np.degrees(pose))
+
+                
+                sleep(0.005)
+                self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = self.get_joints(arm)
+                # print(self.p3bot.q[2 + arm * 7 : 9 + arm * 7], pose, "\n\n\n")
+                self.env.step(0)
         except Exception as e:
             console.print(Text(f"Failed to set joint angles: {e}", "red"))
             console.print_exception()
@@ -248,9 +255,9 @@ class SpecificWorker(GenericWorker):
                     return self.p3bot.q[2 + arm * 7 : 9 + arm * 7].tolist()
                 case 1:  # Real robot via proxy
                     data = self.kinova_arms[arm].getJointsState()
-                    angles = np.array([joint.angle-np.pi for joint in data.joints])
-                    angles[angles > np.pi] -= 2*np.pi  # Normalize angles >180° to [-180°, 180°]
-                    return np.radians(angles).tolist()
+                    angles = np.array([joint.angle for joint in data.joints])
+                    # angles[angles > np.pi] -= 2*np.pi  # Normalize angles >180° to [-180°, 180°]
+                    return angles.tolist()
                 case 2:  # Real robot via API
                     angles = np.array(self.kinova_arms[arm].get_joints_state()["angles"])
                     angles[angles > 180] -= 360  # Normalize angles >180° to [-180°, 180°]
@@ -280,14 +287,14 @@ class SpecificWorker(GenericWorker):
 
     @QtCore.Slot()
     def compute(self):
+        t1= time()
         #Update pose in swift
         if self.pose is not None:
-            # print("update", self.pose)
             T = sm.SE3(self.pose[0:3])
             RPY = sm.SE3.RPY(self.pose[3:6])
             self.pose = None
             self.p3bot.base = T * RPY
-        for arm in range(len(self.kinova_arms)):self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = self.get_joints(arm)
+        #for arm in range(len(self.kinova_arms)):self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = self.get_joints(arm)
         self.update_collisions(self.p3bot.base)
 
         #Go to target
@@ -305,8 +312,8 @@ class SpecificWorker(GenericWorker):
                 qd[2:] = [0]*(len(qd)-2)
 
 
-            print(f"\rDistance: {distance:0.2f}, velocity:", end="")
-            for vel in qd: print(f" {vel:0.2f}", end="") 
+            # print(f"\rDistance: {distance:0.2f}, velocity:", end="")
+            #for vel in qd: print(f" {vel:0.2f}", end="") 
 
             # print(f"\radv:{qd[1]*1000:.2f} | rot:{qd[0]:.2f} ejes {qd[2:]}", end="")
             #Move motors
@@ -328,8 +335,9 @@ class SpecificWorker(GenericWorker):
             self.p3bot.q[:2] = 0
             
             if arrived:
-                self.set_velocity_joints(armSelect, [0]*7)
+                self.omnirobot_proxy.setSpeedBase(0, 0, 0)
                 self.g.delete_edge(ROBOT_DSR[1], self.target, "TARGET")
+                self.set_velocity_joints(armSelect, [0]*7)
                 for arm in range(len(self.kinova_arms)): self.set_joints(arm, self.home[arm])
 
                 if self.automatic:
@@ -346,6 +354,7 @@ class SpecificWorker(GenericWorker):
                     # edge = self.g.get_edge(ROBOT_DSR[0], self.target, "RT")
                     # if edge is not None:
                     #     self.change_target( np.array(edge.attrs["rt_translation"].value), np.array(edge.attrs["rt_rotation_euler_xyz"].value))
+        print(time()-t1)
         return True
 
     def change_target(self, translate:np.ndarray, rot:np.ndarray):
@@ -623,15 +632,6 @@ class SpecificWorker(GenericWorker):
     # =============== DSR SLOTS  ================
     # =============================================
 
-    def update_node_att(self, id: int, attribute_names: [str]):
-        console.print(f"UPDATE NODE ATT: {id} {attribute_names}", style='green')
-
-    def update_node(self, id: int, type: str):
-        console.print(f"UPDATE NODE: {id} {type}", style='green')
-
-    def delete_node(self, id: int):
-        console.print(f"DELETE NODE:: {id} ", style='green')
-
     def update_edge(self, fr: int, to: int, type: str):
         # console.print(f"UPDATE EDGE: {fr} to {to}", type, style='green')
         if self.useRTPose:
@@ -657,11 +657,7 @@ class SpecificWorker(GenericWorker):
                 self.change_target(rot=rot, translate=pose)
                 self.target = to
 
-    def update_edge_att(self, fr: int, to: int, type: str, attribute_names: [str]):
-        console.print(f"UPDATE EDGE ATT: {fr} to {type} {attribute_names}", style='green')
-
     def delete_edge(self, fr: int, to: int, type: str):
-        console.print(f"DELETE EDGE: {fr} to {type} {type}", style='green')
         if fr == ROBOT_DSR[1] and to == self.target and type == "TARGET":
             self.target = None
 
