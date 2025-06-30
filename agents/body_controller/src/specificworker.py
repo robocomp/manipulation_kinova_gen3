@@ -19,6 +19,46 @@
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
 from itertools import count
+import cProfile
+import pstats
+import io
+from functools import wraps
+
+# def profile_qt(sort_by='cumulative', limit=10):
+#     """Decorador que muestra resultados de profiling ordenados y formateados
+    
+#     Args:
+#         sort_by (str): Criterio de ordenación ('time', 'cumulative', 'calls', etc.)
+#         limit (int): Número máximo de líneas a mostrar
+#     """
+#     def decorator(func):
+#         @wraps(func)
+#         def wrapper(*args, **kwargs):
+#             profiler = cProfile.Profile()
+#             profiler.enable()
+            
+#             result = func(*args, **kwargs)
+            
+#             profiler.disable()
+            
+#             # Configurar la visualización de estadísticas
+#             stats = pstats.Stats(profiler)
+            
+#             print("\n" + "="*80)
+#             print(f"PROFILING RESULTS for {func.__name__}")
+#             print("="*80)
+            
+#             # Ordenar y mostrar las estadísticas
+#             stats.strip_dirs().sort_stats(sort_by).print_stats(limit)
+            
+#             # Mostrar también las llamadas que más tiempo consumen individualmente
+#             print("\nTop time consumers per call:")
+#             stats.sort_stats('time').print_stats(5)
+            
+#             return result
+#         return wrapper
+#     return decorator
+
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
@@ -71,6 +111,8 @@ class SpecificWorker(GenericWorker):
         self.directKinematic = self.configData["directKinematic"]
         assert self.simulated in [0, 1, 2], f"Simulated must be #0:swift, 1:webots, 2:real, dont {self.simulated}"
         self.pose = None
+        self.loop_count = 0
+
 
 
         #region Objects and poses
@@ -154,7 +196,6 @@ class SpecificWorker(GenericWorker):
                         self.change_target(rot=rot, translate=pose)
                         self.target = t.to
                         break
-            self.loop_count = 0
             #endregion
 
             self.timer.timeout.connect(self.compute)
@@ -286,6 +327,7 @@ class SpecificWorker(GenericWorker):
             self.collisions[i].T = pose * self.cubes_positions[i]
 
     @QtCore.Slot()
+    # @profile_qt(sort_by='cumulative', limit=15)
     def compute(self):
         t1= time()
         #Update pose in swift
@@ -338,7 +380,7 @@ class SpecificWorker(GenericWorker):
                 self.omnirobot_proxy.setSpeedBase(0, 0, 0)
                 self.g.delete_edge(ROBOT_DSR[1], self.target, "TARGET")
                 self.set_velocity_joints(armSelect, [0]*7)
-                for arm in range(len(self.kinova_arms)): self.set_joints(arm, self.home[arm])
+                for arm in range(len(self.kinova_arms)): self.set_joints(arm, self.pick[arm])
 
                 if self.automatic:
                     self.loop_count += 2
@@ -359,8 +401,8 @@ class SpecificWorker(GenericWorker):
 
     def change_target(self, translate:np.ndarray, rot:np.ndarray):
         print(f"Changed goal {translate}, {rot}")
-        for arm in range(len(self.kinova_arms)): self.set_joints(arm, self.pick[arm])
 
+        for arm in range(len(self.kinova_arms)): self.set_joints(arm, self.pick[arm])
 
         # Change the target position of the end-effector
         T = sm.SE3(translate*SCALE)

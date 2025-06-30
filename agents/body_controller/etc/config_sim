@@ -25,7 +25,7 @@ ViewAgent.graph = true
 ViewAgent.2d = true
 ViewAgent.3d = true
 
-Period.Compute = 50
+Period.Compute = 100
 
 Ice.Warn.Connections = "0"
 Ice.Trace.Network = "0"
