@@ -273,6 +273,9 @@ class KinovaGen3():
         action.name = "Angular action movement"
         action.application_data = ""
 
+        print("join ", joints)
+
+
         actuator_count = self.base.GetActuatorCount()
 
         # Place arm straight up
