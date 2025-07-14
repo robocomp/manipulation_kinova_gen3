@@ -3,6 +3,7 @@ Proxies.Contactile = "contactile:tcp -h localhost -p 18760"
 
 # Endpoints for implements interfaces
 Endpoints.KinovaArm = "tcp -p 17955"
+
 Agent.id = 0 # Change id
 Agent.name = "kinova_controller_cpp"
 Agent.configFile = ""
@@ -11,8 +12,10 @@ ViewAgent.tree = false
 ViewAgent.graph = true
 ViewAgent.2d = false
 ViewAgent.3d = false
+
 Period.Compute = 50
 Period.Emergency = 500
+
 ip = "192.168.50.10"
 Ice.Warn.Connections = " ""0"
 Ice.Trace.Network = " ""0"

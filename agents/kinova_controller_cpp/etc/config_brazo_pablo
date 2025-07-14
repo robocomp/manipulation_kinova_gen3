@@ -4,12 +4,12 @@ Proxies.Contactile = "contactile:tcp -h localhost -p 18760"
 # Endpoints for implements interfaces
 Endpoints.KinovaArm = "tcp -p 17954"
 
-Agent.id = 0 # Change id
+Agent.id = 2 # Change id
 Agent.name = "kinova_controller_cpp"
-Agent.configFile = "kinova2.json"
+Agent.configFile = ""
 
 ViewAgent.tree = false
-ViewAgent.graph = true
+ViewAgent.graph = false
 ViewAgent.2d = false
 ViewAgent.3d = false
 

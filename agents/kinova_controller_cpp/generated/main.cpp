@@ -113,7 +113,7 @@ template <typename ProxyType, typename ProxyPointer>
 void require(const Ice::CommunicatorPtr& communicator,
              const std::string& proxyConfig, 
              const std::string& proxyName,
-             ProxyPointer proxy)
+             ProxyPointer& proxy)
 {
     try
     {
@@ -199,10 +199,6 @@ int kinova_controller_cpp::run(int argc, char* argv[])
 	require<RoboCompContactile::ContactilePrx, RoboCompContactile::ContactilePrxPtr>(communicator(),
 	                    configLoader.get<std::string>("Proxies.Contactile"), "ContactileProxy", contactile_proxy);
 
-	//Topic Manager code
-
-	//Publish code
-
 	tprx = std::make_tuple(contactile_proxy);
 	SpecificWorker *worker = new SpecificWorker(this->configLoader, tprx, startup_check_flag);
 	QObject::connect(worker, SIGNAL(kill()), &a, SLOT(quit()));
@@ -213,9 +209,7 @@ int kinova_controller_cpp::run(int argc, char* argv[])
 		//Implement code
 		implement<KinovaArmI>(communicator(),
 		                    configLoader.get<std::string>("Endpoints.KinovaArm"), 
-		                    "KinovaArm", worker,  0);
-
-		//Subscribe code
+		                    "kinovaarm", worker,  0);
 
 		// Server adapter creation and publication
 		std::cout << SERVER_FULL_NAME " started" << std::endl;

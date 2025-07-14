@@ -14,8 +14,10 @@
 #include <TransportClientTcp.h>
 #include <KinovaArm.h>
 #include <chrono>
+#include <mutex>
 
 #include <cmath>
+#include <QtMath>
 
 namespace k_api = Kinova::Api;
 
@@ -37,6 +39,8 @@ private:
 
     k_api::Base::BaseClient *base;
     k_api::BaseCyclic::BaseCyclicClient *base_cyclic;
+
+    std::mutex kinova_mutex_;  
 
 public:
 

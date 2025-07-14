@@ -143,9 +143,9 @@ void SpecificWorker::compute()
 		api_controller->move_joints_with_speeds(new_speeds);
 	}
 
-	show_tool_state();
+	// show_tool_state();
 
-	update_dsr_joints();
+	// update_dsr_joints();
 	// show_forward_kinematics();
 
 }
@@ -372,45 +372,45 @@ void SpecificWorker::show_tool_state() {
     moveCursor(5, 40); std::cout << setw(8) << tool_state.pose.z;
 
     // Orientación
-    moveCursor(6, 22); std::cout << setw(8) << tool_state.pose_theta.x;
-    moveCursor(6, 31); std::cout << setw(8) << tool_state.pose_theta.y;
-    moveCursor(6, 40); std::cout << setw(8) << tool_state.pose_theta.z;
+    moveCursor(6, 22); std::cout << setw(8) << tool_state.poseTheta.x;
+    moveCursor(6, 31); std::cout << setw(8) << tool_state.poseTheta.y;
+    moveCursor(6, 40); std::cout << setw(8) << tool_state.poseTheta.z;
 
     // Velocidad lineal
-    moveCursor(9, 22); std::cout << setw(8) << tool_state.twist_linear.x;
-    moveCursor(9, 31); std::cout << setw(8) << tool_state.twist_linear.y;
-    moveCursor(9, 40); std::cout << setw(8) << tool_state.twist_linear.z;
+    moveCursor(9, 22); std::cout << setw(8) << tool_state.twistLinear.x;
+    moveCursor(9, 31); std::cout << setw(8) << tool_state.twistLinear.y;
+    moveCursor(9, 40); std::cout << setw(8) << tool_state.twistLinear.z;
 
     // Velocidad angular
-    moveCursor(10, 22); std::cout << setw(8) << tool_state.twist_angular.x;
-    moveCursor(10, 31); std::cout << setw(8) << tool_state.twist_angular.y;
-    moveCursor(10, 40); std::cout << setw(8) << tool_state.twist_angular.z;
+    moveCursor(10, 22); std::cout << setw(8) << tool_state.twistAngular.x;
+    moveCursor(10, 31); std::cout << setw(8) << tool_state.twistAngular.y;
+    moveCursor(10, 40); std::cout << setw(8) << tool_state.twistAngular.z;
 
     // Fuerza externa (con color)
     moveCursor(13, 22);
-    if(fabs(tool_state.external_wrench_force.x) > 1.0) std::cout << "\033[31m";
-    std::cout << setw(6) << tool_state.external_wrench_force.x << "\033[0m";
+    if(fabs(tool_state.externalWrenchForce.x) > 1.0) std::cout << "\033[31m";
+    std::cout << setw(6) << tool_state.externalWrenchForce.x << "\033[0m";
 
     moveCursor(13, 31);
-    if(fabs(tool_state.external_wrench_force.y) > 1.0) std::cout << "\033[31m";
-    std::cout << setw(6) << tool_state.external_wrench_force.y << "\033[0m";
+    if(fabs(tool_state.externalWrenchForce.y) > 1.0) std::cout << "\033[31m";
+    std::cout << setw(6) << tool_state.externalWrenchForce.y << "\033[0m";
 
     moveCursor(13, 40);
-    if(fabs(tool_state.external_wrench_force.z) > 1.0) std::cout << "\033[31m";
-    std::cout << setw(6) << tool_state.external_wrench_force.z << "\033[0m";
+    if(fabs(tool_state.externalWrenchForce.z) > 1.0) std::cout << "\033[31m";
+    std::cout << setw(6) << tool_state.externalWrenchForce.z << "\033[0m";
 
     // Torque externo (con color)
     moveCursor(14, 22);
-    if(fabs(tool_state.external_wrench_torque.x) > 0.5) std::cout << "\033[33m";
-    std::cout << setw(6) << tool_state.external_wrench_torque.x << "\033[0m";
+    if(fabs(tool_state.externalWrenchTorque.x) > 0.5) std::cout << "\033[33m";
+    std::cout << setw(6) << tool_state.externalWrenchTorque.x << "\033[0m";
 
     moveCursor(14, 31);
-    if(fabs(tool_state.external_wrench_torque.y) > 0.5) std::cout << "\033[33m";
-    std::cout << setw(6) << tool_state.external_wrench_torque.y << "\033[0m";
+    if(fabs(tool_state.externalWrenchTorque.y) > 0.5) std::cout << "\033[33m";
+    std::cout << setw(6) << tool_state.externalWrenchTorque.y << "\033[0m";
 
     moveCursor(14, 40);
-    if(fabs(tool_state.external_wrench_torque.z) > 0.5) std::cout << "\033[33m";
-    std::cout << setw(6) << tool_state.external_wrench_torque.z << "\033[0m";
+    if(fabs(tool_state.externalWrenchTorque.z) > 0.5) std::cout << "\033[33m";
+    std::cout << setw(6) << tool_state.externalWrenchTorque.z << "\033[0m";
 
     // Mover cursor al final para evitar interferencias
     moveCursor(16, 1);
@@ -446,9 +446,6 @@ bool SpecificWorker::KinovaArm_closeGripper()
 
 RoboCompKinovaArm::TPose SpecificWorker::KinovaArm_getCenterOfTool(RoboCompKinovaArm::ArmJoints referencedTo)
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
 	RoboCompKinovaArm::TPose ret{};
 	//implementCODE
 
@@ -457,17 +454,11 @@ RoboCompKinovaArm::TPose SpecificWorker::KinovaArm_getCenterOfTool(RoboCompKinov
 
 RoboCompKinovaArm::TGripper SpecificWorker::KinovaArm_getGripperState()
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
 	return gripper;
 }
 
 RoboCompKinovaArm::TJoints SpecificWorker::KinovaArm_getJointsState()
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
 	return joints;
 }
 
@@ -479,18 +470,18 @@ RoboCompKinovaArm::TToolInfo SpecificWorker::KinovaArm_getToolInfo()
 
 void SpecificWorker::KinovaArm_moveJointsWithAngle(RoboCompKinovaArm::TJointAngles angles)
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
-	api_controller->move_joints_with_angles(angles.jointAngles);
+	std::vector<float> degrees(angles.jointAngles.size());
+    std::transform(angles.jointAngles.begin(), angles.jointAngles.end(), degrees.begin(), 
+                  [](float rad) { return qRadiansToDegrees(rad); });
+
+	api_controller->move_joints_with_angles(degrees);
 }
 
 void SpecificWorker::KinovaArm_moveJointsWithSpeed(RoboCompKinovaArm::TJointSpeeds speeds)
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
-	new_speeds = speeds.jointSpeeds;
+
+    std::transform(speeds.jointSpeeds.begin(), speeds.jointSpeeds.end(), new_speeds.begin(), 
+                  [](float rad) { return qRadiansToDegrees(rad); });
 	speed_check_flag = true;
 	const auto now = std::chrono::system_clock::now();
 	last_time_speed_check = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
@@ -498,18 +489,12 @@ void SpecificWorker::KinovaArm_moveJointsWithSpeed(RoboCompKinovaArm::TJointSpee
 
 void SpecificWorker::KinovaArm_openGripper()
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
 	std::cout << "Opening the gripper" << std::endl;
 	api_controller->move_gripper_with_pos(0.0);
 }
 
 void SpecificWorker::KinovaArm_setCenterOfTool(RoboCompKinovaArm::TPose pose, RoboCompKinovaArm::ArmJoints referencedTo)
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
 	//implementCODE
 }
 

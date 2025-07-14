@@ -2,15 +2,9 @@
 # Proxies for required interfaces
 Contactile = "contactile:tcp -h localhost -p 0"
 
-
-
-
 [Endpoints]
 # Endpoints for implements interfaces
 KinovaArm = "tcp -p 0"
-
-
-
 
 [Agent]
 id = 0 # Change id

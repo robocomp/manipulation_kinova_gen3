@@ -181,7 +181,7 @@ RoboCompKinovaArm::TJoints api_kinova_controller::get_joints_info() {
     auto feedback = base_cyclic->RefreshFeedback();
     int actuator_id = 0;
     for (auto actuator : feedback.actuators()) {
-        joints_info.joints.push_back(RoboCompKinovaArm::TJoint({actuator_id ,actuator.position(), actuator.velocity(), actuator.torque(),
+        joints_info.joints.push_back(RoboCompKinovaArm::TJoint({actuator_id ,qDegreesToRadians(actuator.position()), actuator.velocity(), actuator.torque(),
             actuator.current_motor(), actuator.voltage(), actuator.temperature_motor(), actuator.temperature_core()}));
         actuator_id++;
     }
@@ -219,11 +219,11 @@ RoboCompKinovaArm::TToolInfo api_kinova_controller::get_tool_state() {
     auto feedback = base_cyclic->RefreshFeedback();
     auto base = feedback.base();
     tool_info.pose = RoboCompKinovaArm::TAxis({base.tool_pose_x(), base.tool_pose_y(), base.tool_pose_z()});
-    tool_info.pose_theta = RoboCompKinovaArm::TAxis({base.tool_pose_theta_x(), base.tool_pose_theta_y(), base.tool_pose_theta_z()});
-    tool_info.twist_linear = RoboCompKinovaArm::TAxis({base.tool_twist_linear_x(), base.tool_twist_linear_y(), base.tool_twist_linear_z()});
-    tool_info.twist_angular = RoboCompKinovaArm::TAxis({base.tool_twist_angular_x(), base.tool_twist_angular_y(), base.tool_twist_angular_z()});
-    tool_info.external_wrench_force = RoboCompKinovaArm::TAxis({base.tool_external_wrench_force_x(), base.tool_external_wrench_force_y(), base.tool_external_wrench_force_z()});
-    tool_info.external_wrench_torque = RoboCompKinovaArm::TAxis({base.tool_external_wrench_torque_x(), base.tool_external_wrench_torque_y(), base.tool_external_wrench_torque_z()});
+    tool_info.poseTheta = RoboCompKinovaArm::TAxis({base.tool_pose_theta_x(), base.tool_pose_theta_y(), base.tool_pose_theta_z()});
+    tool_info.twistLinear = RoboCompKinovaArm::TAxis({base.tool_twist_linear_x(), base.tool_twist_linear_y(), base.tool_twist_linear_z()});
+    tool_info.twistAngular = RoboCompKinovaArm::TAxis({base.tool_twist_angular_x(), base.tool_twist_angular_y(), base.tool_twist_angular_z()});
+    tool_info.externalWrenchForce = RoboCompKinovaArm::TAxis({base.tool_external_wrench_force_x(), base.tool_external_wrench_force_y(), base.tool_external_wrench_force_z()});
+    tool_info.externalWrenchTorque = RoboCompKinovaArm::TAxis({base.tool_external_wrench_torque_x(), base.tool_external_wrench_torque_y(), base.tool_external_wrench_torque_z()});
 
     return tool_info;
 }
@@ -249,6 +249,7 @@ bool api_kinova_controller::move_gripper_with_vel(const float vel) {
 }
 
 bool api_kinova_controller::move_joints_with_speeds(std::vector<float> speeds) {
+    std::lock_guard<std::mutex> lock(kinova_mutex_); 
     k_api::Base::JointSpeeds joint_speeds;
     int joint_id = 0;
     for (const auto speed: speeds) {
@@ -264,6 +265,8 @@ bool api_kinova_controller::move_joints_with_speeds(std::vector<float> speeds) {
 }
 
 bool api_kinova_controller::move_joints_with_angles(std::vector<float> angles) {
+    std::lock_guard<std::mutex> lock(kinova_mutex_); 
+    std::cout << "move to" << angles[4] << " " << angles[5] <<" " <<  angles[6]<< std::endl;
     auto action = k_api::Base::Action();
     const auto reach_joint_angles = action.mutable_reach_joint_angles();
     const auto joint_angles = reach_joint_angles->mutable_joint_angles();
