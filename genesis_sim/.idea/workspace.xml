@@ -5,8 +5,6 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a67e1de9-f484-453b-a443-1191e9a927b5" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/src/basket.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/chat.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../genesis/CMakeLists.txt" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/../genesis/DoxyFile" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/../genesis/README.md" beforeDir="false" />
@@ -19,12 +17,6 @@
       <change beforePath="$PROJECT_DIR$/../genesis/src/specificworker.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/../genesis/statemachine.smdsl" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/cube.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/cube.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/gen3.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/gen3.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/gs_sim.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/gs_sim.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/parser.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/specificworker.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/specificworker.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../pybullet_controller/URDFs/kinova_with_pybullet/gen3_robotiq_2f_85-mod.urdf" beforeDir="false" afterPath="$PROJECT_DIR$/../pybullet_controller/URDFs/kinova_with_pybullet/gen3_robotiq_2f_85-mod.urdf" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -57,7 +49,7 @@
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/home/pbustos/robocomp/components/manipulation_kinova_gen3/genesis_sim&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/pbustos/robocomp/components/robocomp-shadow/insect/bumper_py&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -70,8 +62,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-deb605915726-JavaScript-PY-243.22562.180" />
-        <option value="bundled-python-sdk-85c76a3b01b3-9a18a617cbe4-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.22562.180" />
+        <option value="bundled-js-predefined-d6986cc7102b-1632447f56bf-JavaScript-PY-243.25659.43" />
+        <option value="bundled-python-sdk-181015f7ab06-4df51de95216-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-243.25659.43" />
       </set>
     </attachedChunks>
   </component>
@@ -90,6 +82,16 @@
       <workItem from="1736601903405" duration="22086000" />
       <workItem from="1736675381492" duration="10993000" />
       <workItem from="1736761030050" duration="22654000" />
+      <workItem from="1737201254154" duration="266000" />
+      <workItem from="1737226039063" duration="28000" />
+      <workItem from="1737226305626" duration="7000" />
+      <workItem from="1737453345828" duration="776000" />
+      <workItem from="1737717050813" duration="630000" />
+      <workItem from="1740333144691" duration="76000" />
+      <workItem from="1740333225698" duration="4000" />
+      <workItem from="1740333564136" duration="18000" />
+      <workItem from="1740335209685" duration="13000" />
+      <workItem from="1741525846437" duration="623000" />
     </task>
     <servers />
   </component>
