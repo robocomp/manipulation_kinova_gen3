@@ -2,7 +2,7 @@
 KinovaArm.Endpoints=tcp -p 17954
 
 # Proxies for required interfaces
-ContactileProxy = contactile:tcp -h localhost -p 18760
+ContactileProxy = contactile:tcp -h localhost -p 11321
 ip = 192.168.1.10
 
 

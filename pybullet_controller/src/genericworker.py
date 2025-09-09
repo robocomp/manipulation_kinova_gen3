@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
-#    Copyright (C) 2024 by YOUR NAME HERE
+#    Copyright (C) 2025 by YOUR NAME HERE
 #
 #    This file is part of RoboComp
 #
@@ -19,7 +19,7 @@
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys, Ice, os
-from PySide2 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtCore
 
 ROBOCOMP = ''
 try:
@@ -56,7 +56,7 @@ class GenericWorker(QtWidgets.QWidget):
         self.ui.setupUi(self)
         self.show()
 
-        self.mutex = QtCore.QMutex(QtCore.QMutex.Recursive)
+        self.mutex = QtCore.QMutex()
         self.Period = 30
         self.timer = QtCore.QTimer(self)
 

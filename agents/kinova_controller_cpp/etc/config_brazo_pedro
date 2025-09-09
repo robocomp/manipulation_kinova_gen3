@@ -1,0 +1,24 @@
+# Proxies for required interfaces
+Proxies.Contactile = "contactile:tcp -h localhost -p 18761"
+
+# Endpoints for implements interfaces
+Endpoints.KinovaArm = "tcp -p 17955"
+
+Agent.id = 1 # Change id
+Agent.name = "kinova_controller_cpp"
+Agent.configFile = "kinova2.json"
+
+ViewAgent.tree = false
+ViewAgent.graph = true
+ViewAgent.2d = true
+ViewAgent.3d = false
+
+Period.Compute = 50
+Period.Emergency = 500
+
+ip = "192.168.1.11"
+
+Ice.Warn.Connections = "0"
+Ice.Trace.Network = "0"
+Ice.Trace.Protocol = "0"
+Ice.MessageSizeMax = "20004800"
