@@ -498,6 +498,11 @@ void SpecificWorker::KinovaArm_setCenterOfTool(RoboCompKinovaArm::TPose pose, Ro
 	//implementCODE
 }
 
+bool SpecificWorker::KinovaArm_setGripperPos(float pos)
+{
+	return api_controller->move_gripper_with_pos(pos)
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void SpecificWorker::emergency()
 {
