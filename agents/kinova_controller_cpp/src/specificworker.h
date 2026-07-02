@@ -126,7 +126,6 @@ private:
 	*/
 	RoboCompKinovaArm::TGripper gripper{};
 
-
 	/**
 	* @brief Object storing the state of the tool
 	*/

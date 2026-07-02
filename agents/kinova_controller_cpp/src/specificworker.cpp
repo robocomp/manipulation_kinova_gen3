@@ -421,9 +421,6 @@ void SpecificWorker::show_tool_state() {
 
 bool SpecificWorker::KinovaArm_closeGripper()
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
 	float force = 0;
 	float gripper_dist = gripper.distance;
 	while (force < 10.0 && gripper_dist < 0.9)
@@ -500,7 +497,7 @@ void SpecificWorker::KinovaArm_setCenterOfTool(RoboCompKinovaArm::TPose pose, Ro
 
 bool SpecificWorker::KinovaArm_setGripperPos(float pos)
 {
-	return api_controller->move_gripper_with_pos(pos)
+	return api_controller->move_gripper_with_pos(std::clamp(pos, 0.0f, 1.0f));
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
