@@ -38,4 +38,7 @@ automatic = True
 simulated = 1 #0:swift, 1:webots, 2:real
 directKinematic = false
 
-
+threshold_speed_penalitation = False
+threshold_distance_penalitation = False
+lineal_speed_penalitation = False
+lineal_distance_penalitation = False

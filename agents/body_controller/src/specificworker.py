@@ -23,7 +23,6 @@ import cProfile
 import pstats
 import io
 from functools import wraps
-import threading
 
 # def profile_qt(sort_by='cumulative', limit=10):
 #     """Decorador que muestra resultados de profiling ordenados y formateados
@@ -83,7 +82,6 @@ import numpy as np
 import qpsolvers as qp
 import spatialgeometry as sg
 from roboticstoolbox import Robot
-from multiprocessing import Process, Queue
 
 from kinova_gen3 import KinovaGen3
 
@@ -94,6 +92,10 @@ except:
     pass
 
 
+# If RoboComp was compiled with Python bindings you can use InnerModel in Python
+# import librobocomp_qmat
+# import librobocomp_osgviewer
+# import librobocomp_innermodel
 SCALE = 0.001
 ROBOT_DSR = ("robot", 200)
 
@@ -107,18 +109,26 @@ class SpecificWorker(GenericWorker):
         self.automatic = self.configData["automatic"]
         self.simulated = self.configData["simulated"]
         self.directKinematic = self.configData["directKinematic"]
+        self.threshold_speed_penalitation = self.configData["threshold_speed_penalitation"]
+        self.threshold_distance_penalitation = self.configData["threshold_distance_penalitation"]
+        self.lineal_speed_penalitation = self.configData["lineal_speed_penalitation"]
+        self.lineal_distance_penalitation = self.configData["lineal_distance_penalitation"]
         assert self.simulated in [0, 1, 2], f"Simulated must be #0:swift, 1:webots, 2:real, dont {self.simulated}"
         self.pose = None
         self.loop_count = 0
+
+
 
         #region Objects and poses
         self.cubes_positions = [sm.SE3.Trans(0.0, 0.0, 0.20), sm.SE3.Trans(-0.10, 0, 0.7), sm.SE3.Trans(-0.125, -0., 1)]
         self.collisions = [sg.Cuboid((0.46, 0.46, 0.40), pose=self.cubes_positions[0], color=(1, 0, 0)),
                            sg.Cuboid((0.20, 0.20, 0.750), pose=self.cubes_positions[1], color=(1, 0, 0)),
-                           sg.Cuboid((0.10, 0.10, 0.750), pose=self.cubes_positions[2], color=(1, 0, 0))]
+                           sg.Cuboid((0.10, 0.10, 0.750), pose=self.cubes_positions[2], color=(1, 0, 0)),]
+                        #    sg.Cuboid((1.2, 0.6, 0.75), pose=sm.SE3.Trans(0.0, -2.5, 0.375), color=(0, 1, 0)),
+                        #    sg.Cuboid((1.2, 0.6, 0.75), pose=sm.SE3.Trans(0.0, 2.5, 0.375), color=(0, 1, 0))]
 
-        self.home =  np.radians(np.array([[40,-120,60,-130,-20,-65, 85], [-40,-120,-60,-130,20,-65, 85]], dtype=np.float64))
-        self.pick =  np.radians(np.array([[90,-120,80,-130,-20, 45, 95], [-90,-120,-80,-130, 20, 45, 85]], dtype=np.float64))
+        self.home =  np.radians(np.array([[50,-125,55,-130,-20,-65, 85], [-50,-125,-55,-130,20,-65, 85]], dtype=np.float32))
+        self.pick =  np.radians(np.array([[90,-125,80,-130,-20, 45, 85], [-90,-125,-80,-130, 20, 45, 85]], dtype=np.float32))
         self.gain = np.array([1, 1, 1, 1.6, 1.6, 1.6])
         #endregion
 
@@ -140,7 +150,6 @@ class SpecificWorker(GenericWorker):
             self.kinova_arms = [self.kinovaarm_proxy, self.kinovaarm1_proxy]
         #endregion
 
-
         if startup_check:
             self.startup_check()
         else:
@@ -155,7 +164,7 @@ class SpecificWorker(GenericWorker):
             #region P3Bot
             # self.p3bot = Robot.URDF("/home/robolab/software/robotics-toolbox-python/rtb-data/rtbdata/xacro/p3bot_description/urdf/P3Bot_scaled.urdf")
             self.p3bot = rtb.models.P3Bot()
-            self.p3bot.qdlim[:2] = [ 1.5, 0.4]
+            self.p3bot.qdlim[:2] = [ 0.8, 0.4]
 
             T = sm.SE3(0, 0, 0.04)
             Rz = sm.SE3.Rz(1.57)
@@ -170,14 +179,12 @@ class SpecificWorker(GenericWorker):
                 self.env.add(frame)
             #endregion
 
-
-            self.set_all_joints(self.home)
-
             # # for link in self.p3bot.ee_links:
             # #     print(f"Link {link.name} has mass {link.m} and inertia {link.I}")
 
             #region getGoal
             self.goal_axes = sg.Axes(0.1)
+            self.env.add(self.goal_axes)
             self.target = None
             if self.automatic:
                 table_node = self.g.get_node("Table1")
@@ -190,11 +197,13 @@ class SpecificWorker(GenericWorker):
                 targets = self.g.get_edges_by_type("TARGET")
                 print("Targets encontrados:", targets)
                 for t in targets:
-                    if t == ROBOT_DSR[1]:
-                        pose = t.attrs["rt_translation"].value
-                        rot = t.attrs["rt_rotation_euler_xyz"].value
-                        self.change_target(rot=rot, translate=pose)
-                        self.target = t.to
+                    if t.origin == ROBOT_DSR[1]:
+                        robot_node = self.g.get_node(ROBOT_DSR[1])
+                        rt_edge = self.rt.get_edge_RT(robot_node, t.destination)
+                        translation = rt_edge.attrs["rt_translation"].value
+                        rot = rt_edge.attrs["rt_rotation_euler_xyz"].value
+                        self.change_target(rot=rot, translate=translation)
+                        self.target = t.destination
                         break
             #endregion
 
@@ -220,8 +229,6 @@ class SpecificWorker(GenericWorker):
         assert arm < len(self.kinova_arms), f"Robot has {len(self.kinova_arms)} arms, tried to access arm {arm + 1}"
         assert 7 == len(velocity), f"Robot has {7} joins, tried use {len(velocity)}" 
         try:
-            console.print(Text(f"Set velocity {velocity}", "green"))
-
             match self.simulated:
                 case 1:  # Real robot via proxy
                     speed = ifaces.RoboCompKinovaArm.TJointSpeeds(jointSpeeds=ifaces.RoboCompKinovaArm.Speeds(velocity))
@@ -233,35 +240,9 @@ class SpecificWorker(GenericWorker):
         except Exception as e:
             console.print(Text(f"Failed to set joint velocities: {e}", "red"))
             console.print_exception()
-        # finally:
-        #     self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = self.get_joints(arm)
+        finally:
+            self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = self.get_joints(arm)
 
-    def set_all_joints(self, poses: list[list[float]]) -> None:
-        """Mueve todos los brazos robóticos a los ángulos articulares especificados en paralelo.
-        
-        Args:
-            poses (list[list[float]]): Ángulos objetivo para cada brazo (en radianes).
-        
-        Raises:
-            AssertionError: Si el número de poses no coincide con el número de brazos.
-        """
-        assert len(poses) == len(self.kinova_arms), \
-            f"El robot tiene {len(self.kinova_arms)} brazos, pero se proporcionaron {len(poses)} poses"
-
-        threads = []
-        for i in range(len(self.kinova_arms)):
-            # Crear un hilo por brazo
-            thread = threading.Thread(
-                target=self.set_joints,
-                args=(i, poses[i])  # Argumentos: (arm, pose)
-            )
-            thread.start()
-            threads.append(thread)  # Guardar referencia
-
-        # Esperar a que todos los hilos terminen
-        for thread in threads:
-            thread.join()
-                
     def set_joints(self, arm: int, pose: list[float]) -> None:
         """Move the robot arm to the specified joint angles.
 
@@ -276,10 +257,9 @@ class SpecificWorker(GenericWorker):
         assert arm < len(self.kinova_arms), f"Robot has {len(self.kinova_arms)} arms, tried to access arm {arm + 1}"
         assert 7 == len(pose), f"Robot has {7} joins, tried use {len(pose)}" 
         try:
-            counter = 0
+            counter = count()
             while not np.allclose(self.p3bot.q[2 + arm * 7 : 9 + arm * 7], pose, rtol=0.0001):
-                if counter % 1000 == 0:
-                    console.print(Text(f"Set pose {pose}", "green"))
+                if counter.__next__() % 100 == 0:
                     match self.simulated:
                         case 0:
                             self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = pose
@@ -293,10 +273,8 @@ class SpecificWorker(GenericWorker):
                 
                 sleep(0.005)
                 self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = self.get_joints(arm)
-                # self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = pose
                 # print(self.p3bot.q[2 + arm * 7 : 9 + arm * 7], pose, "\n\n\n")
                 self.env.step(0)
-                counter+=1
         except Exception as e:
             console.print(Text(f"Failed to set joint angles: {e}", "red"))
             console.print_exception()
@@ -328,13 +306,11 @@ class SpecificWorker(GenericWorker):
                 case 1:  # Real robot via proxy
                     data = self.kinova_arms[arm].getJointsState()
                     angles = np.array([joint.angle for joint in data.joints])
-                    angles[angles > np.pi] -= 2*np.pi  # Normalize angles >180° to [-180°, 180°]
+                    # angles[angles > np.pi] -= 2*np.pi  # Normalize angles >180° to [-180°, 180°]
                     return angles.tolist()
                 case 2:  # Real robot via API
-                    print("a")
                     angles = np.array(self.kinova_arms[arm].get_joints_state()["angles"])
                     angles[angles > 180] -= 360  # Normalize angles >180° to [-180°, 180°]
-                    print(angles)
                     return np.radians(angles).tolist()
         except Exception as e:
             console.print(Text(f"Failed to get joint angles: {e}", "red"))
@@ -356,7 +332,7 @@ class SpecificWorker(GenericWorker):
         self.p3bot.base = current_base * R_noise * T_noise
 
     def update_collisions(self, pose:sm.SE3.Trans):
-        for i in range(len(self.collisions)):
+        for i in range(3):
             self.collisions[i].T = pose * self.cubes_positions[i]
 
     @QtCore.Slot()
@@ -369,13 +345,13 @@ class SpecificWorker(GenericWorker):
             RPY = sm.SE3.RPY(self.pose[3:6])
             self.pose = None
             self.p3bot.base = T * RPY
-        for arm in range(len(self.kinova_arms)):self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = self.get_joints(arm)
+        #for arm in range(len(self.kinova_arms)):self.p3bot.q[2 + arm * 7 : 9 + arm * 7] = self.get_joints(arm)
         self.update_collisions(self.p3bot.base)
 
         #Go to target
         if self.target is not None:
             distance = np.linalg.norm(self.p3bot.base.t - self.Tep.t)
-            armSelect = (self.loop_count//2) % 2
+            armSelect = self.loop_count % 2
 
             if self.directKinematic:                
                 arrived, qd = self.direct_kinematic_robot(self.p3bot, armSelect, self.Tep.A)
@@ -383,14 +359,14 @@ class SpecificWorker(GenericWorker):
                 arrived, qd = self.step_robot(self.p3bot, armSelect, self.Tep.A)
 
             #Block arm to far targets
-            if distance > 2.5:
-                qd[2:] = [0]*(len(qd)-2)
+            # if distance > 2.5: 
+            #     qd[2:] = [0]*(len(qd)-2)
 
 
             # print(f"\rDistance: {distance:0.2f}, velocity:", end="")
             #for vel in qd: print(f" {vel:0.2f}", end="") 
-            # print(f"\radv:{qd[1]*1000:.2f} | rot:{qd[0]:.2f} ejes {qd[2:]}", end="")
 
+            # print(f"\radv:{qd[1]*1000:.2f} | rot:{qd[0]:.2f} ejes {qd[2:]}", end="")
             #Move motors
             if qd is not None:
                 if self.simulated==0:
@@ -410,14 +386,11 @@ class SpecificWorker(GenericWorker):
             self.p3bot.q[:2] = 0
             
             if arrived:
-                try:
-                    self.omnirobot_proxy.setSpeedBase(0, 0, 0)
-                    pass
-                except Ice.ConnectionRefusedException:
-                    console.print_exception()
+                self.omnirobot_proxy.setSpeedBase(0, 0, 0)
                 self.g.delete_edge(ROBOT_DSR[1], self.target, "TARGET")
                 self.set_velocity_joints(armSelect, [0]*7)
-                self.set_joints(armSelect, self.home[armSelect])
+                for arm in range(len(self.kinova_arms)): self.set_joints(arm, self.pick[arm])
+                self.loop_count +=1
 
                 if self.automatic:
                     self.loop_count += 2
@@ -433,13 +406,19 @@ class SpecificWorker(GenericWorker):
                     # edge = self.g.get_edge(ROBOT_DSR[0], self.target, "RT")
                     # if edge is not None:
                     #     self.change_target( np.array(edge.attrs["rt_translation"].value), np.array(edge.attrs["rt_rotation_euler_xyz"].value))
-        print(time()-t1)
+        # print(time()-t1)
         return True
 
     def change_target(self, translate:np.ndarray, rot:np.ndarray):
         print(f"Changed goal {translate}, {rot}")
-        armSelect = (self.loop_count//2) % 2
-        self.set_joints(armSelect, self.pick[armSelect])
+
+        try:
+            self.omnirobot_proxy.setSpeedBase(0, 0, 0)
+            pass
+        except Ice.ConnectionRefusedException:
+            console.print_exception()
+
+        for arm in range(len(self.kinova_arms)): self.set_joints(arm, self.pick[arm])
 
         # Change the target position of the end-effector
         T = sm.SE3(translate*SCALE)
@@ -447,14 +426,14 @@ class SpecificWorker(GenericWorker):
 
         self.Tep = T * RPY
         self.goal_axes.T = self.Tep
-        self.env.add(self.goal_axes)
+        
 
     def direct_kinematic_robot(self, r: rtb.ERobot, gripperSelect, Tep):
         gripper = r.grippers[gripperSelect]
         ets = r.ets(end=gripper)
         indices = ets.jindices
 
-        v, arrived = rtb.p_servo(r.fkine(r.q, end=gripper), Tep, gain=self.gain, threshold=0.005)
+        v, arrived = rtb.p_servo(r.fkine(r.q, end=gripper), Tep, gain=self.gain, threshold=0.01)
         qd = np.clip(np.linalg.pinv(ets.jacobe(r.q)) @ v, -r.qdlim[indices], r.qdlim[indices])
                                         
         return arrived, qd
@@ -482,14 +461,76 @@ class SpecificWorker(GenericWorker):
 
         # Joint velocity component of Q
         Q[: n, : n] *= Y
-        Q[:3, :3] *= 1.0 / et
+        Q[:2, :2] *= 1.0 / et
 
         # Slack component of Q
         Q[n:, n:] = (1.0 / et) * np.eye(6)
 
         v, _ = rtb.p_servo(wTe, Tep, 1.5)
-
         v[3:] *= 1.3
+
+        arm_penalty_factor = 1.0
+        n_penalizations = 0
+
+        # AJUSTE EN FUNCION DE LA VELOCIDAD ANTERIOR DE LA BASE DE MANERA LINEAL
+        if self.lineal_speed_penalitation:
+            n_penalizations +=1
+
+            if not hasattr(self, "prev_base_speed"):
+                self.prev_base_speed = 0.0  
+
+            speed_base = self.prev_base_speed
+            K_speed = 500.0
+            arm_penalty_factor += np.clip(1.0 + K_speed * speed_base, a_min=1.0, a_max=1e6)
+
+
+        # AJUSTE EN FUNCION DE LA VELOCIDAD ANTERIOR DE LA BASE CON UMBRAL
+        if self.threshold_speed_penalitation:
+            n_penalizations +=1
+
+            if not hasattr(self, "prev_base_speed"):
+                self.prev_base_speed = 0.0  
+
+            BASE_ONLY_SPEED_THRESHOLD = 0.35
+            VERY_HIGH_PENALTY = 1e6 
+
+            if self.prev_base_speed >= BASE_ONLY_SPEED_THRESHOLD:
+                arm_penalty_factor += VERY_HIGH_PENALTY
+            else:
+                arm_penalty_factor += 1.0
+
+
+        # AJUSTE EN FUNCION DE LA DISTANCIA AL OBJETIVO DE MANERA LINEAL
+        if self.lineal_distance_penalitation:
+            n_penalizations +=1
+
+            K_distance = 100.0
+            arm_penalty_factor += np.clip(1.0 + K_distance * et, a_min=1.0, a_max=1e6)
+
+
+
+        # AJUSTE EN FUNCION DE LA DISTANCIA AL OBJETIVO CON UMBRAL
+        if self.threshold_distance_penalitation:
+            n_penalizations +=1
+
+            BASE_ONLY_DISTANCE_THRESHOLD = 2.5
+            VERY_HIGH_PENALTY = 1e6 
+
+            if et >= BASE_ONLY_DISTANCE_THRESHOLD:
+                arm_penalty_factor += VERY_HIGH_PENALTY
+            else:
+                arm_penalty_factor += 1.0
+
+
+        if self.threshold_speed_penalitation or self.threshold_distance_penalitation or self.lineal_speed_penalitation or self.lineal_distance_penalitation:
+            base_dofs = 2
+
+            arm_penalty_factor -= 1.0 * n_penalizations  
+            Q[base_dofs:n, base_dofs:n] *= arm_penalty_factor
+
+            # Debug
+            print(f"et={et:.3f} | total_penalty={arm_penalty_factor:.2f} | n_penalizations={n_penalizations}")
+
 
         # The equality contraints
         Aeq = np.c_[ets.jacobe(r.q), np.eye(6)]#TODO tool
@@ -513,7 +554,7 @@ class SpecificWorker(GenericWorker):
         rot_boost = 1
         vel_decay = 1
 
-        #################COLISIONS##################
+        ################COLISIONS##################
         if collisions:
             for i, collision in enumerate(self.collisions):
                 c_Ain, c_bin = self.p3bot.link_collision_damper(
@@ -561,24 +602,18 @@ class SpecificWorker(GenericWorker):
 
         if qd is not None:
             qd = qd.copy()
-
-            # ret_qd = r.qd.copy()
-            # ret_qd[toolPoint.jindices] = qd[toolPoint.jindices].copy()
-            # print("antes", qd)
-            # qd[0] = qd[0] * rot_boost
-            # qd[2:] = qd[2:] / vel_decay
-            # print("despues", qd)
-
-            # if et > 0.5:
-            #     qd *= 0.5
-            # else:
-            #     qd *= et if et > 0.25 else 1
+            qd_base = qd[0:2]
+            radio_base = 0.22
+            self.prev_base_speed = abs(qd_base[0] * radio_base + qd_base[1])  # Linear speed approximation 
 
             if et < 0.02:
                 arrived = True
+
         else:
             console.print(Text("Optimización fallida.", "yellow"))
             qd = np.zeros(n)
+            self.prev_base_speed = 0.0
+
         return arrived, qd
 
     def startup_check(self):
@@ -650,6 +685,7 @@ class SpecificWorker(GenericWorker):
     # RoboCompKinovaArm.void self.kinovaarm_proxy.moveJointsWithSpeed(TJointSpeeds speeds)
     # RoboCompKinovaArm.void self.kinovaarm_proxy.openGripper()
     # RoboCompKinovaArm.void self.kinovaarm_proxy.setCenterOfTool(TPose pose, ArmJoints referencedTo)
+    # RoboCompKinovaArm.bool self.kinovaarm_proxy.setGripperPos(float pos)
 
     ######################
     # From the RoboCompKinovaArm you can use this types:

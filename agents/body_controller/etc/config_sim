@@ -18,7 +18,8 @@ kinova_left_arm_ip = "192.168.50.10"
 # Change id
 Agent.id = 999
 Agent.name = "body_controller"
-Agent.configFile = "kinova2.json"
+# Agent.configFile = "kinova2.json"
+Agent.configFile = ""
 
 ViewAgent.tree = true
 ViewAgent.graph = true
@@ -34,7 +35,11 @@ Ice.MessageSizeMax = "20004800"
 
 
 useRTPose = False
-automatic = True
-simulated = 0 #0:swift, 1:webots, 2:real
+automatic = False
+simulated = 1 #0:swift, 1:webots, 2:real
 directKinematic = False
 
+threshold_speed_penalitation = True 
+lineal_speed_penalitation = False
+threshold_distance_penalitation = False
+lineal_distance_penalitation = False
