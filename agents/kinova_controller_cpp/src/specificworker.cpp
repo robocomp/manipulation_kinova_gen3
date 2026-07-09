@@ -71,7 +71,12 @@ this->startup_check_flag = startup_check;
 SpecificWorker::~SpecificWorker()
 {
 	std::cout << "Destroying SpecificWorker" << std::endl;
-	//G->write_to_json_file("./"+agent_name+".json");
+
+	if (move_thread_.joinable())
+	{
+		api_controller->stop_motion();
+		move_thread_.join();
+	}
 
 	delete api_controller;
 }
@@ -79,7 +84,7 @@ SpecificWorker::~SpecificWorker()
 void SpecificWorker::initialize()
 {
 	std::cout << "Initialize worker" << std::endl;
-
+	GenericWorker::initialize();
 	// 2D widget
 //dsr update signals
 	//connect(G.get(), &DSR::DSRGraph::update_node_signal, this, &SpecificWorker::modify_node_slot);
@@ -88,11 +93,8 @@ void SpecificWorker::initialize()
 	//connect(G.get(), &DSR::DSRGraph::update_edge_attr_signal, this, &SpecificWorker::modify_edge_attrs_slot);
 	//connect(G.get(), &DSR::DSRGraph::del_edge_signal, this, &SpecificWorker::del_edge_slot);
 	//connect(G.get(), &DSR::DSRGraph::del_node_signal, this, &SpecificWorker::del_node_slot);
-	graph_viewer = std::make_unique<DSR::DSRViewer>(this, G, current_opts, main);
 
 	rt = G->get_rt_api();
-
-	this->resize(1200, 1200);
 
 	new_speeds = std::vector<float>(7, 0.0);
 
@@ -468,10 +470,28 @@ RoboCompKinovaArm::TToolInfo SpecificWorker::KinovaArm_getToolInfo()
 void SpecificWorker::KinovaArm_moveJointsWithAngle(RoboCompKinovaArm::TJointAngles angles)
 {
 	std::vector<float> degrees(angles.jointAngles.size());
-    std::transform(angles.jointAngles.begin(), angles.jointAngles.end(), degrees.begin(), 
+    std::transform(angles.jointAngles.begin(), angles.jointAngles.end(), degrees.begin(),
                   [](float rad) { return qRadiansToDegrees(rad); });
 
-	api_controller->move_joints_with_angles(degrees);
+	// Si hay un movimiento en curso, lo paramos antes de lanzar el nuevo
+	if (move_thread_.joinable())
+	{
+		api_controller->stop_motion();
+		move_thread_.join();
+	}
+
+	move_thread_ = std::thread([this, degrees]() {
+		api_controller->move_joints_with_angles(degrees);
+	});
+}
+
+void SpecificWorker::KinovaArm_stopArm()
+{
+	std::cout << "Stopping arm..." << std::endl;
+	api_controller->stop_motion();
+	if (move_thread_.joinable())
+		move_thread_.join();
+	std::cout << "Arm stopped" << std::endl;
 }
 
 void SpecificWorker::KinovaArm_moveJointsWithSpeed(RoboCompKinovaArm::TJointSpeeds speeds)

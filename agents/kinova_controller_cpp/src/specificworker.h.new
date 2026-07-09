@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2025 by YOUR NAME HERE
+ *    Copyright (C) 2026 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -22,17 +22,13 @@
 	@author authorname
 */
 
-
-
 #ifndef SPECIFICWORKER_H
 #define SPECIFICWORKER_H
-
 
 // If you want to reduce the period automatically due to lack of use, you must uncomment the following line
 //#define HIBERNATION_ENABLED
 
 #include <genericworker.h>
-
 
 /**
  * \brief Class SpecificWorker implements the core functionality of the component.
@@ -64,6 +60,7 @@ public:
 	void KinovaArm_openGripper();
 	void KinovaArm_setCenterOfTool(RoboCompKinovaArm::TPose pose, RoboCompKinovaArm::ArmJoints referencedTo);
 	bool KinovaArm_setGripperPos(float pos);
+	void KinovaArm_stopArm();
 
 
 public slots:

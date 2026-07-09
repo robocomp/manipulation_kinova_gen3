@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2025 by YOUR NAME HERE
+ *    Copyright (C) 2026 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -20,13 +20,6 @@
 #define GENERICWORKER_H
 
 #include <stdint.h>
-
-#if Qt5_FOUND
-	#include <QtWidgets>
-#else
-	#include <QtGui>
-#endif
-#include <ui_mainUI.h>
 #include <grafcetStep/GRAFCETStep.h>
 #include <ConfigLoader/ConfigLoader.h>
 #include <QStateMachine>
@@ -37,10 +30,11 @@
 #include <QtCore>
 #include <variant>
 #include <unordered_map>
+#include <fps/fps.h>
 
 #include "dsr/api/dsr_api.h"
 #include "dsr/gui/dsr_gui.h"
-#include <doublebuffer/DoubleBuffer.h>
+#include <memory>
 
 #include <Contactile.h>
 #include <KinovaArm.h>
@@ -50,7 +44,7 @@
 using TuplePrx = std::tuple<RoboCompContactile::ContactilePrxPtr>;
 
 
-class GenericWorker : public QMainWindow, public Ui_guiDlg
+class GenericWorker : public QObject
 {
 Q_OBJECT
 public:
@@ -78,22 +72,24 @@ public:
 	virtual void KinovaArm_openGripper() = 0;
 	virtual void KinovaArm_setCenterOfTool(RoboCompKinovaArm::TPose pose, RoboCompKinovaArm::ArmJoints referencedTo) = 0;
 	virtual bool KinovaArm_setGripperPos(float pos) = 0;
+	virtual void KinovaArm_stopArm() = 0;
 
 
 protected:
 	std::unordered_map<std::string, std::unique_ptr<GRAFCETStep>> states;
 	ConfigLoader configLoader;
-	// DSR graph
-	std::shared_ptr<DSR::DSRGraph> G;
-
+	FPSCounter fps;
 	//DSR params
 	std::string agent_name;
 	int agent_id;
-	int current_opts = 0;
-	DSR::DSRViewer::view main = DSR::DSRViewer::view::none;
+
+	// DSR graph
+	std::unordered_map<std::string, std::shared_ptr<DSR::DSRGraph>> Graphs;
+	std::shared_ptr<DSR::DSRGraph> G;
 	// DSR graph viewer
-	std::unique_ptr<DSR::DSRViewer> graph_viewer;
-	QHBoxLayout mainLayout;
+	std::unordered_map<std::string, std::shared_ptr<DSR::DSRViewer>> graph_viewers;
+	std::unordered_map<std::string, std::unique_ptr<QMainWindow>> windows;
+	std::shared_ptr<DSR::DSRViewer> setupViewer(std::shared_ptr<DSR::DSRGraph> graph, const std::string& prefix, QMainWindow* parent);
 
 
 

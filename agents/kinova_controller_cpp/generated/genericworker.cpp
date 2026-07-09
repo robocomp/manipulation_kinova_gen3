@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2025 by YOUR NAME HERE
+ *    Copyright (C) 2026 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -20,11 +20,22 @@
 /**
 * \brief Default constructor
 */
-GenericWorker::GenericWorker(const ConfigLoader& configLoader, TuplePrx tprx) : Ui_guiDlg()
+GenericWorker::GenericWorker(const ConfigLoader& configLoader, TuplePrx tprx) : QObject()
 {
 
 	this->configLoader = configLoader;
-	
+    if (!this->configLoader.get<bool>("Component.Debug.Verbose")) {
+        std::cout << "\033[32mINFO\033[0m Verbose mode is disabled" << std::endl;
+        qInstallMessageHandler([](QtMsgType type, const QMessageLogContext& context, const QString& msg) {
+                switch (type) {
+                    case QtDebugMsg:   break; // Suppress qDebug()
+                    case QtInfoMsg:    qInfo().noquote() << msg; break;
+                    case QtWarningMsg: qWarning().noquote() << msg; break;
+                    case QtCriticalMsg: qCritical().noquote() << msg; break;
+                    case QtFatalMsg:   qFatal("%s", msg.toUtf8().constData()); break;
+                    default: qInfo().noquote() << msg; break;
+                }});
+    }
 	contactile_proxy = std::get<0>(tprx);
 
 	states["Initialize"] = std::make_unique<GRAFCETStep>("Initialize", BASIC_PERIOD, nullptr, std::bind(&GenericWorker::initialize, this));
@@ -47,38 +58,33 @@ GenericWorker::GenericWorker(const ConfigLoader& configLoader, TuplePrx tprx) : 
 	connect(&hibernationChecker, SIGNAL(timeout()), this, SLOT(hibernationCheck()));
 
 
-	#ifdef USE_QTGUI
-		setupUi(this);
-		show();
-	#endif
-
     agent_name = this->configLoader.get<std::string>("Agent.name");
     agent_id = this->configLoader.get<int>("Agent.id");
 
     // Create graph
-    G = std::make_shared<DSR::DSRGraph>(0, agent_name, agent_id, this->configLoader.get<std::string>("Agent.configFile")); // Init nodes
-    std::cout<< "Graph loaded" << std::endl;  
-    
-    // Graph viewer
-    using opts = DSR::DSRViewer::view;
-    if(this->configLoader.get<bool>("ViewAgent.tree"))
-    {
-        current_opts = current_opts | opts::tree;
+    auto surNames = configLoader.getSurNames("Agent");
+    if (surNames.empty()) {
+        int domain = this->configLoader.exists("Agent.domain") ? this->configLoader.get<int>("Agent.domain") : 0;
+        auto [it, inserted] = Graphs.emplace("", std::make_shared<DSR::DSRGraph>(0, agent_name, agent_id, 
+                                        this->configLoader.get<std::string>("Agent.configFile"), 
+                                        true, domain));
+        std::cout << "Graph loaded" << std::endl;
+        G = it->second;
+    } 
+    else {
+        std::cout << "Multiple graphs found: " << surNames.size() << std::endl;
+        for (std::string_view surName : surNames) {
+            std::string name{surName};
+            std::string prefix = "Agent." + name;
+
+            Graphs.emplace(name, std::make_shared<DSR::DSRGraph>(0, agent_name, agent_id, 
+                                            configLoader.get<std::string>(prefix + ".configFile"), 
+                                            true, 
+                                            configLoader.get<int>(prefix + ".domain")));
+            std::cout << "Graph " << name << " loaded" << std::endl;
+        }
+        G = Graphs.at(std::string(surNames.front()));
     }
-    if(this->configLoader.get<bool>("ViewAgent.graph"))
-    {
-        current_opts = current_opts | opts::graph;
-        main = opts::graph;
-    }
-    if(this->configLoader.get<bool>("ViewAgent.2d"))
-    {
-        current_opts = current_opts | opts::scene;
-    }
-    if(this->configLoader.get<bool>("ViewAgent.3d"))
-    {
-        current_opts = current_opts | opts::osg;
-    }
-    setWindowTitle(QString::fromStdString(agent_name + "-") + QString::number(agent_id));
 }
 
 /**
@@ -86,12 +92,13 @@ GenericWorker::GenericWorker(const ConfigLoader& configLoader, TuplePrx tprx) : 
 */
 GenericWorker::~GenericWorker()
 {
-    auto grid_nodes = G->get_nodes_by_type("grid");
-    for (auto grid : grid_nodes)
-    {
-    	G->delete_node(grid);
+    for (auto& [name, graphPtr] : Graphs) {
+        if (!graphPtr) continue;
+        auto grid_nodes = graphPtr->get_nodes_by_type("grid");
+        for (auto grid : grid_nodes) {
+            graphPtr->delete_node(grid);
+        }
     }
-    G.reset();
 }
 void GenericWorker::killYourSelf()
 {
@@ -167,3 +174,43 @@ void GenericWorker::hibernationTick(){
 	hibernation = true;
 }
 
+std::shared_ptr<DSR::DSRViewer> GenericWorker::setupViewer(std::shared_ptr<DSR::DSRGraph> graph, const std::string& prefix, QMainWindow* parent)
+{
+    int current_opts = 0;
+    DSR::DSRViewer::view main = DSR::DSRViewer::view::none;
+    using opts = DSR::DSRViewer::view;
+
+    // Estructura de datos para iterar las opciones (más limpio que muchos IFs)
+    const std::vector<std::pair<std::string, opts>> options = {
+        {"tree", opts::tree}, {"graph", opts::graph}, 
+        {"2d", opts::scene}
+    };
+
+    for (const auto& [suffix, flag] : options) {
+        if (this->configLoader.get<bool>(prefix + "." + suffix)) {
+            current_opts |= flag;
+            if (suffix == "graph") main = opts::graph;
+        }
+    }
+    if (current_opts!=0)
+    	return std::make_shared<DSR::DSRViewer>(parent, graph, current_opts, main);
+	else
+		return nullptr;
+};
+
+void GenericWorker::initialize(){
+    for (const auto& [name, Graph] : Graphs) {
+        std::unique_ptr<QMainWindow> window = std::make_unique<QMainWindow>();
+        window->setWindowTitle(QString("%1-%2|%3").arg(QString::fromStdString(agent_name)).arg(agent_id).arg(QString::fromStdString(name)));
+
+        std::string prefix = "Agent";
+        if (Graphs.size()>1)
+            prefix += "." +name;
+
+        std::shared_ptr<DSR::DSRViewer> viewer = setupViewer(Graph, prefix, window.get());
+        if (viewer){
+            graph_viewers.emplace(name, std::move(viewer));
+            windows.emplace(name, std::move(window));
+        }
+    }
+};

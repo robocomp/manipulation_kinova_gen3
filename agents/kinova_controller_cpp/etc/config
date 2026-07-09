@@ -8,15 +8,17 @@ Agent.id = 0 # Change id
 Agent.name = "kinova_controller_cpp"
 Agent.configFile = ""
 Agent.configFile = "kinova2.json"
-ViewAgent.tree = false
-ViewAgent.graph = true
-ViewAgent.2d = false
-ViewAgent.3d = false
+Agent.tree = false
+Agent.graph = false
+Agent.2d = false
+Agent.3d = false
 
 Period.Compute = 50
 Period.Emergency = 500
 
 ip = "192.168.50.10"
+
+Component.Debug.Verbose = true
 Ice.Warn.Connections = "0"
 Ice.Trace.Network = "0"
 Ice.Trace.Protocol = "0"

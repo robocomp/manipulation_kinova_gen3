@@ -21,6 +21,9 @@ graph = true
 Compute = 100
 Emergency = 500
 
+[Component.Debug]
+Verbose = true
+
 [Ice]
 Warn.Connections = "0"
 Trace.Network = "0"

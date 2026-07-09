@@ -64,17 +64,25 @@ api_kinova_controller::~api_kinova_controller() {
 // Create an event listener that will set the promise action event to the exit value
 // Will set promise to either END or ABORT
 // Use finish_promise.get_future.get() to wait and get the value
+//
+// The action notification topic is not scoped to a single ExecuteAction call, so a
+// Stop() issued from another thread (e.g. KinovaArm_stopArm racing with a still-running
+// KinovaArm_moveJointsWithAngle) can deliver more than one END/ABORT notification before
+// this listener is unsubscribed. A promise can only be satisfied once, so guard it with
+// an atomic flag to avoid a "Promise already satisfied" std::future_error crash.
 std::function<void(k_api::Base::ActionNotification)>
     create_event_listener_by_promise(std::promise<k_api::Base::ActionEvent>& finish_promise)
 {
-    return [&finish_promise] (k_api::Base::ActionNotification notification)
+    auto already_set = std::make_shared<std::atomic<bool>>(false);
+    return [&finish_promise, already_set] (k_api::Base::ActionNotification notification)
     {
         const auto action_event = notification.action_event();
         switch(action_event)
         {
             case k_api::Base::ActionEvent::ACTION_END:
             case k_api::Base::ActionEvent::ACTION_ABORT:
-                finish_promise.set_value(action_event);
+                if(!already_set->exchange(true))
+                    finish_promise.set_value(action_event);
             break;
             default:
                 break;
@@ -303,6 +311,11 @@ bool api_kinova_controller::move_joints_with_angles(std::vector<float> angles) {
     std::cout << "Promise value : " << k_api::Base::ActionEvent_Name(promise_event) << std::endl;
 
     return true;
+}
+
+void api_kinova_controller::stop_motion()
+{
+    base->Stop();
 }
 
 std::tuple<std::vector<float>, std::vector<float>>api_kinova_controller::get_forward_kinematics()

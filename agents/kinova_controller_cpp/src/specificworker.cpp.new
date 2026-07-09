@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2025 by YOUR NAME HERE
+ *    Copyright (C) 2026 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -61,20 +61,28 @@ SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, 
 SpecificWorker::~SpecificWorker()
 {
 	std::cout << "Destroying SpecificWorker" << std::endl;
-	//G->write_to_json_file("./"+agent_name+".json");
+	/*
+	for (auto const& [name, g] : Graphs) {
+	    g->write_to_json_file("./"+agent_name+"_"+name+".json");
+	}
+	*/
 }
 
 
 void SpecificWorker::initialize()
 {
     std::cout << "initialize worker" << std::endl;
-	//dsr update signals
-	//connect(G.get(), &DSR::DSRGraph::update_node_signal, this, &SpecificWorker::modify_node_slot);
-	//connect(G.get(), &DSR::DSRGraph::update_edge_signal, this, &SpecificWorker::modify_edge_slot);
-	//connect(G.get(), &DSR::DSRGraph::update_node_attr_signal, this, &SpecificWorker::modify_node_attrs_slot);
-	//connect(G.get(), &DSR::DSRGraph::update_edge_attr_signal, this, &SpecificWorker::modify_edge_attrs_slot);
-	//connect(G.get(), &DSR::DSRGraph::del_edge_signal, this, &SpecificWorker::del_edge_slot);
-	//connect(G.get(), &DSR::DSRGraph::del_node_signal, this, &SpecificWorker::del_node_slot);
+	GenericWorker::initialize();
+
+	//Subscription to DSR graph update signals. 
+	// If multiple graphs exist, it is necessary to specify the graph name 
+	// using 'Graphs.at("name")' to connect its signals to the Worker's slots.
+	//connect(Graphs.at("").get(), &DSR::DSRGraph::update_node_signal, this, &SpecificWorker::modify_node_slot);
+	//connect(Graphs.at("").get(), &DSR::DSRGraph::update_edge_signal, this, &SpecificWorker::modify_edge_slot);
+	//connect(Graphs.at("").get(), &DSR::DSRGraph::update_node_attr_signal, this, &SpecificWorker::modify_node_attrs_slot);
+	//connect(Graphs.at("").get(), &DSR::DSRGraph::update_edge_attr_signal, this, &SpecificWorker::modify_edge_attrs_slot);
+	//connect(Graphs.at("").get(), &DSR::DSRGraph::del_edge_signal, this, &SpecificWorker::del_edge_slot);
+	//connect(Graphs.at("").get(), &DSR::DSRGraph::del_node_signal, this, &SpecificWorker::del_node_slot);
 
 	/***
 	Custom Widget
@@ -83,23 +91,20 @@ void SpecificWorker::initialize()
 	either with a QtDesigner or directly from scratch in a class of its own.
 	The add_custom_widget_to_dock method receives a name for the widget and a reference to the class instance.
 	***/
-
-	graph_viewer = std::make_unique<DSR::DSRViewer>(this, G, current_opts, main);
-	//graph_viewer->add_custom_widget_to_dock("CustomWidget", &custom_widget);
+	//If you have more than one graph, you need to connect to the specific graph with the name
+	//graph_viewers.at("")->add_custom_widget_to_dock("CustomWidget", &custom_widget);
 
     //initializeCODE
-
     /////////GET PARAMS, OPEND DEVICES....////////
     //int period = configLoader.get<int>("Period.Compute") //NOTE: If you want get period of compute use getPeriod("compute")
     //std::string device = configLoader.get<std::string>("Device.name") 
-
 }
-
 
 
 void SpecificWorker::compute()
 {
-    std::cout << "Compute worker" << std::endl;
+    fps.print("Compute worker", 3000);
+
 	//computeCODE
 	//try
 	//{
@@ -116,16 +121,14 @@ void SpecificWorker::compute()
 }
 
 
-
 void SpecificWorker::emergency()
 {
-    std::cout << "Emergency worker" << std::endl;
+    fps.print("Emergency worker", 3000);
     //emergencyCODE
     //
     //if (SUCCESSFUL) //The componet is safe for continue
     //  emmit goToRestore()
 }
-
 
 
 //Execute one when exiting to emergencyState
@@ -215,6 +218,12 @@ bool SpecificWorker::KinovaArm_setGripperPos(float pos)
 	//implementCODE
 
 	return ret;
+}
+
+void SpecificWorker::KinovaArm_stopArm()
+{
+	//implementCODE
+
 }
 
 

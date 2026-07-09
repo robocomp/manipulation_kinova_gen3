@@ -36,6 +36,7 @@
 #include "api_kinova_controller.h"
 #include <iomanip>
 #include <cmath>
+#include <thread>
 
 /**
  * \brief Class SpecificWorker implements the core functionality of the component.
@@ -67,6 +68,7 @@ public:
 	void KinovaArm_openGripper();
 	void KinovaArm_setCenterOfTool(RoboCompKinovaArm::TPose pose, RoboCompKinovaArm::ArmJoints referencedTo);
 	bool KinovaArm_setGripperPos(float pos);
+	void KinovaArm_stopArm();
 
 
 public slots:
@@ -135,6 +137,11 @@ private:
 	* @brief Object storing the state of the arm joints
 	*/
 	RoboCompKinovaArm::TJoints joints{};
+
+	/**
+	* @brief Thread running the blocking move_joints_with_angles call
+	*/
+	std::thread move_thread_;
 
 	/**
 	* @brief Vector that contains the new speed to move the arm

@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2025 by YOUR NAME HERE
+ *    Copyright (C) 2026 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -21,190 +21,183 @@
 KinovaArmI::KinovaArmI(GenericWorker *_worker, const size_t id): worker(_worker), id(id)
 {
 	closeGripperHandlers = {
-		[this]() { return worker->KinovaArm_closeGripper(); }
+		[this]() -> bool {if (worker != nullptr) return worker->KinovaArm_closeGripper(); else throw std::runtime_error("Worker is null");}
 	};
 
 	getCenterOfToolHandlers = {
-		[this](auto a) { return worker->KinovaArm_getCenterOfTool(a); }
+		[this](auto &a) -> RoboCompKinovaArm::TPose {if (worker != nullptr) return worker->KinovaArm_getCenterOfTool(a); else throw std::runtime_error("Worker is null");}
 	};
 
 	getGripperStateHandlers = {
-		[this]() { return worker->KinovaArm_getGripperState(); }
+		[this]() -> RoboCompKinovaArm::TGripper {if (worker != nullptr) return worker->KinovaArm_getGripperState(); else throw std::runtime_error("Worker is null");}
 	};
 
 	getJointsStateHandlers = {
-		[this]() { return worker->KinovaArm_getJointsState(); }
+		[this]() -> RoboCompKinovaArm::TJoints {if (worker != nullptr) return worker->KinovaArm_getJointsState(); else throw std::runtime_error("Worker is null");}
 	};
 
 	getToolInfoHandlers = {
-		[this]() { return worker->KinovaArm_getToolInfo(); }
+		[this]() -> RoboCompKinovaArm::TToolInfo {if (worker != nullptr) return worker->KinovaArm_getToolInfo(); else throw std::runtime_error("Worker is null");}
 	};
 
 	moveJointsWithAngleHandlers = {
-		[this](auto a) { return worker->KinovaArm_moveJointsWithAngle(a); }
+		[this](auto &a) {if (worker != nullptr) worker->KinovaArm_moveJointsWithAngle(a); else throw std::runtime_error("Worker is null");}
 	};
 
 	moveJointsWithSpeedHandlers = {
-		[this](auto a) { return worker->KinovaArm_moveJointsWithSpeed(a); }
+		[this](auto &a) {if (worker != nullptr) worker->KinovaArm_moveJointsWithSpeed(a); else throw std::runtime_error("Worker is null");}
 	};
 
 	openGripperHandlers = {
-		[this]() { return worker->KinovaArm_openGripper(); }
+		[this]() {if (worker != nullptr) worker->KinovaArm_openGripper(); else throw std::runtime_error("Worker is null");}
 	};
 
 	setCenterOfToolHandlers = {
-		[this](auto a, auto b) { return worker->KinovaArm_setCenterOfTool(a, b); }
+		[this](auto &a, auto &b) {if (worker != nullptr) worker->KinovaArm_setCenterOfTool(a, b); else throw std::runtime_error("Worker is null");}
 	};
 
 	setGripperPosHandlers = {
-		[this](auto a) { return worker->KinovaArm_setGripperPos(a); }
+		[this](auto &a) -> bool {if (worker != nullptr) return worker->KinovaArm_setGripperPos(a); else throw std::runtime_error("Worker is null");}
+	};
+
+	stopArmHandlers = {
+		[this]() {if (worker != nullptr) worker->KinovaArm_stopArm(); else throw std::runtime_error("Worker is null");}
 	};
 
 }
-
 
 KinovaArmI::~KinovaArmI()
 {
 }
 
-
 bool KinovaArmI::closeGripper(const Ice::Current&)
 {
-
+    if (!worker)
+        throw std::runtime_error("Worker is null");
+        
     #ifdef HIBERNATION_ENABLED
 		worker->hibernationTick();
 	#endif
     
-	if (id < closeGripperHandlers.size())
-		return  closeGripperHandlers[id]();
-	else
-		throw std::out_of_range("Invalid closeGripper id: " + std::to_string(id));
-
+	return closeGripperHandlers.at(id)();
 }
 
 RoboCompKinovaArm::TPose KinovaArmI::getCenterOfTool(RoboCompKinovaArm::ArmJoints referencedTo, const Ice::Current&)
 {
-
+    if (!worker)
+        throw std::runtime_error("Worker is null");
+        
     #ifdef HIBERNATION_ENABLED
 		worker->hibernationTick();
 	#endif
     
-	if (id < getCenterOfToolHandlers.size())
-		return  getCenterOfToolHandlers[id](referencedTo);
-	else
-		throw std::out_of_range("Invalid getCenterOfTool id: " + std::to_string(id));
-
+	return getCenterOfToolHandlers.at(id)(referencedTo);
 }
 
 RoboCompKinovaArm::TGripper KinovaArmI::getGripperState(const Ice::Current&)
 {
-
+    if (!worker)
+        throw std::runtime_error("Worker is null");
+        
     #ifdef HIBERNATION_ENABLED
 		worker->hibernationTick();
 	#endif
     
-	if (id < getGripperStateHandlers.size())
-		return  getGripperStateHandlers[id]();
-	else
-		throw std::out_of_range("Invalid getGripperState id: " + std::to_string(id));
-
+	return getGripperStateHandlers.at(id)();
 }
 
 RoboCompKinovaArm::TJoints KinovaArmI::getJointsState(const Ice::Current&)
 {
-
+    if (!worker)
+        throw std::runtime_error("Worker is null");
+        
     #ifdef HIBERNATION_ENABLED
 		worker->hibernationTick();
 	#endif
     
-	if (id < getJointsStateHandlers.size())
-		return  getJointsStateHandlers[id]();
-	else
-		throw std::out_of_range("Invalid getJointsState id: " + std::to_string(id));
-
+	return getJointsStateHandlers.at(id)();
 }
 
 RoboCompKinovaArm::TToolInfo KinovaArmI::getToolInfo(const Ice::Current&)
 {
-
+    if (!worker)
+        throw std::runtime_error("Worker is null");
+        
     #ifdef HIBERNATION_ENABLED
 		worker->hibernationTick();
 	#endif
     
-	if (id < getToolInfoHandlers.size())
-		return  getToolInfoHandlers[id]();
-	else
-		throw std::out_of_range("Invalid getToolInfo id: " + std::to_string(id));
-
+	return getToolInfoHandlers.at(id)();
 }
 
 void KinovaArmI::moveJointsWithAngle(RoboCompKinovaArm::TJointAngles angles, const Ice::Current&)
 {
-
+    if (!worker)
+        throw std::runtime_error("Worker is null");
+        
     #ifdef HIBERNATION_ENABLED
 		worker->hibernationTick();
 	#endif
     
-	if (id < moveJointsWithAngleHandlers.size())
-		 moveJointsWithAngleHandlers[id](angles);
-	else
-		throw std::out_of_range("Invalid moveJointsWithAngle id: " + std::to_string(id));
-
+	moveJointsWithAngleHandlers.at(id)(angles);
 }
 
 void KinovaArmI::moveJointsWithSpeed(RoboCompKinovaArm::TJointSpeeds speeds, const Ice::Current&)
 {
-
+    if (!worker)
+        throw std::runtime_error("Worker is null");
+        
     #ifdef HIBERNATION_ENABLED
 		worker->hibernationTick();
 	#endif
     
-	if (id < moveJointsWithSpeedHandlers.size())
-		 moveJointsWithSpeedHandlers[id](speeds);
-	else
-		throw std::out_of_range("Invalid moveJointsWithSpeed id: " + std::to_string(id));
-
+	moveJointsWithSpeedHandlers.at(id)(speeds);
 }
 
 void KinovaArmI::openGripper(const Ice::Current&)
 {
-
+    if (!worker)
+        throw std::runtime_error("Worker is null");
+        
     #ifdef HIBERNATION_ENABLED
 		worker->hibernationTick();
 	#endif
     
-	if (id < openGripperHandlers.size())
-		 openGripperHandlers[id]();
-	else
-		throw std::out_of_range("Invalid openGripper id: " + std::to_string(id));
-
+	openGripperHandlers.at(id)();
 }
 
 void KinovaArmI::setCenterOfTool(RoboCompKinovaArm::TPose pose, RoboCompKinovaArm::ArmJoints referencedTo, const Ice::Current&)
 {
-
+    if (!worker)
+        throw std::runtime_error("Worker is null");
+        
     #ifdef HIBERNATION_ENABLED
 		worker->hibernationTick();
 	#endif
     
-	if (id < setCenterOfToolHandlers.size())
-		 setCenterOfToolHandlers[id](pose, referencedTo);
-	else
-		throw std::out_of_range("Invalid setCenterOfTool id: " + std::to_string(id));
-
+	setCenterOfToolHandlers.at(id)(pose, referencedTo);
 }
 
 bool KinovaArmI::setGripperPos(float pos, const Ice::Current&)
 {
-
+    if (!worker)
+        throw std::runtime_error("Worker is null");
+        
     #ifdef HIBERNATION_ENABLED
 		worker->hibernationTick();
 	#endif
     
-	if (id < setGripperPosHandlers.size())
-		return  setGripperPosHandlers[id](pos);
-	else
-		throw std::out_of_range("Invalid setGripperPos id: " + std::to_string(id));
-
+	return setGripperPosHandlers.at(id)(pos);
 }
 
+void KinovaArmI::stopArm(const Ice::Current&)
+{
+    if (!worker)
+        throw std::runtime_error("Worker is null");
+        
+    #ifdef HIBERNATION_ENABLED
+		worker->hibernationTick();
+	#endif
+    
+	stopArmHandlers.at(id)();
+}

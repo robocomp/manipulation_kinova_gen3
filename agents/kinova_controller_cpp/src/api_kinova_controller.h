@@ -15,6 +15,7 @@
 #include <KinovaArm.h>
 #include <chrono>
 #include <mutex>
+#include <atomic>
 
 #include <cmath>
 #include <QtMath>
@@ -137,6 +138,11 @@ public:
     * @return True if the joints can reach the angle, False otherwise
     */
     bool move_joints_with_angles(std::vector<float> angles);
+
+    /**
+    * @brief Stop any ongoing arm motion immediately
+    */
+    void stop_motion();
 
     /**
      * @brief Get the forward kinematics for the end-effector's arm
