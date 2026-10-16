@@ -35,3 +35,9 @@ After editing the new config file we can run the component:
 ```
 bin/camera_kinova config
 ```
+
+Select the camera stream in the configuration file with `Camera.stream`.
+Supported values are `both`, `color`, and `depth`; the default is `both`:
+```
+Camera.stream = depth
+```

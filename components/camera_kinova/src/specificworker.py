@@ -42,7 +42,11 @@ MAX_DEPTH_MM = 2000.0
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, configData, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map, configData)
+        stream_mode = configData.get("Camera", {}).get("stream", "both")
+        if stream_mode not in ("both", "color", "depth"):
+            raise ValueError(f"unsupported stream mode: {stream_mode}")
         self.Period = configData["Period"]["Compute"]
+        self.stream_mode = stream_mode
         self.display = configData.get("Display", {}).get("display", False) is True
         if not self.display:
             self.hide()
@@ -108,33 +112,40 @@ class SpecificWorker(GenericWorker):
             "video/x-raw,format=BGR ! queue leaky=downstream max-size-buffers=1 ! "
             "appsink drop=true sync=false max-buffers=1"
         )
-        self.color_stream = cv2.VideoCapture(color_pipeline, cv2.CAP_GSTREAMER)
-
-        if not self.color_stream.isOpened():
-            print("color stream not opened")
-            self.color_stream.release()
-            self.color_stream = None
-            return False
-
         depth_pipeline = (
             f"rtspsrc location={depth_url} protocols=tcp latency=50 drop-on-latency=true ! "
             "rtpgstdepay ! videoconvert ! video/x-raw,format=GRAY16_LE ! "
             "queue leaky=downstream max-size-buffers=1 ! appsink drop=true sync=false max-buffers=1"
         )
-        self.depth_stream = cv2.VideoCapture(depth_pipeline, cv2.CAP_GSTREAMER)
 
-        if not self.depth_stream.isOpened():
-            print("depth stream not opened, continuing without depth")
-            self.depth_stream.release()
-            self.depth_stream = None
+        if self.stream_mode in ("color", "both"):
+            self.color_stream = cv2.VideoCapture(color_pipeline, cv2.CAP_GSTREAMER)
+            if not self.color_stream.isOpened():
+                print("color stream not opened")
+                self.color_stream.release()
+                self.color_stream = None
+                return False
+
+        if self.stream_mode in ("depth", "both"):
+            self.depth_stream = cv2.VideoCapture(depth_pipeline, cv2.CAP_GSTREAMER)
+            if not self.depth_stream.isOpened():
+                print("depth stream not opened")
+                self.depth_stream.release()
+                self.depth_stream = None
+                if self.stream_mode == "depth":
+                    if self.color_stream is not None:
+                        self.color_stream.release()
+                        self.color_stream = None
+                    return False
 
         self.run = True
-        self.color_thread = threading.Thread(
-            target=self.video_color_thread,
-            args=(self.color_stream,),
-            daemon=True,
-        )
-        self.color_thread.start()
+        if self.color_stream is not None:
+            self.color_thread = threading.Thread(
+                target=self.video_color_thread,
+                args=(self.color_stream,),
+                daemon=True,
+            )
+            self.color_thread.start()
 
         if self.depth_stream is not None:
             self.depth_thread = threading.Thread(
@@ -290,16 +301,23 @@ class SpecificWorker(GenericWorker):
         ret = ifaces.RoboCompCameraRGBDSimple.TRGBD()
 
         color_frame = self.latest_color_frame
-        if color_frame is None:
-            return None
-
-        color_bytes, color_shape = self._frame_to_bytes(color_frame)
-        ret.image.image = color_bytes
-        ret.image.height, ret.image.width = color_shape[:2]
-        ret.image.depth = color_shape[2] if len(color_shape) > 2 else 1
-        ret.image.alivetime = int(time.time() * 1000)
+        if color_frame is not None:
+            color_bytes, color_shape = self._frame_to_bytes(color_frame)
+            ret.image.image = color_bytes
+            ret.image.height, ret.image.width = color_shape[:2]
+            ret.image.depth = color_shape[2] if len(color_shape) > 2 else 1
+            ret.image.alivetime = int(time.time() * 1000)
+        else:
+            ret.image.image = b""
+            ret.image.height = 0
+            ret.image.width = 0
+            ret.image.depth = 0
+            ret.image.alivetime = int(time.time() * 1000)
 
         depth_frame = self.latest_depth_frame
+        if color_frame is None and depth_frame is None:
+            return None
+
         if depth_frame is not None:
             clipped = self._clip_depth_mm(depth_frame)
             depth_bytes, depth_shape = self._frame_to_bytes(clipped)

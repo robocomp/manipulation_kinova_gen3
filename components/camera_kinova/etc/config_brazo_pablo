@@ -6,6 +6,9 @@ Arm.ip = 192.168.50.10
 Period.Compute = 17
 Period.Emergency = 500
 
+Display.display = true
+Camera.stream = color
+
 Component.Debug.Verbose = true
 
 Ice.Warn.Connections = "0"
