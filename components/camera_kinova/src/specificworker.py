@@ -48,6 +48,8 @@ class SpecificWorker(GenericWorker):
         self.Period = configData["Period"]["Compute"]
         self.stream_mode = stream_mode
         self.display = configData.get("Display", {}).get("display", False) is True
+        self.ui.color.setVisible(stream_mode in ("color", "both"))
+        self.ui.depth.setVisible(stream_mode in ("depth", "both"))
         if not self.display:
             self.hide()
 
