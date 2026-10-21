@@ -116,6 +116,15 @@ class SpecificWorker(GenericWorker):
             return "GStreamer:                   YES" in cv2.getBuildInformation()
 
     def _open_color_stream(self):
+        if self._has_gstreamer_backend():
+            print("trying color stream with low-latency GStreamer pipeline")
+            capture = cv2.VideoCapture(self.color_pipeline, cv2.CAP_GSTREAMER)
+            if capture.isOpened():
+                print(f"color stream opened with {capture.getBackendName()}")
+                return capture
+            capture.release()
+
+        print("GStreamer color stream unavailable; falling back to FFmpeg")
         timeout_params = [
             cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, COLOR_READ_TIMEOUT_MS,
             cv2.CAP_PROP_READ_TIMEOUT_MSEC, COLOR_READ_TIMEOUT_MS,
@@ -145,14 +154,6 @@ class SpecificWorker(GenericWorker):
                 return capture
             capture.release()
 
-        if self._has_gstreamer_backend():
-            print("color stream not opened with the default backend; trying GStreamer")
-            capture = cv2.VideoCapture(self.color_pipeline, cv2.CAP_GSTREAMER)
-            if capture.isOpened():
-                print(f"color stream opened with {capture.getBackendName()}")
-                return capture
-            capture.release()
-
         print(f"ERROR: unable to open color stream at {self.color_url} with OpenCV backends")
         return None
 
@@ -163,13 +164,14 @@ class SpecificWorker(GenericWorker):
         depth_url = f"rtsp://{self.ip}/depth"
 
         self.color_pipeline = (
-            f"rtspsrc location={self.color_url} protocols=tcp latency=50 drop-on-latency=true ! "
+            f"rtspsrc location={self.color_url} protocols=tcp latency=30 drop-on-latency=true ! "
             "rtph264depay ! h264parse ! avdec_h264 max-threads=2 ! videoconvert ! "
             "video/x-raw,format=BGR ! queue leaky=downstream max-size-buffers=1 ! "
-            "appsink drop=true sync=false max-buffers=1"
+            "appsink drop=true sync=true max-buffers=1"
         )
         self.depth_pipeline = (
-            f"rtspsrc location={depth_url} protocols=tcp latency=30 drop-on-latency=true ! "
+            f"rtspsrc location={depth_url} protocols=tcp latency=30 drop-on-latency=true "
+            "tcp-timeout=5000000 ! "
             "rtpgstdepay ! videoconvert ! video/x-raw,format=GRAY16_LE ! "
             "queue leaky=downstream max-size-buffers=1 ! appsink drop=true sync=false max-buffers=1"
         )
@@ -364,7 +366,7 @@ class SpecificWorker(GenericWorker):
 
                 try:
                     ret, frame = cap.read() if cap.isOpened() else (False, None)
-                except cv2.error as error:
+                except Exception as error:
                     print(f"[depth] error leyendo el stream: {error}")
                     ret, frame = False, None
                 if ret:
