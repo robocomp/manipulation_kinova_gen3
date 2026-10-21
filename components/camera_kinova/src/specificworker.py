@@ -169,8 +169,7 @@ class SpecificWorker(GenericWorker):
             "appsink drop=true sync=false max-buffers=1"
         )
         self.depth_pipeline = (
-            f"rtspsrc location={depth_url} protocols=tcp latency=30 drop-on-latency=true "
-            "tcp-timeout=5000000 ! "
+            f"rtspsrc location={depth_url} protocols=tcp latency=30 drop-on-latency=true ! "
             "rtpgstdepay ! videoconvert ! video/x-raw,format=GRAY16_LE ! "
             "queue leaky=downstream max-size-buffers=1 ! appsink drop=true sync=false max-buffers=1"
         )
