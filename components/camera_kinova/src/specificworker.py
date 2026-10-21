@@ -39,6 +39,8 @@ import numpy as np
 MAX_DEPTH_MM = 2000.0
 COLOR_READ_TIMEOUT_MS = 5000
 COLOR_RECONNECT_FAILURES = 5
+DEPTH_RECONNECT_FAILURES = 5
+DEPTH_RECONNECT_MAX_DELAY = 10.0
 
 
 class SpecificWorker(GenericWorker):
@@ -61,6 +63,7 @@ class SpecificWorker(GenericWorker):
         self.color_thread = None
         self.depth_thread = None
         self.run = False
+        self.stop_event = threading.Event()
         self._stopping = False
         self.latest_color_frame = None
         self.latest_depth_frame = None          # crudo, GRAY16_LE en mm, recortado a MAX_DEPTH_MM
@@ -88,6 +91,7 @@ class SpecificWorker(GenericWorker):
         """Stop stream readers and release resources, including on application quit."""
         self.timer.stop()
         self.run = False
+        self.stop_event.set()
 
         if not self._stopping:
             self._stopping = True
@@ -164,8 +168,9 @@ class SpecificWorker(GenericWorker):
             "video/x-raw,format=BGR ! queue leaky=downstream max-size-buffers=1 ! "
             "appsink drop=true sync=false max-buffers=1"
         )
-        depth_pipeline = (
-            f"rtspsrc location={depth_url} protocols=tcp latency=50 drop-on-latency=true ! "
+        self.depth_pipeline = (
+            f"rtspsrc location={depth_url} protocols=tcp latency=30 drop-on-latency=true "
+            "tcp-timeout=5000000 ! "
             "rtpgstdepay ! videoconvert ! video/x-raw,format=GRAY16_LE ! "
             "queue leaky=downstream max-size-buffers=1 ! appsink drop=true sync=false max-buffers=1"
         )
@@ -176,25 +181,10 @@ class SpecificWorker(GenericWorker):
                 return False
 
         if self.stream_mode in ("depth", "both"):
-            if not self._has_gstreamer_backend():
-                print("ERROR: OpenCV has no GStreamer backend; cannot open the depth stream")
-                if self.stream_mode == "depth":
-                    return False
-                if self.color_stream is not None:
-                    print("continuing with color stream only")
-            else:
-                self.depth_stream = cv2.VideoCapture(depth_pipeline, cv2.CAP_GSTREAMER)
-                if not self.depth_stream.isOpened():
-                    print("depth stream not opened")
-                    self.depth_stream.release()
-                    self.depth_stream = None
-                    if self.stream_mode == "depth":
-                        if self.color_stream is not None:
-                            self.color_stream.release()
-                            self.color_stream = None
-                        return False
+            self.depth_stream = self._open_depth_stream()
 
         self.run = True
+        self.stop_event.clear()
         if self.color_stream is not None:
             self.color_thread = threading.Thread(
                 target=self.video_color_thread,
@@ -203,7 +193,7 @@ class SpecificWorker(GenericWorker):
             )
             self.color_thread.start()
 
-        if self.depth_stream is not None:
+        if self.stream_mode in ("depth", "both"):
             self.depth_thread = threading.Thread(
                 target=self.video_depth_thread,
                 args=(self.depth_stream,),
@@ -213,6 +203,25 @@ class SpecificWorker(GenericWorker):
 
         print("Reading threads started")
         return True
+
+    def _open_depth_stream(self):
+        if not self._has_gstreamer_backend():
+            print("ERROR: OpenCV has no GStreamer backend; cannot open the depth stream")
+            return None
+
+        try:
+            capture = cv2.VideoCapture(self.depth_pipeline, cv2.CAP_GSTREAMER)
+        except cv2.error as error:
+            print(f"ERROR: failed to create depth stream capture: {error}")
+            return None
+
+        if not capture.isOpened():
+            print("depth stream not opened")
+            capture.release()
+            return None
+
+        print(f"depth stream opened with {capture.getBackendName()}")
+        return capture
 
     # ------------------------------------------------------------------
     # Normalización de profundidad
@@ -318,8 +327,7 @@ class SpecificWorker(GenericWorker):
                         if not self.run:
                             break
                         print(f"[color] {fail_count} lecturas fallidas; reconectando en {reconnect_delay:.0f}s")
-                        time.sleep(reconnect_delay)
-                        if not self.run:
+                        if self.stop_event.wait(reconnect_delay) or not self.run:
                             break
                         cap = self._open_color_stream()
                         if cap is not None and self.run:
@@ -330,7 +338,8 @@ class SpecificWorker(GenericWorker):
                         reconnect_delay = min(reconnect_delay * 2.0, 10.0)
                         fail_count = 0
                     else:
-                        time.sleep(0.05)
+                        if self.stop_event.wait(0.05):
+                            break
             print("color finish")
         except KeyboardInterrupt:
             print("hilo finish")
@@ -340,22 +349,49 @@ class SpecificWorker(GenericWorker):
 
     def video_depth_thread(self, cap):
         fail_count = 0
+        reconnect_delay = 1.0
         try:
-            while cap.isOpened() and self.run:
-                ret, frame = cap.read()
+            while self.run:
+                if cap is None:
+                    if self.stop_event.wait(reconnect_delay) or not self.run:
+                        break
+                    print(f"[depth] intentando reconectar (espera {reconnect_delay:.0f}s)")
+                    cap = self._open_depth_stream()
+                    if cap is None:
+                        reconnect_delay = min(reconnect_delay * 2.0, DEPTH_RECONNECT_MAX_DELAY)
+                        continue
+                    self.depth_stream = cap
+                    fail_count = 0
+
+                try:
+                    ret, frame = cap.read() if cap.isOpened() else (False, None)
+                except cv2.error as error:
+                    print(f"[depth] error leyendo el stream: {error}")
+                    ret, frame = False, None
                 if ret:
                     self.latest_depth_frame = frame  # crudo, GRAY16_LE en mm
                     self.latest_depth_timestamp = time.time()
                     self.depth_frame_count += 1
                     fail_count = 0
+                    reconnect_delay = 1.0
                 else:
                     fail_count += 1
-                    if fail_count % 30 == 0:
-                        print(f"[depth] {fail_count} lecturas fallidas seguidas, posible freeze")
-                    time.sleep(0.05)
+                    if fail_count >= DEPTH_RECONNECT_FAILURES:
+                        print(f"[depth] {fail_count} lecturas fallidas; cerrando captura para reconectar")
+                        cap.release()
+                        cap = None
+                        self.depth_stream = None
+                        self.latest_depth_frame = None
+                        self.latest_depth_timestamp = None
+                        fail_count = 0
+                    elif self.stop_event.wait(0.05):
+                        break
             print("depth finish")
         except KeyboardInterrupt:
             print("hilo finish")
+        finally:
+            if cap is not None:
+                cap.release()
 
     def killThreads(self):
         self.shutdown()
