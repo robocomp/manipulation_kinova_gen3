@@ -37,6 +37,8 @@ import numpy as np
 # Profundidad máxima considerada válida, en milímetros.
 # Todo lo que supere este valor se recorta (clip) a este máximo.
 MAX_DEPTH_MM = 2000.0
+COLOR_READ_TIMEOUT_MS = 5000
+COLOR_RECONNECT_FAILURES = 5
 
 
 class SpecificWorker(GenericWorker):
@@ -102,14 +104,62 @@ class SpecificWorker(GenericWorker):
                 if thread.is_alive():
                     print(f"ERROR: stream reader thread {thread.name} did not stop")
 
+    @staticmethod
+    def _has_gstreamer_backend():
+        try:
+            return cv2.videoio_registry.hasBackend(cv2.CAP_GSTREAMER)
+        except AttributeError:
+            return "GStreamer:                   YES" in cv2.getBuildInformation()
+
+    def _open_color_stream(self):
+        timeout_params = [
+            cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, COLOR_READ_TIMEOUT_MS,
+            cv2.CAP_PROP_READ_TIMEOUT_MSEC, COLOR_READ_TIMEOUT_MS,
+        ]
+        used_default_backend = False
+        try:
+            if cv2.videoio_registry.hasBackend(cv2.CAP_FFMPEG):
+                capture = cv2.VideoCapture(self.color_url, cv2.CAP_FFMPEG, timeout_params)
+            else:
+                capture = cv2.VideoCapture(self.color_url)
+                used_default_backend = True
+        except cv2.error as error:
+            print(f"Unable to set FFmpeg stream timeouts: {error}")
+            capture = cv2.VideoCapture(self.color_url)
+            used_default_backend = True
+
+        if capture.isOpened():
+            print(f"color stream opened with {capture.getBackendName()}")
+            return capture
+        capture.release()
+
+        if not used_default_backend:
+            print("color stream not opened with FFmpeg timeouts; retrying default backend")
+            capture = cv2.VideoCapture(self.color_url)
+            if capture.isOpened():
+                print(f"color stream opened with {capture.getBackendName()}")
+                return capture
+            capture.release()
+
+        if self._has_gstreamer_backend():
+            print("color stream not opened with the default backend; trying GStreamer")
+            capture = cv2.VideoCapture(self.color_pipeline, cv2.CAP_GSTREAMER)
+            if capture.isOpened():
+                print(f"color stream opened with {capture.getBackendName()}")
+                return capture
+            capture.release()
+
+        print(f"ERROR: unable to open color stream at {self.color_url} with OpenCV backends")
+        return None
+
     def setParams(self, params):
         self.ip = self.configData["Arm"]["ip"]
         print(f"Connecting to {self.ip}")
-        color_url = f"rtsp://{self.ip}/color"
+        self.color_url = f"rtsp://{self.ip}/color"
         depth_url = f"rtsp://{self.ip}/depth"
 
-        color_pipeline = (
-            f"rtspsrc location={color_url} protocols=tcp latency=50 drop-on-latency=true ! "
+        self.color_pipeline = (
+            f"rtspsrc location={self.color_url} protocols=tcp latency=50 drop-on-latency=true ! "
             "rtph264depay ! h264parse ! avdec_h264 max-threads=2 ! videoconvert ! "
             "video/x-raw,format=BGR ! queue leaky=downstream max-size-buffers=1 ! "
             "appsink drop=true sync=false max-buffers=1"
@@ -121,24 +171,28 @@ class SpecificWorker(GenericWorker):
         )
 
         if self.stream_mode in ("color", "both"):
-            self.color_stream = cv2.VideoCapture(color_pipeline, cv2.CAP_GSTREAMER)
-            if not self.color_stream.isOpened():
-                print("color stream not opened")
-                self.color_stream.release()
-                self.color_stream = None
+            self.color_stream = self._open_color_stream()
+            if self.color_stream is None:
                 return False
 
         if self.stream_mode in ("depth", "both"):
-            self.depth_stream = cv2.VideoCapture(depth_pipeline, cv2.CAP_GSTREAMER)
-            if not self.depth_stream.isOpened():
-                print("depth stream not opened")
-                self.depth_stream.release()
-                self.depth_stream = None
+            if not self._has_gstreamer_backend():
+                print("ERROR: OpenCV has no GStreamer backend; cannot open the depth stream")
                 if self.stream_mode == "depth":
-                    if self.color_stream is not None:
-                        self.color_stream.release()
-                        self.color_stream = None
                     return False
+                if self.color_stream is not None:
+                    print("continuing with color stream only")
+            else:
+                self.depth_stream = cv2.VideoCapture(depth_pipeline, cv2.CAP_GSTREAMER)
+                if not self.depth_stream.isOpened():
+                    print("depth stream not opened")
+                    self.depth_stream.release()
+                    self.depth_stream = None
+                    if self.stream_mode == "depth":
+                        if self.color_stream is not None:
+                            self.color_stream.release()
+                            self.color_stream = None
+                        return False
 
         self.run = True
         if self.color_stream is not None:
@@ -233,7 +287,7 @@ class SpecificWorker(GenericWorker):
 
             if self.latest_color_timestamp is not None and time.time() - self.last_latency_print >= 1.0:
                 self.color_latency_ms = (time.time() - self.latest_color_timestamp) * 1000.0
-                print(f'color delay={self.color_latency_ms:.1f}ms')
+                print(f'color frame age={self.color_latency_ms:.1f}ms')
                 self.last_latency_print = time.time()
         except Exception as e:
             print(f"Error en compute: {e}")
@@ -244,22 +298,45 @@ class SpecificWorker(GenericWorker):
     ################################################################################################################
     def video_color_thread(self, cap):
         fail_count = 0
+        reconnect_delay = 1.0
         try:
-            while cap.isOpened() and self.run:
-                ret, frame = cap.read()
+            while self.run:
+                ret, frame = cap.read() if cap is not None and cap.isOpened() else (False, None)
                 if ret:
                     self.latest_color_frame = frame
                     self.latest_color_timestamp = time.time()
                     self.color_frame_count += 1
                     fail_count = 0
+                    reconnect_delay = 1.0
                 else:
                     fail_count += 1
-                    if fail_count % 30 == 0:
-                        print(f"[color] {fail_count} lecturas fallidas seguidas, posible freeze")
-                    time.sleep(0.05)
+                    if fail_count >= COLOR_RECONNECT_FAILURES:
+                        if cap is not None:
+                            cap.release()
+                        cap = None
+                        self.color_stream = None
+                        if not self.run:
+                            break
+                        print(f"[color] {fail_count} lecturas fallidas; reconectando en {reconnect_delay:.0f}s")
+                        time.sleep(reconnect_delay)
+                        if not self.run:
+                            break
+                        cap = self._open_color_stream()
+                        if cap is not None and self.run:
+                            self.color_stream = cap
+                        elif cap is not None:
+                            cap.release()
+                            cap = None
+                        reconnect_delay = min(reconnect_delay * 2.0, 10.0)
+                        fail_count = 0
+                    else:
+                        time.sleep(0.05)
             print("color finish")
         except KeyboardInterrupt:
             print("hilo finish")
+        finally:
+            if cap is not None:
+                cap.release()
 
     def video_depth_thread(self, cap):
         fail_count = 0
