@@ -1,0 +1,14 @@
+import "RoboticsToolboxController.idsl";
+import "OmniRobot.idsl";
+import "IMU.idsl";
+
+Component toolbox_controller
+{
+    Communications
+    {
+        implements RoboticsToolboxController;
+        requires OmniRobot, IMU;
+    };
+    language python;
+};
+

@@ -1,5 +1,9 @@
 /*
+<<<<<<< HEAD
  *    Copyright (C) 2024 by YOUR NAME HERE
+=======
+ *    Copyright (C) 2025 by YOUR NAME HERE
+>>>>>>> P3Bot
  *
  *    This file is part of RoboComp
  *
@@ -22,7 +26,10 @@
 */
 GenericWorker::GenericWorker(const ConfigLoader& configLoader, TuplePrx tprx) : Ui_guiDlg()
 {
+<<<<<<< HEAD
 	QLoggingCategory::setFilterRules("*.debug=false\n");
+=======
+>>>>>>> P3Bot
 
 	this->configLoader = configLoader;
 	
@@ -62,8 +69,11 @@ GenericWorker::GenericWorker(const ConfigLoader& configLoader, TuplePrx tprx) : 
     
     // Graph viewer
     using opts = DSR::DSRViewer::view;
+<<<<<<< HEAD
     int current_opts = 0;
     opts main = opts::none;
+=======
+>>>>>>> P3Bot
     if(this->configLoader.get<bool>("ViewAgent.tree"))
     {
         current_opts = current_opts | opts::tree;
@@ -81,10 +91,14 @@ GenericWorker::GenericWorker(const ConfigLoader& configLoader, TuplePrx tprx) : 
     {
         current_opts = current_opts | opts::osg;
     }
+<<<<<<< HEAD
     graph_viewer = std::make_unique<DSR::DSRViewer>(this, G, current_opts, main);
     setWindowTitle(QString::fromStdString(agent_name + "-") + QString::number(agent_id));
 
 	widget_2d = qobject_cast<DSR::QScene2dViewer *>(graph_viewer->get_widget(opts::scene));
+=======
+    setWindowTitle(QString::fromStdString(agent_name + "-") + QString::number(agent_id));
+>>>>>>> P3Bot
 }
 
 /**
@@ -169,3 +183,10 @@ void GenericWorker::hibernationCheck()
     }
 }
 
+<<<<<<< HEAD
+=======
+void GenericWorker::hibernationTick(){
+	hibernation = true;
+}
+
+>>>>>>> P3Bot

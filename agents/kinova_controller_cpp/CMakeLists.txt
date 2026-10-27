@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 cmake_minimum_required( VERSION 2.8 )
+=======
+cmake_minimum_required( VERSION 3.10 )
+>>>>>>> P3Bot
 PROJECT( kinova_controller_cpp )
 
 IF ( "$ENV{ROBOCOMP}" STREQUAL "")

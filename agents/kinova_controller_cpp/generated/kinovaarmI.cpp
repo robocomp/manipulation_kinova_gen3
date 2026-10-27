@@ -1,5 +1,9 @@
 /*
+<<<<<<< HEAD
  *    Copyright (C) 2024 by YOUR NAME HERE
+=======
+ *    Copyright (C) 2025 by YOUR NAME HERE
+>>>>>>> P3Bot
  *
  *    This file is part of RoboComp
  *
@@ -18,9 +22,54 @@
  */
 #include "kinovaarmI.h"
 
+<<<<<<< HEAD
 KinovaArmI::KinovaArmI(GenericWorker *_worker)
 {
 	worker = _worker;
+=======
+KinovaArmI::KinovaArmI(GenericWorker *_worker, const size_t id): worker(_worker), id(id)
+{
+	closeGripperHandlers = {
+		[this]() { return worker->KinovaArm_closeGripper(); }
+	};
+
+	getCenterOfToolHandlers = {
+		[this](auto a) { return worker->KinovaArm_getCenterOfTool(a); }
+	};
+
+	getGripperStateHandlers = {
+		[this]() { return worker->KinovaArm_getGripperState(); }
+	};
+
+	getJointsStateHandlers = {
+		[this]() { return worker->KinovaArm_getJointsState(); }
+	};
+
+	getToolInfoHandlers = {
+		[this]() { return worker->KinovaArm_getToolInfo(); }
+	};
+
+	moveJointsWithAngleHandlers = {
+		[this](auto a) { return worker->KinovaArm_moveJointsWithAngle(a); }
+	};
+
+	moveJointsWithSpeedHandlers = {
+		[this](auto a) { return worker->KinovaArm_moveJointsWithSpeed(a); }
+	};
+
+	openGripperHandlers = {
+		[this]() { return worker->KinovaArm_openGripper(); }
+	};
+
+	setCenterOfToolHandlers = {
+		[this](auto a, auto b) { return worker->KinovaArm_setCenterOfTool(a, b); }
+	};
+
+	setGripperPosHandlers = {
+		[this](auto a) { return worker->KinovaArm_setGripperPos(a); }
+	};
+
+>>>>>>> P3Bot
 }
 
 
@@ -31,41 +80,173 @@ KinovaArmI::~KinovaArmI()
 
 bool KinovaArmI::closeGripper(const Ice::Current&)
 {
+<<<<<<< HEAD
 	return worker->KinovaArm_closeGripper();
+=======
+
+    #ifdef HIBERNATION_ENABLED
+		worker->hibernationTick();
+	#endif
+    
+	if (id < closeGripperHandlers.size())
+		return  closeGripperHandlers[id]();
+	else
+		throw std::out_of_range("Invalid closeGripper id: " + std::to_string(id));
+
+>>>>>>> P3Bot
 }
 
 RoboCompKinovaArm::TPose KinovaArmI::getCenterOfTool(RoboCompKinovaArm::ArmJoints referencedTo, const Ice::Current&)
 {
+<<<<<<< HEAD
 	return worker->KinovaArm_getCenterOfTool(referencedTo);
+=======
+
+    #ifdef HIBERNATION_ENABLED
+		worker->hibernationTick();
+	#endif
+    
+	if (id < getCenterOfToolHandlers.size())
+		return  getCenterOfToolHandlers[id](referencedTo);
+	else
+		throw std::out_of_range("Invalid getCenterOfTool id: " + std::to_string(id));
+
+>>>>>>> P3Bot
 }
 
 RoboCompKinovaArm::TGripper KinovaArmI::getGripperState(const Ice::Current&)
 {
+<<<<<<< HEAD
 	return worker->KinovaArm_getGripperState();
+=======
+
+    #ifdef HIBERNATION_ENABLED
+		worker->hibernationTick();
+	#endif
+    
+	if (id < getGripperStateHandlers.size())
+		return  getGripperStateHandlers[id]();
+	else
+		throw std::out_of_range("Invalid getGripperState id: " + std::to_string(id));
+
+>>>>>>> P3Bot
 }
 
 RoboCompKinovaArm::TJoints KinovaArmI::getJointsState(const Ice::Current&)
 {
+<<<<<<< HEAD
 	return worker->KinovaArm_getJointsState();
+=======
+
+    #ifdef HIBERNATION_ENABLED
+		worker->hibernationTick();
+	#endif
+    
+	if (id < getJointsStateHandlers.size())
+		return  getJointsStateHandlers[id]();
+	else
+		throw std::out_of_range("Invalid getJointsState id: " + std::to_string(id));
+
+}
+
+RoboCompKinovaArm::TToolInfo KinovaArmI::getToolInfo(const Ice::Current&)
+{
+
+    #ifdef HIBERNATION_ENABLED
+		worker->hibernationTick();
+	#endif
+    
+	if (id < getToolInfoHandlers.size())
+		return  getToolInfoHandlers[id]();
+	else
+		throw std::out_of_range("Invalid getToolInfo id: " + std::to_string(id));
+
+>>>>>>> P3Bot
 }
 
 void KinovaArmI::moveJointsWithAngle(RoboCompKinovaArm::TJointAngles angles, const Ice::Current&)
 {
+<<<<<<< HEAD
 	worker->KinovaArm_moveJointsWithAngle(angles);
+=======
+
+    #ifdef HIBERNATION_ENABLED
+		worker->hibernationTick();
+	#endif
+    
+	if (id < moveJointsWithAngleHandlers.size())
+		 moveJointsWithAngleHandlers[id](angles);
+	else
+		throw std::out_of_range("Invalid moveJointsWithAngle id: " + std::to_string(id));
+
+>>>>>>> P3Bot
 }
 
 void KinovaArmI::moveJointsWithSpeed(RoboCompKinovaArm::TJointSpeeds speeds, const Ice::Current&)
 {
+<<<<<<< HEAD
 	worker->KinovaArm_moveJointsWithSpeed(speeds);
+=======
+
+    #ifdef HIBERNATION_ENABLED
+		worker->hibernationTick();
+	#endif
+    
+	if (id < moveJointsWithSpeedHandlers.size())
+		 moveJointsWithSpeedHandlers[id](speeds);
+	else
+		throw std::out_of_range("Invalid moveJointsWithSpeed id: " + std::to_string(id));
+
+>>>>>>> P3Bot
 }
 
 void KinovaArmI::openGripper(const Ice::Current&)
 {
+<<<<<<< HEAD
 	worker->KinovaArm_openGripper();
+=======
+
+    #ifdef HIBERNATION_ENABLED
+		worker->hibernationTick();
+	#endif
+    
+	if (id < openGripperHandlers.size())
+		 openGripperHandlers[id]();
+	else
+		throw std::out_of_range("Invalid openGripper id: " + std::to_string(id));
+
+>>>>>>> P3Bot
 }
 
 void KinovaArmI::setCenterOfTool(RoboCompKinovaArm::TPose pose, RoboCompKinovaArm::ArmJoints referencedTo, const Ice::Current&)
 {
+<<<<<<< HEAD
 	worker->KinovaArm_setCenterOfTool(pose, referencedTo);
+=======
+
+    #ifdef HIBERNATION_ENABLED
+		worker->hibernationTick();
+	#endif
+    
+	if (id < setCenterOfToolHandlers.size())
+		 setCenterOfToolHandlers[id](pose, referencedTo);
+	else
+		throw std::out_of_range("Invalid setCenterOfTool id: " + std::to_string(id));
+
+}
+
+bool KinovaArmI::setGripperPos(float pos, const Ice::Current&)
+{
+
+    #ifdef HIBERNATION_ENABLED
+		worker->hibernationTick();
+	#endif
+    
+	if (id < setGripperPosHandlers.size())
+		return  setGripperPosHandlers[id](pos);
+	else
+		throw std::out_of_range("Invalid setGripperPos id: " + std::to_string(id));
+
+>>>>>>> P3Bot
 }
 

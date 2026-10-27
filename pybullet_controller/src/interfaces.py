@@ -11,6 +11,8 @@ Ice.loadSlice("-I ./src/ --all ./src/JoystickAdapter.ice")
 import RoboCompJoystickAdapter
 Ice.loadSlice("-I ./src/ --all ./src/KinovaArm.ice")
 import RoboCompKinovaArm
+Ice.loadSlice("-I ./src/ --all ./src/RoboticsToolboxController.ice")
+import RoboCompRoboticsToolboxController
 
 class ImgType(list):
     def __init__(self, iterable=list()):
@@ -156,6 +158,60 @@ class Angles(list):
         super(Angles, self).insert(index, item)
 
 setattr(RoboCompKinovaArm, "Angles", Angles)
+class JointAngles(list):
+    def __init__(self, iterable=list()):
+        super(JointAngles, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, float)
+        super(JointAngles, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, float)
+        super(JointAngles, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, float)
+        super(JointAngles, self).insert(index, item)
+
+setattr(RoboCompRoboticsToolboxController, "JointAngles", JointAngles)
+class TargetPosition(list):
+    def __init__(self, iterable=list()):
+        super(TargetPosition, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, float)
+        super(TargetPosition, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, float)
+        super(TargetPosition, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, float)
+        super(TargetPosition, self).insert(index, item)
+
+setattr(RoboCompRoboticsToolboxController, "TargetPosition", TargetPosition)
+class JointVelocities(list):
+    def __init__(self, iterable=list()):
+        super(JointVelocities, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, float)
+        super(JointVelocities, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, float)
+        super(JointVelocities, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, float)
+        super(JointVelocities, self).insert(index, item)
+
+setattr(RoboCompRoboticsToolboxController, "JointVelocities", JointVelocities)
 
 import joystickadapterI
 
@@ -204,6 +260,8 @@ class Requires:
         self.KinovaArm = self.create_proxy("KinovaArmProxy", RoboCompKinovaArm.KinovaArmPrx)
 
         self.KinovaArm1 = self.create_proxy("KinovaArm1Proxy", RoboCompKinovaArm.KinovaArmPrx)
+
+        self.RoboticsToolboxController = self.create_proxy("RoboticsToolboxControllerProxy", RoboCompRoboticsToolboxController.RoboticsToolboxControllerPrx)
 
     def get_proxies_map(self):
         return self.mprx

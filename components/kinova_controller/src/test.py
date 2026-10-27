@@ -11,7 +11,9 @@ import os
 import time
 import threading
 
+import numpy as np
 from cv2 import accumulateSquare
+from sympy.physics.units import action
 
 import utilities
 from kortex_api.autogen.client_stubs.BaseClientRpc import BaseClient
@@ -22,6 +24,14 @@ from kortex_api.autogen.messages import Base_pb2, BaseCyclic_pb2, Common_pb2, De
 from kortex_api.autogen.client_stubs.VisionConfigClientRpc import VisionConfigClient
 from kortex_api.autogen.client_stubs.DeviceManagerClientRpc import DeviceManagerClient
 
+# Position of the protection zone (in meters)
+PROTECTION_ZONE_POS =  [0.75, 0.0, 0.4]
+
+# Size of the protection zone (in meters)
+PROTECTION_ZONE_DIMENSIONS = [0.05, 0.3, 0.4]
+
+# Theta values of the protection zone movement (in degrees)
+PROTECTION_ZONE_MOVEMENT_THETAS = [90.0, 0.0, 90.0]
 
 # Maximum allowed waiting time during actions (in seconds)
 TIMEOUT_DURATION = 20
@@ -82,6 +92,148 @@ class KinovaGen3():
 
         return check
 
+    def list_posibles_actions(self):
+        action_type = Base_pb2.RequestedActionType()
+        action_type.action_type = Base_pb2.REACH_JOINT_ANGLES
+        action_list = self.base.ReadAllActions(action_type)
+        for action in action_list.action_list:
+            print(action.name)
+
+    def move_to_selected_position(self, action_name):
+        # Make sure the arm is in Single Level Servoing mode
+        base_servo_mode = Base_pb2.ServoingModeInformation()
+        base_servo_mode.servoing_mode = Base_pb2.SINGLE_LEVEL_SERVOING
+        self.base.SetServoingMode(base_servo_mode)
+
+        # Move arm to ready position
+        print("Moving the arm to a safe position")
+        action_type = Base_pb2.RequestedActionType()
+        action_type.action_type = Base_pb2.REACH_JOINT_ANGLES
+        action_list = self.base.ReadAllActions(action_type)
+        action_handle = None
+        for action in action_list.action_list:
+            if action.name == action_name:
+                action_handle = action.handle
+
+        if action_handle == None:
+            print("Can't reach safe position. Exiting")
+            sys.exit(1)
+
+        e = threading.Event()
+        notification_handle = self.base.OnNotificationActionTopic(
+            self.check_for_end_or_abort(e),
+            Base_pb2.NotificationOptions()
+        )
+
+        self.base.ExecuteActionFromReference(action_handle)
+
+        e.wait()
+
+        self.base.Unsubscribe(notification_handle)
+
+    def print_protection_zones(self):
+
+        all_protection_zones = self.base.ReadAllProtectionZones()
+
+        print("PROTECTION ZONES")
+        for protection_zone in all_protection_zones.protection_zones:
+            message = "Protection Zone : " + protection_zone.name + \
+                      " Origin : [ " \
+                      + str(protection_zone.shape.origin.x) + " " \
+                      + str(protection_zone.shape.origin.y) + " " \
+                      + str(protection_zone.shape.origin.z) \
+                      + " ] Dimensions : [ "
+            for dim in protection_zone.shape.dimensions:
+                message += str(dim) + " "
+            message += "]"
+            print(message)
+
+    def create_protection_zone(self):
+
+        zone = Base_pb2.ProtectionZone()
+
+        zone.name = "Example Protection Zone"
+        zone.is_enabled = True
+        shape = zone.shape
+        shape.shape_type = Base_pb2.RECTANGULAR_PRISM
+
+        point = shape.origin
+        point.x = PROTECTION_ZONE_POS[0]
+        point.y = PROTECTION_ZONE_POS[1]
+        point.z = PROTECTION_ZONE_POS[2]
+        shape.dimensions.append(PROTECTION_ZONE_DIMENSIONS[0])
+        shape.dimensions.append(PROTECTION_ZONE_DIMENSIONS[1])
+        shape.dimensions.append(PROTECTION_ZONE_DIMENSIONS[2])
+
+        shape.orientation.row1.column1 = 1.0
+        shape.orientation.row2.column2 = 1.0
+        shape.orientation.row3.column3 = 1.0
+
+        return self.base.CreateProtectionZone(zone)
+
+    def move_in_front_of_protection_zone(self):
+
+        print("Starting Cartesian action movement ...")
+        action = Base_pb2.Action()
+        action.name = "Example Cartesian action movement"
+        action.application_data = ""
+
+        cartesian_pose = action.reach_pose.target_pose
+        cartesian_pose.x = PROTECTION_ZONE_POS[0] - 0.1  # (meters)
+        cartesian_pose.y = PROTECTION_ZONE_POS[1]  # (meters)
+        cartesian_pose.z = PROTECTION_ZONE_POS[2]  # (meters)
+        cartesian_pose.theta_x = PROTECTION_ZONE_MOVEMENT_THETAS[0]  # (degrees)
+        cartesian_pose.theta_y = PROTECTION_ZONE_MOVEMENT_THETAS[1]  # (degrees)
+        cartesian_pose.theta_z = PROTECTION_ZONE_MOVEMENT_THETAS[2]  # (degrees)
+
+        e = threading.Event()
+        notification_handle = self.base.OnNotificationActionTopic(
+            self.check_for_end_or_abort(e),
+            Base_pb2.NotificationOptions()
+        )
+
+        print("Executing action")
+        self.base.ExecuteAction(action)
+
+        print("Waiting for movement to finish ...")
+        e.wait()
+
+        print("Cartesian movement completed")
+
+        self.base.Unsubscribe(notification_handle)
+
+    def example_forward_kinematics(self):
+        # Current arm's joint angles (in home position)
+        try:
+            print("Getting Angles for every joint...")
+            input_joint_angles = self.base.GetMeasuredJointAngles()
+        except KServerException as ex:
+            print("Unable to get joint angles")
+            print("Error_code:{} , Sub_error_code:{} ".format(ex.get_error_code(), ex.get_error_sub_code()))
+            print("Caught expected error: {}".format(ex))
+            return False
+
+        print("Joint ID : Joint Angle")
+        for joint_angle in input_joint_angles.joint_angles:
+            print(joint_angle.joint_identifier, " : ", joint_angle.value)
+        print()
+
+        # Computing Foward Kinematics (Angle -> cartesian convert) from arm's current joint angles
+        try:
+            print("Computing Foward Kinematics using joint angles...")
+            pose = self.base.ComputeForwardKinematics(input_joint_angles)
+        except KServerException as ex:
+            print("Unable to compute forward kinematics")
+            print("Error_code:{} , Sub_error_code:{} ".format(ex.get_error_code(), ex.get_error_sub_code()))
+            print("Caught expected error: {}".format(ex))
+            return False
+
+        print("Pose calculated : ")
+        print("Coordinate (x, y, z)  : ({}, {}, {})".format(pose.x, pose.y, pose.z))
+        print("Theta (theta_x, theta_y, theta_z)  : ({}, {}, {})".format(pose.theta_x, pose.theta_y, pose.theta_z))
+        print()
+        return True
+
     def get_state(self):
         feedback = self.base_cyclic.RefreshFeedback()
         # for j in feedback.actuators:
@@ -119,6 +271,7 @@ class KinovaGen3():
 
     def stop_movement(self):
         self.cartesian_move_relative(0, 0, 0, 0, 0, 0)
+
 
     def gripper_move_to(self, target_position):
         gripper_command = Base_pb2.GripperCommand()
@@ -272,6 +425,9 @@ class KinovaGen3():
         action.application_data = ""
 
         actuator_count = self.base.GetActuatorCount()
+
+        # angles = np.rad2deg([1.13, 4.71, np.pi / 2, 3.83, 0, 5.41, np.pi / 2])
+        # angles = [65, 270, 90, 220, 0, 310, 90]
 
         # Place arm straight up
         for joint_id in range(actuator_count.count):

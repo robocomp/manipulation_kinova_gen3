@@ -1,5 +1,13 @@
 #
+<<<<<<< HEAD
+<<<<<<<< HEAD:components/camera_kinova/generated/camerargbdsimpleI.py
 #    Copyright (C) 2026 by YOUR NAME HERE
+========
+#    Copyright (C) 2025 by YOUR NAME HERE
+>>>>>>>> P3Bot:agents/body_controller/generated/fullposeestimationpubI.py
+=======
+#    Copyright (C) 2025 by YOUR NAME HERE
+>>>>>>> P3Bot
 #
 #    This file is part of RoboComp
 #
@@ -29,16 +37,36 @@ if len(ROBOCOMP)<1:
     raise RuntimeError('ROBOCOMP environment variable not set! Exiting.')
 
 
+<<<<<<< HEAD
+<<<<<<<< HEAD:components/camera_kinova/generated/camerargbdsimpleI.py
+Ice.loadSlice("-I ./generated/ --all ./generated/CameraRGBDSimple.ice")
+========
+Ice.loadSlice("-I ./generated/ --all ./generated/FullPoseEstimationPub.ice")
+>>>>>>>> P3Bot:agents/body_controller/generated/fullposeestimationpubI.py
+
+from RoboCompFullPoseEstimationPub import *
+
+<<<<<<<< HEAD:components/camera_kinova/generated/camerargbdsimpleI.py
+class CameraRGBDSimpleI(CameraRGBDSimple):
+========
+class FullPoseEstimationPubI(FullPoseEstimationPub):
+>>>>>>>> P3Bot:agents/body_controller/generated/fullposeestimationpubI.py
+=======
 Ice.loadSlice("-I ./generated/ --all ./generated/CameraRGBDSimple.ice")
 
 from RoboCompCameraRGBDSimple import *
 
 class CameraRGBDSimpleI(CameraRGBDSimple):
+>>>>>>> P3Bot
     def __init__(self, worker, id:str):
         self.worker = worker
         self.id = id
 
 
+<<<<<<< HEAD
+<<<<<<<< HEAD:components/camera_kinova/generated/camerargbdsimpleI.py
+=======
+>>>>>>> P3Bot
     def getAll(self, camera, ice):
         return getattr(self.worker, f"CameraRGBDSimple{self.id}_getAll")(camera)
 
@@ -50,3 +78,10 @@ class CameraRGBDSimpleI(CameraRGBDSimple):
 
     def getPoints(self, camera, ice):
         return getattr(self.worker, f"CameraRGBDSimple{self.id}_getPoints")(camera)
+<<<<<<< HEAD
+========
+    def newFullPose(self, pose, ice):
+        return getattr(self.worker, f"FullPoseEstimationPub{self.id}_newFullPose")(pose)
+>>>>>>>> P3Bot:agents/body_controller/generated/fullposeestimationpubI.py
+=======
+>>>>>>> P3Bot

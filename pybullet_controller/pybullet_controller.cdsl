@@ -1,12 +1,13 @@
 import "KinovaArm.idsl";
 import "JoystickAdapter.idsl";
 import "CameraRGBDSimple.idsl";
+import "RoboticsToolboxController.idsl";
 
 Component pybullet_controller
 {
     Communications
     {
-        requires KinovaArm, KinovaArm, CameraRGBDSimple, CameraRGBDSimple;
+        requires KinovaArm, KinovaArm, CameraRGBDSimple, CameraRGBDSimple, RoboticsToolboxController;
         subscribesTo JoystickAdapter;
     };
     language python;

@@ -1,7 +1,7 @@
 # Endpoints for implements interfaces
 Endpoints.CameraRGBDSimple = "tcp -p 0"
 
-
+Camera.stream = both
 
 Period.Compute = 100
 Period.Emergency = 500

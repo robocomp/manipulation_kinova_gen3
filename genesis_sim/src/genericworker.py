@@ -32,26 +32,30 @@ Ice.loadSlice("-I ./src/ --all ./src/CommonBehavior.ice")
 import RoboCompCommonBehavior
 
 
-try:
-    from ui_mainUI import *
-except:
-    print("Can't import UI file. Did you run 'make'?")
-    sys.exit(-1)
 
 
+<<<<<<<< HEAD:genesis_sim/src/genericworker.py
 
 class GenericWorker(QtWidgets.QWidget):
+========
+class GenericWorker(QtCore.QObject):
+>>>>>>>> P3Bot:components/toolbox_controller/src/genericworker.py
 
     kill = QtCore.Signal()
 
     def __init__(self, mprx):
         super(GenericWorker, self).__init__()
 
+        self.imu_proxy = mprx["IMUProxy"]
+        self.omnirobot_proxy = mprx["OmniRobotProxy"]
 
+<<<<<<<< HEAD:genesis_sim/src/genericworker.py
         self.ui = Ui_guiDlg()
         self.ui.setupUi(self)
         self.show()
 
+========
+>>>>>>>> P3Bot:components/toolbox_controller/src/genericworker.py
         self.mutex = QtCore.QMutex()
         self.Period = 30
         self.timer = QtCore.QTimer(self)

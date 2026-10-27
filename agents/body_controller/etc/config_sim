@@ -1,0 +1,45 @@
+# This property is used by the clients to connect to IceStorm.
+Proxies.TopicManager = "IceStorm/TopicManager:default -p 9999"
+
+# Proxies for required interfaces
+Proxies.KinovaArm = "kinovaarm:tcp -h localhost -p 10005"
+Proxies.KinovaArm1 = "kinovaarm1:tcp -h localhost -p 10006"
+Proxies.OmniRobot = "omnirobot:tcp -h localhost -p 10004"
+
+# Endpoints for subscriptions interfaces
+Endpoints.FullPoseEstimationPubTopic = "tcp -p 0"
+Endpoints.FullPoseEstimationPubPrefix = ""
+Endpoints.JoystickAdapterTopic = "tcp -p 0"
+Endpoints.JoystickAdapterPrefix = ""
+
+kinova_right_arm_ip = "192.168.50.11"
+kinova_left_arm_ip = "192.168.50.10"
+
+# Change id
+Agent.id = 999
+Agent.name = "body_controller"
+# Agent.configFile = "kinova2.json"
+Agent.configFile = ""
+
+ViewAgent.tree = true
+ViewAgent.graph = true
+ViewAgent.2d = true
+ViewAgent.3d = true
+
+Period.Compute = 50
+
+Ice.Warn.Connections = "0"
+Ice.Trace.Network = "0"
+Ice.Trace.Protocol = "0"
+Ice.MessageSizeMax = "20004800"
+
+
+useRTPose = False
+automatic = False
+simulated = 1 #0:swift, 1:webots, 2:real
+directKinematic = False
+
+threshold_speed_penalitation = True 
+lineal_speed_penalitation = False
+threshold_distance_penalitation = False
+lineal_distance_penalitation = False

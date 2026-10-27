@@ -5,8 +5,76 @@ from rich.console import Console, Text
 console = Console()
 
 
+<<<<<<<< HEAD:genesis/src/interfaces.py
 
 
+========
+Ice.loadSlice("-I ./src/ --all ./src/GenericBase.ice")
+import RoboCompGenericBase
+Ice.loadSlice("-I ./src/ --all ./src/IMU.ice")
+import RoboCompIMU
+Ice.loadSlice("-I ./src/ --all ./src/OmniRobot.ice")
+import RoboCompOmniRobot
+Ice.loadSlice("-I ./src/ --all ./src/RoboticsToolboxController.ice")
+import RoboCompRoboticsToolboxController
+
+class JointAngles(list):
+    def __init__(self, iterable=list()):
+        super(JointAngles, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, float)
+        super(JointAngles, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, float)
+        super(JointAngles, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, float)
+        super(JointAngles, self).insert(index, item)
+
+setattr(RoboCompRoboticsToolboxController, "JointAngles", JointAngles)
+class TargetPosition(list):
+    def __init__(self, iterable=list()):
+        super(TargetPosition, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, float)
+        super(TargetPosition, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, float)
+        super(TargetPosition, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, float)
+        super(TargetPosition, self).insert(index, item)
+
+setattr(RoboCompRoboticsToolboxController, "TargetPosition", TargetPosition)
+class JointVelocities(list):
+    def __init__(self, iterable=list()):
+        super(JointVelocities, self).__init__(iterable)
+
+    def append(self, item):
+        assert isinstance(item, float)
+        super(JointVelocities, self).append(item)
+
+    def extend(self, iterable):
+        for item in iterable:
+            assert isinstance(item, float)
+        super(JointVelocities, self).extend(iterable)
+
+    def insert(self, index, item):
+        assert isinstance(item, float)
+        super(JointVelocities, self).insert(index, item)
+
+setattr(RoboCompRoboticsToolboxController, "JointVelocities", JointVelocities)
+
+import roboticstoolboxcontrollerI
+>>>>>>>> P3Bot:components/toolbox_controller/src/interfaces.py
 
 
 
@@ -45,6 +113,10 @@ class Requires:
     def __init__(self, ice_connector):
         self.ice_connector = ice_connector
         self.mprx={}
+
+        self.IMU = self.create_proxy("IMUProxy", RoboCompIMU.IMUPrx)
+
+        self.OmniRobot = self.create_proxy("OmniRobotProxy", RoboCompOmniRobot.OmniRobotPrx)
 
     def get_proxies_map(self):
         return self.mprx
@@ -101,6 +173,10 @@ class Subscribes:
 class Implements:
     def __init__(self, ice_connector, default_handler):
         self.ice_connector = ice_connector
+<<<<<<<< HEAD:genesis/src/interfaces.py
+========
+        self.roboticstoolboxcontroller = self.create_adapter("RoboticsToolboxController", roboticstoolboxcontrollerI.RoboticsToolboxControllerI(default_handler))
+>>>>>>>> P3Bot:components/toolbox_controller/src/interfaces.py
 
     def create_adapter(self, property_name, interface_handler):
         adapter = self.ice_connector.createObjectAdapter(property_name)

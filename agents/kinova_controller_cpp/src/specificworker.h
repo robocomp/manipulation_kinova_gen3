@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2024 by YOUR NAME HERE
+ *    Copyright (C) 2025 by Jorge Calderon Gonzalez
  *
  *    This file is part of RoboComp
  *
@@ -34,6 +34,7 @@
 #include <genericworker.h>
 
 #include "api_kinova_controller.h"
+#include <iomanip>
 #include <cmath>
 
 /**
@@ -60,10 +61,12 @@ public:
 	RoboCompKinovaArm::TPose KinovaArm_getCenterOfTool(RoboCompKinovaArm::ArmJoints referencedTo);
 	RoboCompKinovaArm::TGripper KinovaArm_getGripperState();
 	RoboCompKinovaArm::TJoints KinovaArm_getJointsState();
+	RoboCompKinovaArm::TToolInfo KinovaArm_getToolInfo();
 	void KinovaArm_moveJointsWithAngle(RoboCompKinovaArm::TJointAngles angles);
 	void KinovaArm_moveJointsWithSpeed(RoboCompKinovaArm::TJointSpeeds speeds);
 	void KinovaArm_openGripper();
 	void KinovaArm_setCenterOfTool(RoboCompKinovaArm::TPose pose, RoboCompKinovaArm::ArmJoints referencedTo);
+	bool KinovaArm_setGripperPos(float pos);
 
 
 public slots:
@@ -93,14 +96,12 @@ public slots:
      * \return An integer representing the result of the checks.
      */
 	int startup_check();
-	void modify_node_slot(std::uint64_t, const std::string &type){};
-	void modify_node_attrs_slot(std::uint64_t id, const std::vector<std::string>& att_names){};
-	void modify_edge_slot(std::uint64_t from, std::uint64_t to,  const std::string &type){};
-	void modify_edge_attrs_slot(std::uint64_t from, std::uint64_t to, const std::string &type, const std::vector<std::string>& att_names){};
-	void del_edge_slot(std::uint64_t from, std::uint64_t to, const std::string &edge_tag){};
-	void del_node_slot(std::uint64_t from){};
-	void new_target_from_mouse(QPointF);
-
+	// void modify_node_slot(std::uint64_t, const std::string &type){};
+	// void modify_node_attrs_slot(std::uint64_t id, const std::vector<std::string>& att_names){};
+	// void modify_edge_slot(std::uint64_t from, std::uint64_t to,  const std::string &type){};
+	// void modify_edge_attrs_slot(std::uint64_t from, std::uint64_t to, const std::string &type, const std::vector<std::string>& att_names){};
+	// void del_edge_slot(std::uint64_t from, std::uint64_t to, const std::string &edge_tag){};
+	// void del_node_slot(std::uint64_t from){};
 private:
 
 	struct Quaternion {
@@ -126,6 +127,11 @@ private:
 	RoboCompKinovaArm::TGripper gripper{};
 
 	/**
+	* @brief Object storing the state of the tool
+	*/
+	RoboCompKinovaArm::TToolInfo tool_state{};
+
+	/**
 	* @brief Object storing the state of the arm joints
 	*/
 	RoboCompKinovaArm::TJoints joints{};
@@ -148,7 +154,7 @@ private:
 	/**
 	* @brief List with the links names on the json
 	*/
-	const std::vector<string> json_links_names{
+	const std::vector<std::string> json_links_names{
 		"base_link",
 		"shoulder_link",
 		"half_arm_1_link",
@@ -177,9 +183,9 @@ private:
 	*/
 	void test_speed_move();
 
-	/** @brief Get the joints angles in a vector
+	/** @brief Get the joints angles in a std::vector
 	*
-	* @return The vector with the joints angles
+	* @return The std::vector with the joints angles
 	*/
 	std::vector<float> get_joints_angles();
 
@@ -194,11 +200,26 @@ private:
 	void show_forward_kinematics();
 
 	/**
-	* @brief Transform euler rotation vector to quaternion
+	* @brief Transform euler rotation std::vector to quaternion
 	*
 	* @return Quaternion struct that represent the euler rotation
 	*/
 	Quaternion euler_to_quaternion(const std::vector<float> &euler_thetas);
+
+	/**
+	* @brief Función para mover el cursor a una posición específica
+	*/
+	void moveCursor(int row, int col);
+
+	/**
+	* @brief Función para limpiar desde la posición actual hasta el final de la pantalla
+	*/
+	void clearScreen();
+
+	/**
+	* @brief Print the tool_state in the console
+	*/
+	void show_tool_state();
 
 signals:
 	//void customSignal();

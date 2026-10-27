@@ -1,0 +1,14 @@
+# Endpoints for implements interfaces
+RoboticsToolboxController.Endpoints=tcp -p 15668
+
+# Proxies for required interfaces
+IMUProxy = imu:tcp -h localhost -p 10007
+OmniRobotProxy = omnirobot:tcp -h localhost -p 10004
+
+Ice.Warn.Connections=0
+Ice.Trace.Network=0
+Ice.Trace.Protocol=0
+Ice.MessageSizeMax=20004800
+
+
+

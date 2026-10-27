@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2024 by YOUR NAME HERE
+ *    Copyright (C) 2025 by Jorge Calderon Gonzalez
  *
  *    This file is part of RoboComp
  *
@@ -25,9 +25,7 @@
 
 SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, bool startup_check) : GenericWorker(configLoader, tprx)
 {
-
-
-	this->startup_check_flag = startup_check;
+this->startup_check_flag = startup_check;
 	if(this->startup_check_flag)
 	{
 		this->startup_check();
@@ -37,17 +35,6 @@ SpecificWorker::SpecificWorker(const ConfigLoader& configLoader, TuplePrx tprx, 
 		#ifdef HIBERNATION_ENABLED
 			hibernationChecker.start(500);
 		#endif
-
-		rt = G->get_rt_api();
-		inner_eigen = G->get_inner_eigen_api();
-
-		//dsr update signals
-		//connect(G.get(), &DSR::DSRGraph::update_node_signal, this, &SpecificWorker::modify_node_slot);
-		//connect(G.get(), &DSR::DSRGraph::update_edge_signal, this, &SpecificWorker::modify_edge_slot);
-		//connect(G.get(), &DSR::DSRGraph::update_node_attr_signal, this, &SpecificWorker::modify_node_attrs_slot);
-		//connect(G.get(), &DSR::DSRGraph::update_edge_attr_signal, this, &SpecificWorker::modify_edge_attrs_slot);
-		//connect(G.get(), &DSR::DSRGraph::del_edge_signal, this, &SpecificWorker::del_edge_slot);
-		//connect(G.get(), &DSR::DSRGraph::del_node_signal, this, &SpecificWorker::del_node_slot);
 		
 		/***
 		Custom Widget
@@ -107,6 +94,18 @@ void SpecificWorker::initialize()
 	{
 		connect(widget_2d, SIGNAL(mouse_left_click(QPointF)), this, SLOT(new_target_from_mouse(QPointF)));
 	}
+//dsr update signals
+	//connect(G.get(), &DSR::DSRGraph::update_node_signal, this, &SpecificWorker::modify_node_slot);
+	//connect(G.get(), &DSR::DSRGraph::update_edge_signal, this, &SpecificWorker::modify_edge_slot);
+	//connect(G.get(), &DSR::DSRGraph::update_node_attr_signal, this, &SpecificWorker::modify_node_attrs_slot);
+	//connect(G.get(), &DSR::DSRGraph::update_edge_attr_signal, this, &SpecificWorker::modify_edge_attrs_slot);
+	//connect(G.get(), &DSR::DSRGraph::del_edge_signal, this, &SpecificWorker::del_edge_slot);
+	//connect(G.get(), &DSR::DSRGraph::del_node_signal, this, &SpecificWorker::del_node_slot);
+	graph_viewer = std::make_unique<DSR::DSRViewer>(this, G, current_opts, main);
+
+	rt = G->get_rt_api();
+
+	this->resize(1200, 1200);
 
 	new_speeds = std::vector<float>(7, 0.0);
 
@@ -121,10 +120,13 @@ void SpecificWorker::initialize()
 
 	joints = api_controller->get_joints_info();
 	gripper = api_controller->get_gripper_state();
-	api_controller->print_joints_info();
+	tool_state = api_controller->get_tool_state();
+	// api_controller->print_joints_info();
 
-	update_dsr_joints();
+	// update_dsr_joints();
 	show_forward_kinematics();
+
+	std::cout << "\033[2J";
 
 	// TEST TO THE CONTACTILE SENSOR DISCOMMENT ONLY IN CASE YOU WANT TO TEST IT
 	// test_contactile();
@@ -140,6 +142,7 @@ void SpecificWorker::compute()
 
 	joints = api_controller->get_joints_info();
 	gripper = api_controller->get_gripper_state();
+	tool_state = api_controller->get_tool_state();
 
 	if (speed_check_flag)
 	{
@@ -153,7 +156,9 @@ void SpecificWorker::compute()
 		api_controller->move_joints_with_speeds(new_speeds);
 	}
 
-	update_dsr_joints();
+	// show_tool_state();
+
+	// update_dsr_joints();
 	// show_forward_kinematics();
 
 }
@@ -188,7 +193,7 @@ void SpecificWorker::test_contactile()
 {
 	std::cout << "Test contactile" << std::endl;
 	const bool close = KinovaArm_closeGripper();
-	cout << "Gripper close: " << close << endl;
+	std::cout << "Gripper close: " << close << std::endl;
 }
 
 void SpecificWorker::test_speed_move()
@@ -199,7 +204,7 @@ void SpecificWorker::test_speed_move()
 	kinova_speeds.jointSpeeds[6] = 5.0;
 	for (auto speed : kinova_speeds.jointSpeeds)
 	{
-		cout << "Speed: " << speed << endl;
+		std::cout << "Speed: " << speed << std::endl;
 	}
 	KinovaArm_moveJointsWithSpeed(kinova_speeds);
 }
@@ -279,12 +284,163 @@ SpecificWorker::Quaternion SpecificWorker::euler_to_quaternion(const std::vector
 	return q;
 }
 
+// void SpecificWorker::show_tool_state() {
+// 	    // Configuración de formato
+//     std::cout << fixed << std::setprecision(4);
+//
+//     // Línea separadora
+//     const string separator = "----------------------------------------------------";
+//
+//     // Encabezado
+//     std::cout << "\n" << separator << "\n";
+//     std::cout << "               ESTADO DEL BRAZO KINOVA\n";
+//     std::cout << separator << "\n";
+//
+//     // Sección 1: Pose (Posición y Orientación)
+//     std::cout << "POSE:\n";
+//     std::cout << "  Posición (m):   X = " << setw(8) << tool_state.pose.x
+//          << "   Y = " << setw(8) << tool_state.pose.y
+//          << "   Z = " << setw(8) << tool_state.pose.z << "\n";
+//     std::cout << "  Orientación (θ): X = " << setw(8) << tool_state.pose_theta.x
+//          << "   Y = " << setw(8) << tool_state.pose_theta.y
+//          << "   Z = " << setw(8) << tool_state.pose_theta.z << "\n";
+//
+//     // Sección 2: Twist (Velocidad Lineal y Angular)
+//     std::cout << separator << "\n";
+//     std::cout << "TWIST:\n";
+//     std::cout << "  Vel. Lineal (m/s):  X = " << setw(8) << tool_state.twist_linear.x
+//          << "   Y = " << setw(8) << tool_state.twist_linear.y
+//          << "   Z = " << setw(8) << tool_state.twist_linear.z << "\n";
+//     std::cout << "  Vel. Angular (rad/s): X = " << setw(8) << tool_state.twist_angular.x
+//          << "   Y = " << setw(8) << tool_state.twist_angular.y
+//          << "   Z = " << setw(8) << tool_state.twist_angular.z << "\n";
+//
+//     // Sección 3: Wrench (Fuerza y Torque Externo)
+//     std::cout << separator << "\n";
+//     std::cout << "WRENCH EXTERNO:\n";
+//
+//     // Fuerza - con color rojo si es significativa
+//     std::cout << "  Fuerza (N):     X = ";
+//     if(fabs(tool_state.external_wrench_force.x) > 1.0) std::cout << "\033[31m"; // Rojo para valores > 1N
+//     std::cout << setw(8) << tool_state.external_wrench_force.x << "\033[0m";
+//
+//     std::cout << "   Y = ";
+//     if(fabs(tool_state.external_wrench_force.y) > 1.0) std::cout << "\033[31m";
+//     std::cout << setw(8) << tool_state.external_wrench_force.y << "\033[0m";
+//
+//     std::cout << "   Z = ";
+//     if(fabs(tool_state.external_wrench_force.z) > 1.0) std::cout << "\033[31m";
+//     std::cout << setw(8) << tool_state.external_wrench_force.z << "\033[0m\n";
+//
+//     // Torque - con color amarillo si es significativo
+//     std::cout << "  Torque (Nm):    X = ";
+//     if(fabs(tool_state.external_wrench_torque.x) > 0.5) std::cout << "\033[33m"; // Amarillo para > 0.5Nm
+//     std::cout << setw(8) << tool_state.external_wrench_torque.x << "\033[0m";
+//
+//     std::cout << "   Y = ";
+//     if(fabs(tool_state.external_wrench_torque.y) > 0.5) std::cout << "\033[33m";
+//     std::cout << setw(8) << tool_state.external_wrench_torque.y << "\033[0m";
+//
+//     std::cout << "   Z = ";
+//     if(fabs(tool_state.external_wrench_torque.z) > 0.5) std::cout << "\033[33m";
+//     std::cout << setw(8) << tool_state.external_wrench_torque.z << "\033[0m\n";
+//
+//     std::cout << separator << "\n\n";
+// }
+
+void SpecificWorker::moveCursor(int row, int col) {
+	std::cout << "\033[" << row << ";" << col << "H";
+}
+
+void SpecificWorker::clearScreen() {
+	std::cout << "\033[J";
+}
+
+void SpecificWorker::show_tool_state() {
+    // Mover cursor a la posición inicial (1,1)
+    moveCursor(1, 1);
+
+    // Configuración de formato
+    std::cout << fixed << setprecision(3);
+
+    // Encabezado estático (solo se imprime una vez)
+    static bool first_call = true;
+    if(first_call) {
+        std::cout << "----------------------------------------------------\n";
+        std::cout << "               ESTADO DEL BRAZO KINOVA (TIEMPO REAL) \n";
+        std::cout << "----------------------------------------------------\n";
+        std::cout << "POSE:\n";
+        std::cout << "  Posición (m):   X =       Y =       Z =      \n";
+        std::cout << "  Orientación (θ): X =       Y =       Z =      \n";
+        std::cout << "----------------------------------------------------\n";
+        std::cout << "TWIST:\n";
+        std::cout << "  Vel. Lineal (m/s):  X =       Y =       Z =      \n";
+        std::cout << "  Vel. Angular (rad/s): X =       Y =       Z =      \n";
+        std::cout << "----------------------------------------------------\n";
+        std::cout << "WRENCH EXTERNO:\n";
+        std::cout << "  Fuerza (N):     X =       Y =       Z =      \n";
+        std::cout << "  Torque (Nm):    X =       Y =       Z =      \n";
+        std::cout << "----------------------------------------------------\n";
+        first_call = false;
+    }
+
+    // Actualizar solo los valores (sobreescribiendo)
+
+    // Posición
+    moveCursor(5, 22); std::cout << setw(8) << tool_state.pose.x;
+    moveCursor(5, 31); std::cout << setw(8) << tool_state.pose.y;
+    moveCursor(5, 40); std::cout << setw(8) << tool_state.pose.z;
+
+    // Orientación
+    moveCursor(6, 22); std::cout << setw(8) << tool_state.poseTheta.x;
+    moveCursor(6, 31); std::cout << setw(8) << tool_state.poseTheta.y;
+    moveCursor(6, 40); std::cout << setw(8) << tool_state.poseTheta.z;
+
+    // Velocidad lineal
+    moveCursor(9, 22); std::cout << setw(8) << tool_state.twistLinear.x;
+    moveCursor(9, 31); std::cout << setw(8) << tool_state.twistLinear.y;
+    moveCursor(9, 40); std::cout << setw(8) << tool_state.twistLinear.z;
+
+    // Velocidad angular
+    moveCursor(10, 22); std::cout << setw(8) << tool_state.twistAngular.x;
+    moveCursor(10, 31); std::cout << setw(8) << tool_state.twistAngular.y;
+    moveCursor(10, 40); std::cout << setw(8) << tool_state.twistAngular.z;
+
+    // Fuerza externa (con color)
+    moveCursor(13, 22);
+    if(fabs(tool_state.externalWrenchForce.x) > 1.0) std::cout << "\033[31m";
+    std::cout << setw(6) << tool_state.externalWrenchForce.x << "\033[0m";
+
+    moveCursor(13, 31);
+    if(fabs(tool_state.externalWrenchForce.y) > 1.0) std::cout << "\033[31m";
+    std::cout << setw(6) << tool_state.externalWrenchForce.y << "\033[0m";
+
+    moveCursor(13, 40);
+    if(fabs(tool_state.externalWrenchForce.z) > 1.0) std::cout << "\033[31m";
+    std::cout << setw(6) << tool_state.externalWrenchForce.z << "\033[0m";
+
+    // Torque externo (con color)
+    moveCursor(14, 22);
+    if(fabs(tool_state.externalWrenchTorque.x) > 0.5) std::cout << "\033[33m";
+    std::cout << setw(6) << tool_state.externalWrenchTorque.x << "\033[0m";
+
+    moveCursor(14, 31);
+    if(fabs(tool_state.externalWrenchTorque.y) > 0.5) std::cout << "\033[33m";
+    std::cout << setw(6) << tool_state.externalWrenchTorque.y << "\033[0m";
+
+    moveCursor(14, 40);
+    if(fabs(tool_state.externalWrenchTorque.z) > 0.5) std::cout << "\033[33m";
+    std::cout << setw(6) << tool_state.externalWrenchTorque.z << "\033[0m";
+
+    // Mover cursor al final para evitar interferencias
+    moveCursor(16, 1);
+    std::cout.flush();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
 
 bool SpecificWorker::KinovaArm_closeGripper()
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
 	float force = 0;
 	float gripper_dist = gripper.distance;
 	while (force < 10.0 && gripper_dist < 0.9)
@@ -307,9 +463,6 @@ bool SpecificWorker::KinovaArm_closeGripper()
 
 RoboCompKinovaArm::TPose SpecificWorker::KinovaArm_getCenterOfTool(RoboCompKinovaArm::ArmJoints referencedTo)
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
 	RoboCompKinovaArm::TPose ret{};
 	//implementCODE
 
@@ -318,34 +471,34 @@ RoboCompKinovaArm::TPose SpecificWorker::KinovaArm_getCenterOfTool(RoboCompKinov
 
 RoboCompKinovaArm::TGripper SpecificWorker::KinovaArm_getGripperState()
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
 	return gripper;
 }
 
 RoboCompKinovaArm::TJoints SpecificWorker::KinovaArm_getJointsState()
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
 	return joints;
+}
+
+RoboCompKinovaArm::TToolInfo SpecificWorker::KinovaArm_getToolInfo()
+{
+
+	return tool_state;
 }
 
 void SpecificWorker::KinovaArm_moveJointsWithAngle(RoboCompKinovaArm::TJointAngles angles)
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
-	api_controller->move_joints_with_angles(angles.jointAngles);
+	std::vector<float> degrees(angles.jointAngles.size());
+    std::transform(angles.jointAngles.begin(), angles.jointAngles.end(), degrees.begin(), 
+                  [](float rad) { return qRadiansToDegrees(rad); });
+
+	api_controller->move_joints_with_angles(degrees);
 }
 
 void SpecificWorker::KinovaArm_moveJointsWithSpeed(RoboCompKinovaArm::TJointSpeeds speeds)
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
-	new_speeds = speeds.jointSpeeds;
+
+    std::transform(speeds.jointSpeeds.begin(), speeds.jointSpeeds.end(), new_speeds.begin(), 
+                  [](float rad) { return qRadiansToDegrees(rad); });
 	speed_check_flag = true;
 	const auto now = std::chrono::system_clock::now();
 	last_time_speed_check = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
@@ -353,19 +506,18 @@ void SpecificWorker::KinovaArm_moveJointsWithSpeed(RoboCompKinovaArm::TJointSpee
 
 void SpecificWorker::KinovaArm_openGripper()
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
 	std::cout << "Opening the gripper" << std::endl;
 	api_controller->move_gripper_with_pos(0.0);
 }
 
 void SpecificWorker::KinovaArm_setCenterOfTool(RoboCompKinovaArm::TPose pose, RoboCompKinovaArm::ArmJoints referencedTo)
 {
-	#ifdef HIBERNATION_ENABLED
-		hibernation = true;
-	#endif
 	//implementCODE
+}
+
+bool SpecificWorker::KinovaArm_setGripperPos(float pos)
+{
+	return api_controller->move_gripper_with_pos(std::clamp(pos, 0.0f, 1.0f));
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -406,10 +558,11 @@ int SpecificWorker::startup_check()
 /**************************************/
 // From the RoboCompKinovaArm you can use this types:
 // RoboCompKinovaArm::TPose
+// RoboCompKinovaArm::TAxis
+// RoboCompKinovaArm::TToolInfo
 // RoboCompKinovaArm::TGripper
 // RoboCompKinovaArm::TJoint
 // RoboCompKinovaArm::TJoints
 // RoboCompKinovaArm::TJointSpeeds
 // RoboCompKinovaArm::TJointAngles
-
 

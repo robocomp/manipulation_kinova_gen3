@@ -14,7 +14,11 @@ LIST(APPEND HEADERS
 SET (LIBS ${LIBS}   dsr_core dsr_gui dsr_api fastcdr fastdds osgDB OpenThreads Eigen3::Eigen QGLViewer-qt6 Qt6OpenGLWidgets)
 
 # no-char8_t to avoid a problem with ICE Connection lib.
+<<<<<<< HEAD
 add_definitions(-fmax-errors=1 -fno-char8_t -Wno-unused-variable -Wno-deprecated-declarations -g -fmax-errors=1 -std=c++2a -fno-char8_t -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets/)
+=======
+add_definitions(-O3 -fmax-errors=1 -fno-char8_t -Wno-unused-variable -Wno-deprecated-declarations -fmax-errors=1 -std=c++2a -fno-char8_t -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets/)
+>>>>>>> P3Bot
 
 link_libraries(${CMAKE_CURRENT_SOURCE_DIR}/../lib/release/libKortexApiCpp.a)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)

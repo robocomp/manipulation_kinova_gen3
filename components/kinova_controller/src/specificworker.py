@@ -22,6 +22,7 @@ import numpy
 import numpy as np
 from PySide2.QtCore import QTimer
 from PySide2.QtWidgets import QApplication
+from orca.braille import setupKeyRanges
 from rich.console import Console
 from genericworker import *
 import interfaces as ifaces
@@ -42,7 +43,7 @@ from test import KinovaGen3
 class SpecificWorker(GenericWorker):
     def __init__(self, proxy_map, startup_check=False):
         super(SpecificWorker, self).__init__(proxy_map)
-        self.Period = 1
+        self.Period = 1000
         if startup_check:
             self.startup_check()
         else:
@@ -57,6 +58,13 @@ class SpecificWorker(GenericWorker):
             self.timestamp = time.time()*1000
 
     def __del__(self):
+        # angles = ifaces.RoboCompKinovaArm.TJointAngles()
+        # if self.ip == "192.168.1.10":
+        #     angles.jointAngles = [250, 90, 180, 0, 270, 110, 90]
+        #     self.KinovaArm_moveJointsWithAngle(angles)
+        # else:
+        #     angles.jointAngles = [290, 270, 180, 360, 90, 250, 270]
+        #     self.KinovaArm_moveJointsWithAngle(angles)
         """Destructor"""
 
     def setParams(self, params):
@@ -67,6 +75,12 @@ class SpecificWorker(GenericWorker):
         #	print("Error reading config params")
         self.ip = params["ip"]
         self.kinova = KinovaGen3(self.ip)
+        # self.kinova.create_protection_zone()
+        # self.kinova.print_protection_zones()
+        # self.kinova.move_in_front_of_protection_zone()
+        # self.kinova.list_posibles_actions()
+        self.kinova.move_to_selected_position("Home")
+        self.kinova.example_forward_kinematics()
         return True
 
 
@@ -90,8 +104,8 @@ class SpecificWorker(GenericWorker):
         ret.joints = joints
         ret.timestamp = int(time.time()*1000)
         self.joints = ret
-        #print(self.kinova.get_state())
-        # print("Joints: ", self.joints)
+        print(self.kinova.get_state()
+        print("Joints: ", self.joints)
 
         ret = ifaces.RoboCompKinovaArm.TGripper()
         ret.distance = self.kinova.get_gripper_state()
@@ -105,9 +119,9 @@ class SpecificWorker(GenericWorker):
 
         # self.kinova.gripper_move_speed(-0.005)
 
-        # tactile_values = self.contactile_proxy.getValues()
-        # print(tactile_values)
-                        
+        tactile_values = self.contactile_proxy.getValues()
+        print(tactile_values)
+
         # print("timer end", time.time()*1000)
         # print(time.time()*1000 - self.timestamp)
         # print("Contactile data:", self.contactile_proxy.getValues())
@@ -203,9 +217,8 @@ class SpecificWorker(GenericWorker):
     # IMPLEMENTATION of moveJointsWithAngle method from KinovaArm interface
     #
     def KinovaArm_moveJointsWithAngle(self, angles):
-        # print(angles.jointAngles)
+
         self.kinova.move_joints_to(angles.jointAngles)
-        pass
     # ===================================================================
     # ===================================================================
 

@@ -20,7 +20,11 @@
 #    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+<<<<<<<< HEAD:genesis_sim/src/genesis_sim.py
 # \mainpage RoboComp::genesis_sim
+========
+# \mainpage RoboComp::toolbox_controller
+>>>>>>>> P3Bot:components/toolbox_controller/src/toolbox_controller.py
 #
 # \section intro_sec Introduction
 #
@@ -48,7 +52,11 @@
 #
 # \subsection execution_ssec Execution
 #
+<<<<<<<< HEAD:genesis_sim/src/genesis_sim.py
 # Just: "${PATH_TO_BINARY}/genesis_sim --Ice.Config=${PATH_TO_CONFIG_FILE}"
+========
+# Just: "${PATH_TO_BINARY}/toolbox_controller --Ice.Config=${PATH_TO_CONFIG_FILE}"
+>>>>>>>> P3Bot:components/toolbox_controller/src/toolbox_controller.py
 #
 # \subsection running_ssec Once running
 #
@@ -62,7 +70,10 @@ import signal
 from rich.console import Console
 console = Console()
 
+<<<<<<<< HEAD:genesis_sim/src/genesis_sim.py
 from PySide6 import QtWidgets
+========
+>>>>>>>> P3Bot:components/toolbox_controller/src/toolbox_controller.py
 import interfaces
 from specificworker import *
 
@@ -71,7 +82,7 @@ def sigint_handler(*args):
     QtCore.QCoreApplication.quit()
 
 if __name__ == '__main__':
-    app = QtWidgets.QApplication(sys.argv)
+    app = QtCore.QCoreApplication(sys.argv)
     parser = argparse.ArgumentParser()
     parser.add_argument('iceconfigfile', nargs='?', type=str, default='etc/config')
     parser.add_argument('--startup-check', action='store_true')

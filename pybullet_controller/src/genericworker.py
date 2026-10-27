@@ -51,6 +51,7 @@ class GenericWorker(QtWidgets.QWidget):
         self.camerargbdsimple1_proxy = mprx["CameraRGBDSimple1Proxy"]
         self.kinovaarm_proxy = mprx["KinovaArmProxy"]
         self.kinovaarm1_proxy = mprx["KinovaArm1Proxy"]
+        self.roboticstoolboxcontroller_proxy = mprx["RoboticsToolboxControllerProxy"]
 
         self.ui = Ui_guiDlg()
         self.ui.setupUi(self)

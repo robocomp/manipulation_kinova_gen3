@@ -14,8 +14,15 @@
 #include <TransportClientTcp.h>
 #include <KinovaArm.h>
 #include <chrono>
+<<<<<<< HEAD
 
 #include <cmath>
+=======
+#include <mutex>
+
+#include <cmath>
+#include <QtMath>
+>>>>>>> P3Bot
 
 namespace k_api = Kinova::Api;
 
@@ -38,6 +45,11 @@ private:
     k_api::Base::BaseClient *base;
     k_api::BaseCyclic::BaseCyclicClient *base_cyclic;
 
+<<<<<<< HEAD
+=======
+    std::mutex kinova_mutex_;  
+
+>>>>>>> P3Bot
 public:
 
     /**
@@ -92,6 +104,16 @@ public:
     RoboCompKinovaArm::TGripper get_gripper_state();
 
     /**
+<<<<<<< HEAD
+=======
+    * @brief Return the state of the tool measures by the base
+    *
+    * @return The Robocomp struct that represent the tool info
+    */
+    RoboCompKinovaArm::TToolInfo get_tool_state();
+
+    /**
+>>>>>>> P3Bot
     * @brief Move the gripper to a position
     *
     * @param pos Position to move the gripper (0.0 - totally open, 1.0 - totally closed)
