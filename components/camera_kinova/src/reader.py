@@ -10,14 +10,16 @@ import numpy as np
 def build_pipeline(url, stream_kind):
     if stream_kind == "color":
         return (
-            f"rtspsrc location={url} protocols=tcp latency=30 drop-on-latency=true ! "
+            f"rtspsrc location={url} latency=30 "
+            "do-rtsp-keep-alive=true drop-on-latency=true ! "
             "rtph264depay ! h264parse ! avdec_h264 max-threads=2 ! videoconvert ! "
             "video/x-raw,format=BGR ! queue leaky=downstream max-size-buffers=1 ! "
-            "appsink drop=true sync=true max-buffers=1"
+            "appsink drop=true sync=false max-buffers=1"
         )
     else:  # depth
         return (
-            f"rtspsrc location={url} protocols=tcp latency=30 drop-on-latency=true ! "
+            f"rtspsrc location={url} latency=30 "
+            "do-rtsp-keep-alive=true drop-on-latency=true ! "
             "rtpgstdepay ! videoconvert ! video/x-raw,format=GRAY16_LE ! "
             "queue leaky=downstream max-size-buffers=1 ! appsink drop=true sync=false max-buffers=1"
         )

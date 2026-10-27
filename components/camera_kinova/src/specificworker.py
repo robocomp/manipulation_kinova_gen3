@@ -34,13 +34,15 @@ import time
 import cv2
 import numpy as np
 
-# Profundidad máxima considerada válida, en milímetros.
-# Todo lo que supere este valor se recorta (clip) a este máximo.
-MAX_DEPTH_MM = 2000.0
+# Límite de visualización de profundidad; los datos publicados no se recortan.
+MAX_DEPTH_DISPLAY_MM = 5000.0
+DEPTH_FACTOR_M_PER_UNIT = 0.001
 COLOR_READ_TIMEOUT_MS = 5000
 COLOR_RECONNECT_FAILURES = 5
 DEPTH_RECONNECT_FAILURES = 5
-DEPTH_RECONNECT_MAX_DELAY = 10.0
+DEPTH_RECONNECT_INITIAL_DELAY = 0.25
+DEPTH_RECONNECT_MAX_DELAY = 2.0
+DEBUG_FRAME_CHECK_INTERVAL = 15.0
 
 
 class SpecificWorker(GenericWorker):
@@ -66,7 +68,7 @@ class SpecificWorker(GenericWorker):
         self.stop_event = threading.Event()
         self._stopping = False
         self.latest_color_frame = None
-        self.latest_depth_frame = None          # crudo, GRAY16_LE en mm, recortado a MAX_DEPTH_MM
+        self.latest_depth_frame = None          # muestras GRAY16_LE originales recibidas del sensor
         self.latest_color_timestamp = None
         self.latest_depth_timestamp = None
         self.color_frame_count = 0
@@ -74,7 +76,6 @@ class SpecificWorker(GenericWorker):
         self.color_latency_ms = 0.0
         self.depth_latency_ms = 0.0
         self.last_latency_print = time.time()   # bug anterior: no estaba inicializado
-        self.max_depth_mm = MAX_DEPTH_MM
 
         if startup_check:
             self.startup_check()
@@ -147,12 +148,7 @@ class SpecificWorker(GenericWorker):
         capture.release()
 
         if not used_default_backend:
-            print("color stream not opened with FFmpeg timeouts; retrying default backend")
-            capture = cv2.VideoCapture(self.color_url)
-            if capture.isOpened():
-                print(f"color stream opened with {capture.getBackendName()}")
-                return capture
-            capture.release()
+            print("bounded FFmpeg open failed; skipping unbounded default-backend retry")
 
         print(f"ERROR: unable to open color stream at {self.color_url} with OpenCV backends")
         return None
@@ -164,14 +160,15 @@ class SpecificWorker(GenericWorker):
         depth_url = f"rtsp://{self.ip}/depth"
 
         self.color_pipeline = (
-            f"rtspsrc location={self.color_url} protocols=tcp latency=30 drop-on-latency=true ! "
+            f"rtspsrc location={self.color_url} latency=30 "
+            "do-rtsp-keep-alive=true drop-on-latency=true ! "
             "rtph264depay ! h264parse ! avdec_h264 max-threads=2 ! videoconvert ! "
             "video/x-raw,format=BGR ! queue leaky=downstream max-size-buffers=1 ! "
-            "appsink drop=true sync=true max-buffers=1"
+            "appsink drop=true sync=false max-buffers=1"
         )
         self.depth_pipeline = (
-            f"rtspsrc location={depth_url} protocols=tcp latency=30 drop-on-latency=true "
-            "tcp-timeout=5000000 ! "
+            f"rtspsrc location={depth_url} latency=30 "
+            "do-rtsp-keep-alive=true drop-on-latency=true ! "
             "rtpgstdepay ! videoconvert ! video/x-raw,format=GRAY16_LE ! "
             "queue leaky=downstream max-size-buffers=1 ! appsink drop=true sync=false max-buffers=1"
         )
@@ -224,31 +221,31 @@ class SpecificWorker(GenericWorker):
         print(f"depth stream opened with {capture.getBackendName()}")
         return capture
 
+    @staticmethod
+    def _log_frame_health(stream_name, last_check, valid_frames, empty_frames, last_status):
+        now = time.monotonic()
+        if now - last_check < DEBUG_FRAME_CHECK_INTERVAL:
+            return last_check, valid_frames, empty_frames
+
+        print(
+            f"[{stream_name}] DEBUG últimos {DEBUG_FRAME_CHECK_INTERVAL:.0f}s: "
+            f"no vacíos={valid_frames}, vacíos={empty_frames}, última lectura={last_status}"
+        )
+        return now, 0, 0
+
     # ------------------------------------------------------------------
     # Normalización de profundidad
     # ------------------------------------------------------------------
-    def _clip_depth_mm(self, frame_mm):
-        """Recorta el frame crudo de profundidad (uint16, mm) a un máximo fijo.
-
-        Los píxeles sin lectura válida suelen venir a 0; los dejamos como están
-        (se interpretan como 'sin dato'). Cualquier valor por encima de
-        self.max_depth_mm se recorta a ese máximo.
-        """
-        if frame_mm is None:
-            return None
-        clipped = np.clip(frame_mm, 0, self.max_depth_mm).astype(np.uint16)
-        return clipped
-
     def _depth_to_display(self, frame_mm):
         """Convierte profundidad cruda (mm) a una imagen RGB visualizable,
-        usando siempre la misma escala (0..max_depth_mm) en vez de min/max
-        por frame, para que el contraste sea estable entre frames."""
+        usando una escala fija de visualización sin modificar las muestras
+        originales del sensor."""
         if frame_mm is None:
             return None
-        clipped = self._clip_depth_mm(frame_mm)
-        # Escala fija: 0 -> 0, max_depth_mm -> 255
-        scaled = (clipped.astype(np.float32) / self.max_depth_mm * 255.0)
+        # Los valores 0 (sin medida) se muestran igual que la distancia máxima.
+        scaled = (frame_mm.astype(np.float32) / MAX_DEPTH_DISPLAY_MM * 255.0)
         scaled = np.clip(scaled, 0, 255).astype(np.uint8)
+        scaled[frame_mm == 0] = 255
         colored = cv2.applyColorMap(scaled, cv2.COLORMAP_JET)
         return cv2.cvtColor(colored, cv2.COLOR_BGR2RGB)
 
@@ -309,16 +306,28 @@ class SpecificWorker(GenericWorker):
     def video_color_thread(self, cap):
         fail_count = 0
         reconnect_delay = 1.0
+        last_health_check = time.monotonic()
+        valid_frames_since_check = 0
+        empty_frames_since_check = 0
+        last_frame_status = "sin lecturas"
         try:
             while self.run:
                 ret, frame = cap.read() if cap is not None and cap.isOpened() else (False, None)
-                if ret:
+                frame_valid = ret and frame is not None and frame.size > 0
+                if frame_valid:
                     self.latest_color_frame = frame
                     self.latest_color_timestamp = time.time()
                     self.color_frame_count += 1
+                    valid_frames_since_check += 1
+                    last_frame_status = f"no vacío, shape={frame.shape}"
                     fail_count = 0
                     reconnect_delay = 1.0
                 else:
+                    if ret:
+                        empty_frames_since_check += 1
+                        last_frame_status = "vacío"
+                    else:
+                        last_frame_status = "sin frame"
                     fail_count += 1
                     if fail_count >= COLOR_RECONNECT_FAILURES:
                         if cap is not None:
@@ -341,6 +350,15 @@ class SpecificWorker(GenericWorker):
                     else:
                         if self.stop_event.wait(0.05):
                             break
+                last_health_check, valid_frames_since_check, empty_frames_since_check = (
+                    self._log_frame_health(
+                        "color",
+                        last_health_check,
+                        valid_frames_since_check,
+                        empty_frames_since_check,
+                        last_frame_status,
+                    )
+                )
             print("color finish")
         except KeyboardInterrupt:
             print("hilo finish")
@@ -350,32 +368,55 @@ class SpecificWorker(GenericWorker):
 
     def video_depth_thread(self, cap):
         fail_count = 0
-        reconnect_delay = 1.0
+        reconnect_delay = DEPTH_RECONNECT_INITIAL_DELAY
+        last_health_check = time.monotonic()
+        valid_frames_since_check = 0
+        empty_frames_since_check = 0
+        last_frame_status = "sin lecturas"
         try:
             while self.run:
                 if cap is None:
                     if self.stop_event.wait(reconnect_delay) or not self.run:
                         break
-                    print(f"[depth] intentando reconectar (espera {reconnect_delay:.0f}s)")
+                    print(f"[depth] intentando reconectar (espera {reconnect_delay:.2f}s)")
                     cap = self._open_depth_stream()
                     if cap is None:
                         reconnect_delay = min(reconnect_delay * 2.0, DEPTH_RECONNECT_MAX_DELAY)
+                        last_frame_status = "sin frame"
+                        last_health_check, valid_frames_since_check, empty_frames_since_check = (
+                            self._log_frame_health(
+                                "depth",
+                                last_health_check,
+                                valid_frames_since_check,
+                                empty_frames_since_check,
+                                last_frame_status,
+                            )
+                        )
                         continue
                     self.depth_stream = cap
                     fail_count = 0
+                    reconnect_delay = DEPTH_RECONNECT_INITIAL_DELAY
 
                 try:
                     ret, frame = cap.read() if cap.isOpened() else (False, None)
                 except Exception as error:
                     print(f"[depth] error leyendo el stream: {error}")
                     ret, frame = False, None
-                if ret:
+                frame_valid = ret and frame is not None and frame.size > 0
+                if frame_valid:
                     self.latest_depth_frame = frame  # crudo, GRAY16_LE en mm
                     self.latest_depth_timestamp = time.time()
                     self.depth_frame_count += 1
+                    valid_frames_since_check += 1
+                    last_frame_status = f"no vacío, shape={frame.shape}"
                     fail_count = 0
-                    reconnect_delay = 1.0
+                    reconnect_delay = DEPTH_RECONNECT_INITIAL_DELAY
                 else:
+                    if ret:
+                        empty_frames_since_check += 1
+                        last_frame_status = "vacío"
+                    else:
+                        last_frame_status = "sin frame"
                     fail_count += 1
                     if fail_count >= DEPTH_RECONNECT_FAILURES:
                         print(f"[depth] {fail_count} lecturas fallidas; cerrando captura para reconectar")
@@ -387,6 +428,15 @@ class SpecificWorker(GenericWorker):
                         fail_count = 0
                     elif self.stop_event.wait(0.05):
                         break
+                last_health_check, valid_frames_since_check, empty_frames_since_check = (
+                    self._log_frame_health(
+                        "depth",
+                        last_health_check,
+                        valid_frames_since_check,
+                        empty_frames_since_check,
+                        last_frame_status,
+                    )
+                )
             print("depth finish")
         except KeyboardInterrupt:
             print("hilo finish")
@@ -435,15 +485,16 @@ class SpecificWorker(GenericWorker):
             return None
 
         if depth_frame is not None:
-            clipped = self._clip_depth_mm(depth_frame)
-            depth_bytes, depth_shape = self._frame_to_bytes(clipped)
+            depth_bytes, depth_shape = self._frame_to_bytes(depth_frame)
             ret.depth.depth = depth_bytes
             ret.depth.height, ret.depth.width = depth_shape[:2]
+            ret.depth.depthFactor = DEPTH_FACTOR_M_PER_UNIT
             ret.depth.alivetime = int(time.time() * 1000)
         else:
             ret.depth.depth = b""
             ret.depth.height = 0
             ret.depth.width = 0
+            ret.depth.depthFactor = DEPTH_FACTOR_M_PER_UNIT
             ret.depth.alivetime = int(time.time() * 1000)
 
         return ret
@@ -454,10 +505,10 @@ class SpecificWorker(GenericWorker):
             return None
 
         ret = ifaces.RoboCompCameraRGBDSimple.TDepth()
-        clipped = self._clip_depth_mm(img)  # uint16, recortado a max_depth_mm
-        depth_bytes, depth_shape = self._frame_to_bytes(clipped)
+        depth_bytes, depth_shape = self._frame_to_bytes(img)
         ret.height, ret.width = depth_shape[:2]
         ret.depth = depth_bytes
+        ret.depthFactor = DEPTH_FACTOR_M_PER_UNIT
         ret.alivetime = int(time.time() * 1000)
         return ret
 

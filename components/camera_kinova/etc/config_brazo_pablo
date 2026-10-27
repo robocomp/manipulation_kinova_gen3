@@ -7,7 +7,7 @@ Period.Compute = 17
 Period.Emergency = 500
 
 Display.display = true
-Camera.stream = color
+Camera.stream = both
 
 Component.Debug.Verbose = true
 
